@@ -1,0 +1,5 @@
+Ich brauche eine Flutter App die PV Calculator Pro ähnlich ist. Wir wollen optional die Batterie Speicher einem Jahr Pre-Kalkulieren um nicht jedes Jahr bei 0 zu beginnen mit der Speicher Berechnung je nach Größe kann ja noch ein SOC vorhanden sein. 
+
+Wir brauchen ein PRD und Architektur Konzept jeweils als eigenständiges Dokument. 
+
+Recherchiere typische Photovoltaik Rechner und Apps die einen PV Arrays und Wechselrichter mit Speicher Berechnen lässt. Ins besondere mehrere PV Array die Speicher Laden und zum Beispiel mehrere Mini Wechselrichter mit 800W die aus dem Speicher betrieben werden um 24h Strom einzuspeisen. 
