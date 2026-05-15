@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PV Calculator Prototyp – PVGIS + Speicher + 800 W WR</title>
+  <style>
+    :root{
+      --bg:#0f172a; --panel:#111827; --panel2:#172033; --ink:#e5e7eb; --muted:#94a3b8;
+      --line:#334155; --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --bad:#ef4444;
+      --goodbg:#052e16; --warnbg:#451a03; --badbg:#450a0a; --chip:#1e293b;
+      --shadow: 0 18px 45px rgba(0,0,0,.28);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;line-height:1.4}
+    body{min-height:100vh}
+    header{padding:28px 22px 18px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#0f172a 0%,#172554 55%,#052e16 100%)}
+    header h1{margin:0 0 8px;font-size:clamp(24px,3vw,38px);letter-spacing:-.02em}
+    header p{margin:0;color:#dbeafe;max-width:1120px}
+    main{width:min(1480px,100%);margin:0 auto;padding:18px}
+    .grid{display:grid;gap:16px}
+    .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+    @media (max-width:1000px){.grid.two,.grid.three,.grid.four{grid-template-columns:1fr}.wide{grid-column:auto!important}}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+    .card h2{margin:0 0 12px;font-size:19px}
+    .card h3{margin:14px 0 8px;font-size:15px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em}
+    .wide{grid-column:1/-1}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+    label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px}
+    input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:#0b1220;color:var(--ink);padding:9px 10px;font:inherit;outline:none}
+    input:focus,select:focus,textarea:focus{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(56,189,248,.2)}
+    textarea{min-height:110px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+    .field{min-width:120px;flex:1}
+    .field.small{min-width:92px;max-width:140px}.field.med{min-width:150px;max-width:220px}.field.big{min-width:260px;flex:2}
+    button{border:1px solid var(--line);background:#1e293b;color:var(--ink);padding:9px 12px;border-radius:10px;font:inherit;cursor:pointer;transition:.15s;white-space:nowrap}
+    button:hover{transform:translateY(-1px);border-color:#64748b;background:#243447}
+    button.primary{background:#15803d;border-color:#22c55e;color:#f0fdf4;font-weight:700}
+    button.secondary{background:#0369a1;border-color:#38bdf8;color:#f0f9ff}
+    button.danger{background:#7f1d1d;border-color:#ef4444}
+    button.ghost{background:transparent}
+    button:disabled{opacity:.55;cursor:not-allowed;transform:none}
+    .note{color:var(--muted);font-size:13px;margin:8px 0 0}
+    .status{margin-top:10px;padding:10px 12px;border-radius:12px;background:#0b1220;border:1px solid var(--line);white-space:pre-wrap;font-size:13px;color:#cbd5e1}
+    .status.good{background:var(--goodbg);border-color:#166534}.status.warn{background:var(--warnbg);border-color:#92400e}.status.bad{background:var(--badbg);border-color:#991b1b}
+    table{width:100%;border-collapse:collapse;font-size:13px;overflow:hidden;border-radius:12px}
+    th,td{border-bottom:1px solid var(--line);padding:8px;text-align:right;vertical-align:middle}
+    th{color:#cbd5e1;background:#0b1220;font-weight:600;position:sticky;top:0;z-index:1}
+    td:first-child,th:first-child{text-align:left}
+    tr:hover td{background:rgba(148,163,184,.04)}
+    td input,td select{padding:7px 8px;border-radius:8px;font-size:13px;min-width:70px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0b1220}
+    .kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+    @media (max-width:1100px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:680px){.kpis{grid-template-columns:1fr}}
+    .kpi{background:#0b1220;border:1px solid var(--line);border-radius:14px;padding:12px;min-height:86px}
+    .kpi .label{color:var(--muted);font-size:12px}.kpi .value{font-size:24px;font-weight:800;margin-top:4px}.kpi .sub{color:var(--muted);font-size:12px;margin-top:4px}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}.chip{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:12px;color:#cbd5e1}
+    canvas{width:100%;height:330px;background:#0b1220;border:1px solid var(--line);border-radius:14px;display:block}
+    details{background:#0b1220;border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px}
+    details summary{cursor:pointer;color:#cbd5e1;font-weight:600}
+    a{color:#7dd3fc}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.muted{color:var(--muted)}
+    .split{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .hidden{display:none!important}.right{text-align:right}.nowrap{white-space:nowrap}.warnText{color:#fbbf24}.badText{color:#f87171}.goodText{color:#86efac}
+  </style>
+</head>
+<body>
+<header>
+  <h1>PV Calculator Prototyp – direkt mit PVGIS</h1>
+  <p>Mehrere PV-Arrays werden live über die PVGIS <span class="mono">seriescalc</span>-Schnittstelle geladen. Danach simuliert diese HTML-Datei lokal Batterie, SOC-Carry-over/Pre-Run und mehrere 800-W-Ausgangsgruppen für 24h-Einspeisung.</p>
+</header>
+<main class="grid two">
+  <section class="card wide">
+    <div class="split">
+      <div>
+        <h2>1) PVGIS-Verbindung und Standort</h2>
+        <div class="chips">
+          <span class="chip">PVGIS live fetch</span><span class="chip">mehrere Arrays</span><span class="chip">SOC Pre-Run</span><span class="chip">800 W Micro-WR</span><span class="chip">CSV/JSON Export</span>
+        </div>
+      </div>
+      <div class="row">
+        <button id="saveConfigBtn" type="button">Konfig speichern</button>
+        <button id="loadConfigBtn" type="button">Konfig laden</button>
+        <button id="resetBtn" type="button" class="danger">Reset</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div class="field big"><label for="pvgisEndpoint">PVGIS Endpoint</label><input id="pvgisEndpoint" value="https://re.jrc.ec.europa.eu/api/v5_3/seriescalc"></div>
+      <div class="field med"><label for="raddatabase">Radiation DB</label><select id="raddatabase"><option value="">PVGIS Auto</option><option value="PVGIS-SARAH3" selected>PVGIS-SARAH3</option><option value="PVGIS-SARAH2">PVGIS-SARAH2</option><option value="PVGIS-ERA5">PVGIS-ERA5</option><option value="PVGIS-NSRDB">PVGIS-NSRDB</option></select></div>
+      <div class="field med"><label for="proxyPrefix">Optionaler Proxy-Prefix</label><input id="proxyPrefix" placeholder="z.B. /pvgis?url="></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="field small"><label for="lat">Lat</label><input id="lat" type="number" step="0.0001" value="52.5200"></div>
+      <div class="field small"><label for="lon">Lon</label><input id="lon" type="number" step="0.0001" value="13.4050"></div>
+      <div class="field small"><label for="startyear">Startjahr</label><input id="startyear" type="number" min="2005" max="2025" value="2020"></div>
+      <div class="field small"><label for="endyear">Endjahr</label><input id="endyear" type="number" min="2005" max="2025" value="2020"></div>
+      <div class="field med"><label for="pvMode">PVGIS Modus</label><select id="pvMode"><option value="pvgisP" selected>PVGIS P verwenden</option><option value="irradianceLocal">G(i) lokal in kWp umrechnen</option></select></div>
+      <div class="field med"><label for="surplusMode">PV Überschuss</label><select id="surplusMode"><option value="export" selected>als Netzexport zählen</option><option value="curtail">abregeln/wegwerfen</option></select></div>
+      <button id="geoBtn" type="button">Browser-Standort</button>
+      <button id="runBtn" type="button" class="primary">PVGIS laden & simulieren</button>
+      <button id="simulateBtn" type="button" class="secondary">Nur mit Cache simulieren</button>
+      <button id="demoBtn" type="button" class="ghost">Demo ohne PVGIS</button>
+    </div>
+    <p class="note">Für echten Vergleich mit Apps: gleiche Koordinaten, kWp, Neigung, Azimut, Verlust und PVGIS-Datenbank setzen. Die generierten PVGIS-URLs werden unten ausgegeben.</p>
+    <div id="status" class="status">Bereit. Klicke auf „PVGIS laden & simulieren“.</div>
+  </section>
+
+  <section class="card wide">
+    <div class="split"><h2>2) PV-Arrays / Dachflächen</h2><div class="row"><button id="addArrayBtn" type="button">Array hinzufügen</button><button id="presetBerlinBtn" type="button">Preset Ost/Süd/West</button></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Aktiv</th><th>Name</th><th>kWp</th><th>Neigung °</th><th>Azimut PVGIS °</th><th>Loss %</th><th>Montage</th><th></th></tr></thead><tbody id="arrayRows"></tbody></table></div>
+    <p class="note">PVGIS-Azimut: 0 = Süd, -90 = Ost, +90 = West, 180/-180 = Nord. Jede Zeile erzeugt einen eigenen PVGIS-Request.</p>
+  </section>
+
+  <section class="card">
+    <h2>3) Batteriespeicher / SOC</h2>
+    <div class="grid two">
+      <div><label for="batteryKWh">Kapazität brutto kWh</label><input id="batteryKWh" type="number" step="0.1" value="10"></div>
+      <div><label for="minSocPct">Min. SOC %</label><input id="minSocPct" type="number" step="1" value="10"></div>
+      <div><label for="initialSocPct">Initial SOC % vor Pre-Run</label><input id="initialSocPct" type="number" step="1" value="50"></div>
+      <div><label for="roundTripEffPct">Roundtrip Effizienz %</label><input id="roundTripEffPct" type="number" step="1" value="90"></div>
+      <div><label for="maxChargeKW">Max. Ladung kW</label><input id="maxChargeKW" type="number" step="0.1" value="5"></div>
+      <div><label for="maxDischargeKW">Max. Entladung kW</label><input id="maxDischargeKW" type="number" step="0.1" value="3"></div>
+    </div>
+    <div class="grid two" style="margin-top:10px">
+      <div><label for="dispatchMode">Dispatch-Modus</label><select id="dispatchMode"><option value="batteryBuffer" selected>PV lädt Speicher, WR aus Speicher</option><option value="pvDirectFirst">PV direkt zu AC, Rest Speicher</option></select></div>
+      <div><label for="preRunPasses">Pre-Run Durchläufe</label><input id="preRunPasses" type="number" min="0" max="10" step="1" value="1"></div>
+    </div>
+    <label style="margin-top:12px"><input id="preRunEnabled" type="checkbox" checked style="width:auto;margin-right:7px">SOC-Carry-over aktivieren: Report-Zeitraum einmal vorrechnen und End-SOC als Start-SOC verwenden</label>
+    <p class="note">Das ist genau der Punkt, damit eine Jahresrechnung nicht blind bei 0 % oder 50 % startet. Bei großen Speichern macht das viel aus.</p>
+  </section>
+
+  <section class="card">
+    <div class="split"><h2>4) AC-Ausgänge / Mini-Wechselrichter</h2><button id="addOutputBtn" type="button">Ausgang hinzufügen</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Aktiv</th><th>Name</th><th>Anz.</th><th>W je</th><th>Start h</th><th>Ende h</th><th></th></tr></thead><tbody id="outputRows"></tbody></table></div>
+    <p class="note">Beispiel: 2 × 800 W, Start 0, Ende 24 = 1,6 kW konstante 24h-Abgabe aus dem Speicher.</p>
+  </section>
+
+  <section class="card wide">
+    <div class="split"><h2>5) Ergebnis / Vergleich</h2><div class="row"><button id="exportCsvBtn" type="button">Hourly CSV</button><button id="exportJsonBtn" type="button">JSON Report</button><button id="exportConfigBtn" type="button">Konfig JSON</button><button id="importConfigBtn" type="button">Konfig importieren</button></div></div>
+    <div id="kpis" class="kpis"></div>
+    <div class="grid two" style="margin-top:14px">
+      <div>
+        <h3>Tagesprofil</h3>
+        <div class="row">
+          <div class="field small"><label for="chartDay">Tag des Jahres</label><input id="chartDay" type="number" min="1" max="366" value="172"></div>
+          <button id="drawDayBtn" type="button">Chart zeichnen</button>
+        </div>
+        <canvas id="dayChart" width="1200" height="420" aria-label="Tagesprofil"></canvas>
+        <p class="note">Linien: PV-Watt, AC-Ziel/Abgabe und Batterie-SOC. Rein mit Canvas, keine externen Libraries.</p>
+      </div>
+      <div>
+        <h3>Monatswerte</h3>
+        <div class="table-wrap" style="max-height:460px"><table><thead><tr><th>Monat</th><th>PVGIS PV kWh</th><th>AC Ziel kWh</th><th>AC geliefert kWh</th><th>Defizit kWh</th><th>Überschuss kWh</th><th>Ø SOC %</th></tr></thead><tbody id="monthRows"></tbody></table></div>
+      </div>
+    </div>
+    <details open><summary>PVGIS-Requests für App-Vergleich</summary><div id="pvgisLinks" class="status"></div></details>
+    <details><summary>Import / Rohdaten</summary><textarea id="importBox" placeholder="Konfig-JSON hier einfügen und dann Konfig importieren"></textarea></details>
+  </section>
+</main>
+<script>
+(function(){
+  'use strict';
+
+  const APP_KEY = 'pvcalc_pvgis_client_v1';
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+  const isFiniteNumber = (v) => Number.isFinite(Number(v));
+  const toNum = (v, fallback = 0) => {
+    if (v === null || v === undefined || v === '') return fallback;
+    const n = Number(String(v).replace(',', '.'));
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const fmt = (v, d = 1) => Number.isFinite(v) ? v.toLocaleString('de-DE', { maximumFractionDigits: d, minimumFractionDigits: d }) : '–';
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  let uid = 1;
+  const state = { series: null, config: null, result: null, arrayResponses: [] };
+
+  const defaultArrays = [
+    { enabled: true, name: 'Dach Süd', kwp: 4.0, angle: 35, aspect: 0, loss: 14, mounting: 'building' },
+    { enabled: true, name: 'Dach Ost', kwp: 2.0, angle: 30, aspect: -90, loss: 14, mounting: 'building' },
+    { enabled: true, name: 'Dach West', kwp: 2.0, angle: 30, aspect: 90, loss: 14, mounting: 'building' }
+  ];
+  const defaultOutputs = [
+    { enabled: true, name: 'Mini-WR 800 W #1', count: 1, watt: 800, start: 0, end: 24 },
+    { enabled: false, name: 'Mini-WR 800 W #2', count: 1, watt: 800, start: 0, end: 24 }
+  ];
+
+  function setStatus(msg, type = '') {
+    const el = $('status');
+    el.textContent = msg;
+    el.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function addArrayRow(data = {}) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = String(uid++);
+    const row = { enabled: true, name: 'PV Array', kwp: 1, angle: 35, aspect: 0, loss: 14, mounting: 'building', ...data };
+    tr.innerHTML = `
+      <td><input class="arr-enabled" type="checkbox" ${row.enabled ? 'checked' : ''}></td>
+      <td><input class="arr-name" value="${esc(row.name)}"></td>
+      <td><input class="arr-kwp" type="number" step="0.01" min="0" value="${esc(row.kwp)}"></td>
+      <td><input class="arr-angle" type="number" step="1" min="0" max="90" value="${esc(row.angle)}"></td>
+      <td><input class="arr-aspect" type="number" step="1" min="-180" max="180" value="${esc(row.aspect)}"></td>
+      <td><input class="arr-loss" type="number" step="0.1" min="0" max="60" value="${esc(row.loss)}"></td>
+      <td><select class="arr-mounting"><option value="building">building</option><option value="free">free</option></select></td>
+      <td><button type="button" class="danger remove-row">×</button></td>`;
+    tr.querySelector('.arr-mounting').value = row.mounting || 'building';
+    tr.querySelector('.remove-row').addEventListener('click', () => tr.remove());
+    $('arrayRows').appendChild(tr);
+  }
+
+  function addOutputRow(data = {}) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = String(uid++);
+    const row = { enabled: true, name: 'AC Ausgang', count: 1, watt: 800, start: 0, end: 24, ...data };
+    tr.innerHTML = `
+      <td><input class="out-enabled" type="checkbox" ${row.enabled ? 'checked' : ''}></td>
+      <td><input class="out-name" value="${esc(row.name)}"></td>
+      <td><input class="out-count" type="number" step="1" min="0" value="${esc(row.count)}"></td>
+      <td><input class="out-watt" type="number" step="10" min="0" value="${esc(row.watt)}"></td>
+      <td><input class="out-start" type="number" step="1" min="0" max="24" value="${esc(row.start)}"></td>
+      <td><input class="out-end" type="number" step="1" min="0" max="24" value="${esc(row.end)}"></td>
+      <td><button type="button" class="danger remove-row">×</button></td>`;
+    tr.querySelector('.remove-row').addEventListener('click', () => tr.remove());
+    $('outputRows').appendChild(tr);
+  }
+
+  function readConfig() {
+    const arrays = [...$('arrayRows').querySelectorAll('tr')].map(tr => ({
+      enabled: tr.querySelector('.arr-enabled').checked,
+      name: tr.querySelector('.arr-name').value.trim() || 'Array',
+      kwp: Math.max(0, toNum(tr.querySelector('.arr-kwp').value, 0)),
+      angle: clamp(toNum(tr.querySelector('.arr-angle').value, 35), 0, 90),
+      aspect: clamp(toNum(tr.querySelector('.arr-aspect').value, 0), -180, 180),
+      loss: clamp(toNum(tr.querySelector('.arr-loss').value, 14), 0, 60),
+      mounting: tr.querySelector('.arr-mounting').value || 'building'
+    })).filter(a => a.enabled && a.kwp > 0);
+
+    const outputs = [...$('outputRows').querySelectorAll('tr')].map(tr => ({
+      enabled: tr.querySelector('.out-enabled').checked,
+      name: tr.querySelector('.out-name').value.trim() || 'Output',
+      count: Math.max(0, Math.floor(toNum(tr.querySelector('.out-count').value, 0))),
+      watt: Math.max(0, toNum(tr.querySelector('.out-watt').value, 0)),
+      start: clamp(Math.floor(toNum(tr.querySelector('.out-start').value, 0)), 0, 24),
+      end: clamp(Math.floor(toNum(tr.querySelector('.out-end').value, 24)), 0, 24)
+    })).filter(o => o.enabled && o.count > 0 && o.watt > 0);
+
+    const startyear = Math.floor(toNum($('startyear').value, 2020));
+    const endyear = Math.floor(toNum($('endyear').value, startyear));
+    return {
+      pvgisEndpoint: $('pvgisEndpoint').value.trim() || 'https://re.jrc.ec.europa.eu/api/v5_3/seriescalc',
+      proxyPrefix: $('proxyPrefix').value.trim(),
+      raddatabase: $('raddatabase').value,
+      pvMode: $('pvMode').value,
+      surplusMode: $('surplusMode').value,
+      lat: toNum($('lat').value, 52.52),
+      lon: toNum($('lon').value, 13.405),
+      startyear: Math.min(startyear, endyear),
+      endyear: Math.max(startyear, endyear),
+      arrays,
+      outputs,
+      battery: {
+        capacityKWh: Math.max(0, toNum($('batteryKWh').value, 0)),
+        minSocPct: clamp(toNum($('minSocPct').value, 10), 0, 99),
+        initialSocPct: clamp(toNum($('initialSocPct').value, 50), 0, 100),
+        roundTripEffPct: clamp(toNum($('roundTripEffPct').value, 90), 1, 100),
+        maxChargeKW: Math.max(0, toNum($('maxChargeKW').value, 0)),
+        maxDischargeKW: Math.max(0, toNum($('maxDischargeKW').value, 0)),
+        dispatchMode: $('dispatchMode').value,
+        preRunEnabled: $('preRunEnabled').checked,
+        preRunPasses: Math.max(0, Math.floor(toNum($('preRunPasses').value, 0)))
+      }
+    };
+  }
+
+  function applyConfig(cfg) {
+    if (!cfg) return;
+    $('pvgisEndpoint').value = cfg.pvgisEndpoint || 'https://re.jrc.ec.europa.eu/api/v5_3/seriescalc';
+    $('proxyPrefix').value = cfg.proxyPrefix || '';
+    $('raddatabase').value = cfg.raddatabase || '';
+    $('pvMode').value = cfg.pvMode || 'pvgisP';
+    $('surplusMode').value = cfg.surplusMode || 'export';
+    $('lat').value = cfg.lat ?? 52.52;
+    $('lon').value = cfg.lon ?? 13.405;
+    $('startyear').value = cfg.startyear ?? 2020;
+    $('endyear').value = cfg.endyear ?? 2020;
+    $('arrayRows').innerHTML = '';
+    (cfg.arrays && cfg.arrays.length ? cfg.arrays : defaultArrays).forEach(addArrayRow);
+    $('outputRows').innerHTML = '';
+    (cfg.outputs && cfg.outputs.length ? cfg.outputs : defaultOutputs).forEach(addOutputRow);
+    const b = cfg.battery || {};
+    $('batteryKWh').value = b.capacityKWh ?? 10;
+    $('minSocPct').value = b.minSocPct ?? 10;
+    $('initialSocPct').value = b.initialSocPct ?? 50;
+    $('roundTripEffPct').value = b.roundTripEffPct ?? 90;
+    $('maxChargeKW').value = b.maxChargeKW ?? 5;
+    $('maxDischargeKW').value = b.maxDischargeKW ?? 3;
+    $('dispatchMode').value = b.dispatchMode || 'batteryBuffer';
+    $('preRunEnabled').checked = b.preRunEnabled !== false;
+    $('preRunPasses').value = b.preRunPasses ?? 1;
+  }
+
+  function saveConfig() {
+    const cfg = readConfig();
+    localStorage.setItem(APP_KEY, JSON.stringify(cfg));
+    setStatus('Konfiguration im Browser gespeichert.', 'good');
+  }
+
+  function loadConfig() {
+    const raw = localStorage.getItem(APP_KEY);
+    if (!raw) { setStatus('Keine gespeicherte Konfiguration gefunden.', 'warn'); return; }
+    applyConfig(JSON.parse(raw));
+    setStatus('Konfiguration geladen.', 'good');
+  }
+
+  function buildPvgisUrl(cfg, arr) {
+    const url = new URL(cfg.pvgisEndpoint);
+    const p = url.searchParams;
+    p.set('lat', String(cfg.lat));
+    p.set('lon', String(cfg.lon));
+    p.set('startyear', String(cfg.startyear));
+    p.set('endyear', String(cfg.endyear));
+    p.set('pvcalculation', '1');
+    p.set('peakpower', String(arr.kwp));
+    p.set('loss', String(arr.loss));
+    p.set('angle', String(arr.angle));
+    p.set('aspect', String(arr.aspect));
+    p.set('mountingplace', arr.mounting || 'building');
+    p.set('outputformat', 'json');
+    p.set('browser', '0');
+    if (cfg.raddatabase) p.set('raddatabase', cfg.raddatabase);
+    return url.toString();
+  }
+
+  function fetchUrlWithOptionalProxy(cfg, directUrl) {
+    if (!cfg.proxyPrefix) return directUrl;
+    return cfg.proxyPrefix + encodeURIComponent(directUrl);
+  }
+
+  function parsePvgisTime(value, index) {
+    const s = String(value ?? '');
+    let m = s.match(/^(\d{4})(\d{2})(\d{2}):(\d{2})(\d{2})/);
+    if (m) {
+      let year = Number(m[1]), month = Number(m[2]), day = Number(m[3]), hour = Number(m[4]);
+      if (hour > 23) hour = 23;
+      return { key: `${year}-${month}-${day}-${hour}`, sortKey: Date.UTC(year, month - 1, day, hour), year, month, day, hour, label: `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:00` };
+    }
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      const year = d.getUTCFullYear(), month = d.getUTCMonth() + 1, day = d.getUTCDate(), hour = d.getUTCHours();
+      return { key: `${year}-${month}-${day}-${hour}`, sortKey: d.getTime(), year, month, day, hour, label: `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:00` };
+    }
+    const year = 0, month = Math.min(12, Math.floor(index / (24 * 31)) + 1), day = Math.floor((index % (24 * 31)) / 24) + 1, hour = index % 24;
+    return { key: String(index), sortKey: index, year, month, day, hour, label: `h${index}` };
+  }
+
+  function pvgisRowPowerW(row, arr, pvMode) {
+    if (pvMode === 'pvgisP') {
+      const p = toNum(row.P, NaN);
+      if (Number.isFinite(p)) return Math.max(0, p);
+    }
+    const gi = toNum(row['G(i)'] ?? row.Gi ?? row.G ?? row['G(i)_'], NaN);
+    if (Number.isFinite(gi)) return Math.max(0, arr.kwp * 1000 * (gi / 1000) * (1 - arr.loss / 100));
+    const fallbackP = toNum(row.P, 0);
+    return Math.max(0, fallbackP);
+  }
+
+  async function fetchArraySeries(cfg, arr, idx) {
+    const directUrl = buildPvgisUrl(cfg, arr);
+    const res = await fetch(fetchUrlWithOptionalProxy(cfg, directUrl), { method: 'GET' });
+    if (!res.ok) {
+      let body = '';
+      try { body = await res.text(); } catch (_) {}
+      throw new Error(`${arr.name}: PVGIS HTTP ${res.status} ${res.statusText}${body ? ' – ' + body.slice(0, 180) : ''}`);
+    }
+    const json = await res.json();
+    const hourly = json?.outputs?.hourly;
+    if (!Array.isArray(hourly) || hourly.length === 0) {
+      throw new Error(`${arr.name}: PVGIS-Antwort enthält keine outputs.hourly Daten.`);
+    }
+    const points = hourly.map((row, i) => {
+      const t = parsePvgisTime(row.time ?? row.Time ?? row.datetime, i);
+      return { ...t, pW: pvgisRowPowerW(row, arr, cfg.pvMode), raw: row };
+    });
+    return { idx, arr, url: directUrl, json, points };
+  }
+
+  function mergeArraySeries(responses) {
+    const map = new Map();
+    for (const resp of responses) {
+      for (const pt of resp.points) {
+        if (!map.has(pt.key)) {
+          map.set(pt.key, { key: pt.key, sortKey: pt.sortKey, label: pt.label, year: pt.year, month: pt.month, day: pt.day, hour: pt.hour, pvW: 0, arrays: {} });
+        }
+        const row = map.get(pt.key);
+        row.pvW += pt.pW;
+        row.arrays[resp.arr.name] = pt.pW;
+      }
+    }
+    return [...map.values()].sort((a, b) => a.sortKey - b.sortKey);
+  }
+
+  function activeInHour(hour, start, end) {
+    if (start === 0 && end === 24) return true;
+    if (start === end) return true;
+    if (start < end) return hour >= start && hour < end;
+    return hour >= start || hour < end;
+  }
+
+  function targetOutputW(outputs, hour) {
+    return outputs.reduce((sum, o) => sum + (activeInHour(hour, o.start, o.end) ? o.count * o.watt : 0), 0);
+  }
+
+  function simulateOnce(rows, cfg, startSocKWh, collect) {
+    const cap = cfg.battery.capacityKWh;
+    const minSocKWh = cap * cfg.battery.minSocPct / 100;
+    const usableKWh = Math.max(0, cap - minSocKWh);
+    const rt = cfg.battery.roundTripEffPct / 100;
+    const chargeEff = Math.sqrt(rt);
+    const dischargeEff = Math.sqrt(rt);
+    const maxChargeKWh = cfg.battery.maxChargeKW > 0 ? cfg.battery.maxChargeKW : Infinity;
+    const maxDischargeKWh = cfg.battery.maxDischargeKW > 0 ? cfg.battery.maxDischargeKW : Infinity;
+    let soc = clamp(startSocKWh, minSocKWh, cap || 0);
+    const monthly = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, pvKWh: 0, targetKWh: 0, deliveredKWh: 0, shortageKWh: 0, surplusKWh: 0, socSumPct: 0, n: 0 }));
+    const detail = [];
+    const totals = { pvKWh: 0, targetKWh: 0, deliveredKWh: 0, deliveredPvKWh: 0, deliveredBatteryKWh: 0, shortageKWh: 0, surplusKWh: 0, chargedStoredKWh: 0, dischargedStoredKWh: 0, chargeLossKWh: 0, dischargeLossKWh: 0, fullHours: 0, emptyHours: 0 };
+
+    function chargeBattery(rawPvKWh) {
+      if (rawPvKWh <= 0) return { usedPvKWh: 0, storedKWh: 0, surplusKWh: 0, lossKWh: 0 };
+      if (cap <= 0) return { usedPvKWh: 0, storedKWh: 0, surplusKWh: rawPvKWh, lossKWh: 0 };
+      const room = Math.max(0, cap - soc);
+      const storable = Math.min(rawPvKWh * chargeEff, room, maxChargeKWh);
+      const usedPv = storable / chargeEff;
+      const surplus = Math.max(0, rawPvKWh - usedPv);
+      const loss = Math.max(0, usedPv - storable);
+      soc += storable;
+      return { usedPvKWh: usedPv, storedKWh: storable, surplusKWh: surplus, lossKWh: loss };
+    }
+
+    function dischargeBattery(acNeedKWh) {
+      if (acNeedKWh <= 0 || cap <= 0) return { deliveredKWh: 0, storedDrawKWh: 0, lossKWh: 0 };
+      const availableStored = Math.max(0, soc - minSocKWh);
+      const storedNeeded = acNeedKWh / dischargeEff;
+      const draw = Math.min(storedNeeded, availableStored, maxDischargeKWh);
+      soc -= draw;
+      const delivered = draw * dischargeEff;
+      return { deliveredKWh: delivered, storedDrawKWh: draw, lossKWh: Math.max(0, draw - delivered) };
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const pvKWh = Math.max(0, r.pvW) / 1000;
+      const targetW = targetOutputW(cfg.outputs, r.hour);
+      const targetKWh = targetW / 1000;
+      let deliveredPvKWh = 0, deliveredBatteryKWh = 0, shortageKWh = 0, surplusKWh = 0;
+      let chargedStoredKWh = 0, dischargedStoredKWh = 0, chargeLossKWh = 0, dischargeLossKWh = 0;
+
+      if (cfg.battery.dispatchMode === 'pvDirectFirst') {
+        deliveredPvKWh = Math.min(pvKWh, targetKWh);
+        const remainTarget = Math.max(0, targetKWh - deliveredPvKWh);
+        const d = dischargeBattery(remainTarget);
+        deliveredBatteryKWh = d.deliveredKWh;
+        dischargedStoredKWh += d.storedDrawKWh;
+        dischargeLossKWh += d.lossKWh;
+        shortageKWh = Math.max(0, targetKWh - deliveredPvKWh - deliveredBatteryKWh);
+        const ch = chargeBattery(Math.max(0, pvKWh - deliveredPvKWh));
+        chargedStoredKWh += ch.storedKWh;
+        chargeLossKWh += ch.lossKWh;
+        surplusKWh += ch.surplusKWh;
+      } else {
+        const ch = chargeBattery(pvKWh);
+        chargedStoredKWh += ch.storedKWh;
+        chargeLossKWh += ch.lossKWh;
+        surplusKWh += ch.surplusKWh;
+        const d = dischargeBattery(targetKWh);
+        deliveredBatteryKWh = d.deliveredKWh;
+        dischargedStoredKWh += d.storedDrawKWh;
+        dischargeLossKWh += d.lossKWh;
+        shortageKWh = Math.max(0, targetKWh - deliveredBatteryKWh);
+      }
+
+      if (cap > 0 && soc >= cap - 1e-9) totals.fullHours += 1;
+      if (cap > 0 && soc <= minSocKWh + 1e-9 && shortageKWh > 1e-9) totals.emptyHours += 1;
+
+      const deliveredKWh = deliveredPvKWh + deliveredBatteryKWh;
+      totals.pvKWh += pvKWh;
+      totals.targetKWh += targetKWh;
+      totals.deliveredKWh += deliveredKWh;
+      totals.deliveredPvKWh += deliveredPvKWh;
+      totals.deliveredBatteryKWh += deliveredBatteryKWh;
+      totals.shortageKWh += shortageKWh;
+      totals.surplusKWh += surplusKWh;
+      totals.chargedStoredKWh += chargedStoredKWh;
+      totals.dischargedStoredKWh += dischargedStoredKWh;
+      totals.chargeLossKWh += chargeLossKWh;
+      totals.dischargeLossKWh += dischargeLossKWh;
+
+      const m = monthly[(r.month || 1) - 1] || monthly[0];
+      m.pvKWh += pvKWh; m.targetKWh += targetKWh; m.deliveredKWh += deliveredKWh; m.shortageKWh += shortageKWh; m.surplusKWh += surplusKWh;
+      m.socSumPct += cap > 0 ? (soc / cap * 100) : 0; m.n += 1;
+
+      if (collect) detail.push({ ...r, index: i, pvW: pvKWh * 1000, targetW, deliveredW: deliveredKWh * 1000, deliveredPvW: deliveredPvKWh * 1000, deliveredBatteryW: deliveredBatteryKWh * 1000, shortageW: shortageKWh * 1000, surplusW: surplusKWh * 1000, socKWh: soc, socPct: cap > 0 ? soc / cap * 100 : 0 });
+    }
+    return { startSocKWh, finalSocKWh: soc, finalSocPct: cap > 0 ? soc / cap * 100 : 0, totals, monthly, detail, usableKWh };
+  }
+
+  function runSimulationFromRows(rows, cfg) {
+    const cap = cfg.battery.capacityKWh;
+    const minSoc = cap * cfg.battery.minSocPct / 100;
+    let startSoc = cap * cfg.battery.initialSocPct / 100;
+    startSoc = clamp(startSoc, minSoc, cap || 0);
+    let preRunInfo = null;
+    if (cfg.battery.preRunEnabled && cfg.battery.preRunPasses > 0 && rows.length > 0) {
+      let soc = startSoc;
+      for (let pass = 0; pass < cfg.battery.preRunPasses; pass++) {
+        const warm = simulateOnce(rows, cfg, soc, false);
+        soc = warm.finalSocKWh;
+        preRunInfo = { passes: pass + 1, finalSocKWh: warm.finalSocKWh, finalSocPct: warm.finalSocPct };
+      }
+      startSoc = soc;
+    }
+    const report = simulateOnce(rows, cfg, startSoc, true);
+    report.preRunInfo = preRunInfo;
+    return report;
+  }
+
+  async function fetchAndSimulate() {
+    const cfg = readConfig();
+    if (!isFiniteNumber(cfg.lat) || !isFiniteNumber(cfg.lon)) { setStatus('Lat/Lon ungültig.', 'bad'); return; }
+    if (cfg.arrays.length === 0) { setStatus('Mindestens ein aktives PV-Array mit kWp > 0 ist nötig.', 'bad'); return; }
+    if (cfg.outputs.length === 0) { setStatus('Mindestens ein aktiver AC-Ausgang ist nötig.', 'bad'); return; }
+    setStatus(`PVGIS wird geladen: ${cfg.arrays.length} Array(s), ${cfg.startyear}–${cfg.endyear} …`);
+    $('runBtn').disabled = true;
+    try {
+      const responses = [];
+      for (let i = 0; i < cfg.arrays.length; i++) {
+        setStatus(`PVGIS Request ${i + 1}/${cfg.arrays.length}: ${cfg.arrays[i].name} …`);
+        responses.push(await fetchArraySeries(cfg, cfg.arrays[i], i));
+      }
+      const rows = mergeArraySeries(responses);
+      if (rows.length === 0) throw new Error('Nach dem Merge sind keine Stundenwerte vorhanden.');
+      state.series = rows; state.config = cfg; state.arrayResponses = responses;
+      const result = runSimulationFromRows(rows, cfg);
+      state.result = result;
+      renderAll(cfg, responses, result);
+      setStatus(`Fertig. ${rows.length.toLocaleString('de-DE')} Stunden aus PVGIS geladen und simuliert.`, 'good');
+    } catch (err) {
+      console.error(err);
+      setStatus(`PVGIS/Simulation Fehler:\n${err.message}\n\nHinweis: Im Browser kann CORS oder Netzwerkzugriff blockieren. Dann lokalen Proxy setzen oder Datei über einen lokalen HTTP-Server öffnen.`, 'bad');
+    } finally {
+      $('runBtn').disabled = false;
+    }
+  }
+
+  function simulateCached() {
+    const cfg = readConfig();
+    if (!state.series || state.series.length === 0) { setStatus('Kein PVGIS-Cache vorhanden. Erst PVGIS laden oder Demo starten.', 'warn'); return; }
+    state.config = cfg;
+    const result = runSimulationFromRows(state.series, cfg);
+    state.result = result;
+    renderAll(cfg, state.arrayResponses, result);
+    setStatus('Simulation mit gecachten PVGIS-Daten neu berechnet.', 'good');
+  }
+
+  function demoData() {
+    const cfg = readConfig();
+    const rows = [];
+    const days = 365;
+    for (let d = 0; d < days; d++) {
+      const month = Math.min(12, Math.floor(d / 30.5) + 1);
+      const seasonal = 0.25 + 0.75 * Math.pow(Math.max(0, Math.sin((d - 80) / 365 * Math.PI)), 1.2);
+      for (let h = 0; h < 24; h++) {
+        const daylight = Math.max(0, Math.sin((h - 6) / 12 * Math.PI));
+        const cloud = 0.65 + 0.35 * Math.sin((d * 17 + h * 13) % 97);
+        const kwp = cfg.arrays.reduce((s, a) => s + a.kwp, 0);
+        const pW = kwp * 1000 * seasonal * daylight * cloud * 0.9;
+        rows.push({ key: String(d * 24 + h), sortKey: d * 24 + h, label: `Demo Tag ${d + 1} ${String(h).padStart(2,'0')}:00`, year: cfg.startyear, month, day: (d % 31) + 1, hour: h, pvW: pW, arrays: {} });
+      }
+    }
+    state.series = rows; state.config = cfg; state.arrayResponses = [];
+    const result = runSimulationFromRows(rows, cfg);
+    state.result = result;
+    renderAll(cfg, [], result);
+    setStatus('Demo-Daten geladen. Nicht für Vergleich verwenden – nur UI/Dispatch-Test.', 'warn');
+  }
+
+  function renderAll(cfg, responses, result) {
+    renderKpis(cfg, result);
+    renderMonthly(result.monthly);
+    renderPvgisLinks(cfg, responses);
+    drawDayChart();
+  }
+
+  function renderKpis(cfg, r) {
+    const t = r.totals;
+    const coverage = t.targetKWh > 0 ? t.deliveredKWh / t.targetKWh * 100 : 0;
+    const selfUse = t.pvKWh > 0 ? (t.deliveredPvKWh + (t.chargedStoredKWh || 0)) / t.pvKWh * 100 : 0;
+    const cycles = r.usableKWh > 0 ? t.dischargedStoredKWh / r.usableKWh : 0;
+    const surplusLabel = cfg.surplusMode === 'export' ? 'Netzexport' : 'Abregelung';
+    const pre = r.preRunInfo ? `Pre-Run Start-SOC: ${fmt(r.startSocKWh / Math.max(0.0001, cfg.battery.capacityKWh) * 100, 1)} %` : 'kein Pre-Run';
+    const items = [
+      ['PVGIS PV', `${fmt(t.pvKWh, 1)} kWh`, `${fmt(t.pvKWh / Math.max(0.0001, cfg.arrays.reduce((s,a)=>s+a.kwp,0)), 0)} kWh/kWp`],
+      ['AC Ziel', `${fmt(t.targetKWh, 1)} kWh`, 'Soll-Abgabe der WR-Gruppen'],
+      ['AC geliefert', `${fmt(t.deliveredKWh, 1)} kWh`, `${fmt(coverage, 1)} % Deckung`],
+      ['Defizit', `${fmt(t.shortageKWh, 1)} kWh`, `${fmt(100 - coverage, 1)} % nicht gedeckt`],
+      [surplusLabel, `${fmt(t.surplusKWh, 1)} kWh`, cfg.surplusMode === 'export' ? 'PV/Batterie voll' : 'nicht genutzt'],
+      ['Batterie', `${fmt(r.finalSocPct, 1)} %`, `Zyklen ca. ${fmt(cycles, 2)} · ${pre}`],
+      ['Ladeverluste', `${fmt(t.chargeLossKWh, 1)} kWh`, `Entladeverluste ${fmt(t.dischargeLossKWh, 1)} kWh`],
+      ['SOC-Limits', `${t.emptyHours} leer`, `${t.fullHours} voll · Ende ${fmt(r.finalSocKWh, 2)} kWh`]
+    ];
+    $('kpis').innerHTML = items.map(([label, value, sub]) => `<div class="kpi"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`).join('');
+  }
+
+  function renderMonthly(monthly) {
+    $('monthRows').innerHTML = monthly.map(m => `<tr><td>${m.month}</td><td>${fmt(m.pvKWh,1)}</td><td>${fmt(m.targetKWh,1)}</td><td>${fmt(m.deliveredKWh,1)}</td><td>${fmt(m.shortageKWh,1)}</td><td>${fmt(m.surplusKWh,1)}</td><td>${fmt(m.n ? m.socSumPct / m.n : 0,1)}</td></tr>`).join('');
+  }
+
+  function renderPvgisLinks(cfg, responses) {
+    if (!responses || responses.length === 0) {
+      $('pvgisLinks').innerHTML = 'Keine PVGIS-Links vorhanden. Demo-Daten sind nicht vergleichbar.';
+      return;
+    }
+    const lines = responses.map((r, i) => `${i + 1}. ${r.arr.name} (${r.arr.kwp} kWp, ${r.arr.angle}°, aspect ${r.arr.aspect}°, loss ${r.arr.loss}%):\n${r.url}`).join('\n\n');
+    $('pvgisLinks').innerHTML = `<div class="mono" style="white-space:pre-wrap">${esc(lines)}</div>`;
+  }
+
+  function drawDayChart() {
+    const canvas = $('dayChart');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!state.result || !state.result.detail.length) {
+      ctx.fillStyle = '#94a3b8'; ctx.font = '22px system-ui'; ctx.fillText('Noch keine Simulation.', 40, 70); return;
+    }
+    const detail = state.result.detail;
+    const day = clamp(Math.floor(toNum($('chartDay').value, 172)), 1, Math.ceil(detail.length / 24));
+    const start = (day - 1) * 24;
+    const data = detail.slice(start, start + 24);
+    if (!data.length) return;
+    const pad = { l: 55, r: 45, t: 30, b: 42 };
+    const W = canvas.width, H = canvas.height;
+    const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+    const maxW = Math.max(1000, ...data.map(d => Math.max(d.pvW, d.targetW, d.deliveredW, d.shortageW)));
+    const x = (i) => pad.l + (i / 23) * plotW;
+    const yW = (v) => pad.t + plotH - (v / maxW) * plotH;
+    const ySoc = (v) => pad.t + plotH - (v / 100) * plotH;
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let g = 0; g <= 4; g++) { const y = pad.t + g * plotH / 4; ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); }
+    for (let h = 0; h <= 24; h += 6) { const xx = pad.l + h / 24 * plotW; ctx.moveTo(xx, pad.t); ctx.lineTo(xx, H - pad.b); }
+    ctx.stroke();
+    ctx.fillStyle = '#94a3b8'; ctx.font = '14px system-ui';
+    ctx.fillText('W', 14, pad.t + 8); ctx.fillText('SOC %', W - 43, pad.t + 8);
+    for (let h = 0; h < 24; h += 6) ctx.fillText(String(h).padStart(2,'0'), pad.l + h / 24 * plotW - 8, H - 14);
+    function line(vals, color, yfn) {
+      ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath();
+      vals.forEach((v, i) => { const xx = x(i), yy = yfn(v); if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy); });
+      ctx.stroke();
+    }
+    line(data.map(d => d.pvW), '#22c55e', yW);
+    line(data.map(d => d.targetW), '#f59e0b', yW);
+    line(data.map(d => d.deliveredW), '#38bdf8', yW);
+    line(data.map(d => d.socPct), '#e879f9', ySoc);
+    const legend = [['PV', '#22c55e'], ['AC Ziel', '#f59e0b'], ['AC geliefert', '#38bdf8'], ['SOC', '#e879f9']];
+    let lx = pad.l;
+    legend.forEach(([txt, col]) => { ctx.fillStyle = col; ctx.fillRect(lx, 12, 14, 8); ctx.fillStyle = '#cbd5e1'; ctx.fillText(txt, lx + 20, 20); lx += 120; });
+    ctx.fillStyle = '#cbd5e1'; ctx.fillText(`Tag ${day}: ${data[0].label}`, pad.l, H - 26);
+  }
+
+  function download(name, mime, text) {
+    const blob = new Blob([text], { type: mime });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function exportCsv() {
+    if (!state.result) { setStatus('Kein Ergebnis für CSV Export.', 'warn'); return; }
+    const header = ['index','time','month','day','hour','pv_w','target_w','delivered_w','delivered_pv_w','delivered_battery_w','shortage_w','surplus_w','soc_kwh','soc_pct'];
+    const lines = [header.join(';')];
+    for (const d of state.result.detail) {
+      lines.push([d.index, d.label, d.month, d.day, d.hour, d.pvW, d.targetW, d.deliveredW, d.deliveredPvW, d.deliveredBatteryW, d.shortageW, d.surplusW, d.socKWh, d.socPct].map(v => String(typeof v === 'number' ? v.toFixed(4) : v).replaceAll(';', ',')).join(';'));
+    }
+    download('pvcalc_pvgis_hourly.csv', 'text/csv;charset=utf-8', lines.join('\n'));
+  }
+
+  function exportJson() {
+    if (!state.result) { setStatus('Kein Ergebnis für JSON Export.', 'warn'); return; }
+    const report = { createdAt: new Date().toISOString(), config: state.config || readConfig(), pvgisUrls: state.arrayResponses.map(r => ({ name: r.arr.name, url: r.url })), summary: state.result.totals, preRunInfo: state.result.preRunInfo, monthly: state.result.monthly, finalSocPct: state.result.finalSocPct };
+    download('pvcalc_pvgis_report.json', 'application/json;charset=utf-8', JSON.stringify(report, null, 2));
+  }
+
+  function exportConfig() {
+    download('pvcalc_config.json', 'application/json;charset=utf-8', JSON.stringify(readConfig(), null, 2));
+  }
+
+  function importConfig() {
+    try {
+      const cfg = JSON.parse($('importBox').value);
+      applyConfig(cfg);
+      setStatus('Konfiguration importiert.', 'good');
+    } catch (err) { setStatus('Konfig Import Fehler: ' + err.message, 'bad'); }
+  }
+
+  function init() {
+    applyConfig({ arrays: defaultArrays, outputs: defaultOutputs, battery: { capacityKWh: 10, minSocPct: 10, initialSocPct: 50, roundTripEffPct: 90, maxChargeKW: 5, maxDischargeKW: 3, dispatchMode: 'batteryBuffer', preRunEnabled: true, preRunPasses: 1 } });
+    $('addArrayBtn').addEventListener('click', () => addArrayRow());
+    $('addOutputBtn').addEventListener('click', () => addOutputRow());
+    $('presetBerlinBtn').addEventListener('click', () => { $('arrayRows').innerHTML = ''; defaultArrays.forEach(addArrayRow); });
+    $('runBtn').addEventListener('click', fetchAndSimulate);
+    $('simulateBtn').addEventListener('click', simulateCached);
+    $('demoBtn').addEventListener('click', demoData);
+    $('saveConfigBtn').addEventListener('click', saveConfig);
+    $('loadConfigBtn').addEventListener('click', loadConfig);
+    $('resetBtn').addEventListener('click', () => { localStorage.removeItem(APP_KEY); location.reload(); });
+    $('geoBtn').addEventListener('click', () => {
+      if (!navigator.geolocation) { setStatus('Browser unterstützt Geolocation nicht.', 'warn'); return; }
+      navigator.geolocation.getCurrentPosition(pos => { $('lat').value = pos.coords.latitude.toFixed(5); $('lon').value = pos.coords.longitude.toFixed(5); setStatus('Standort übernommen.', 'good'); }, err => setStatus('Geolocation Fehler: ' + err.message, 'bad'));
+    });
+    $('drawDayBtn').addEventListener('click', drawDayChart);
+    $('exportCsvBtn').addEventListener('click', exportCsv);
+    $('exportJsonBtn').addEventListener('click', exportJson);
+    $('exportConfigBtn').addEventListener('click', exportConfig);
+    $('importConfigBtn').addEventListener('click', importConfig);
+    const saved = localStorage.getItem(APP_KEY);
+    if (saved) {
+      try { applyConfig(JSON.parse(saved)); setStatus('Gespeicherte Konfiguration geladen. PVGIS noch nicht abgefragt.'); } catch (_) {}
+    }
+    window.PVCalc = { readConfig, applyConfig, buildPvgisUrl, mergeArraySeries, runSimulationFromRows, simulateOnce, parsePvgisTime, demoData };
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+</body>
+</html>
