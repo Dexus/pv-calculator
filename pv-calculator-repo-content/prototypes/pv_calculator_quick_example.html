@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PV Calculator Quick Example</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1f2937; background: #f3f4f6; }
+    body { margin: 0; padding: 24px; }
+    main { max-width: 1180px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; }
+    p { line-height: 1.5; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { background: white; border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
+    textarea { width: 100%; min-height: 360px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px; }
+    button { border: 0; border-radius: 999px; padding: 10px 16px; font-weight: 700; cursor: pointer; margin-right: 8px; background: #111827; color: white; }
+    button.secondary { background: #e5e7eb; color: #111827; }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+    .kpi { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
+    .kpi strong { display: block; font-size: 22px; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 16px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 8px; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    .error { color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; border-radius: 12px; padding: 12px; margin-top: 12px; white-space: pre-wrap; }
+    .ok { color: #065f46; background: #d1fae5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 12px; margin-top: 12px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .kpis { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>PV Calculator Quick Example</h1>
+  <p>All-in-One-Prototyp fuer mehrere PV-Arrays, Wechselrichterrollen, 800-W-Micro-Inverter, Batterie/SOC, Pre-Run und CSV/JSON-Export. Die Einstrahlung ist synthetisch und dient nur zur Produkt-/Logikvalidierung.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Projektkonfiguration</h2>
+      <textarea id="configInput" spellcheck="false"></textarea>
+      <p>
+        <button id="runButton">Simulation starten</button>
+        <button id="resetButton" class="secondary">Demo laden</button>
+        <button id="jsonButton" class="secondary">JSON exportieren</button>
+        <button id="csvButton" class="secondary">CSV exportieren</button>
+      </p>
+      <div id="status"></div>
+    </section>
+
+    <section class="card">
+      <h2>Ergebnis</h2>
+      <div id="kpis" class="kpis"></div>
+      <div id="monthlyTable"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+'use strict';
+
+const demoConfig = {
+  projectName: 'PV Calculator Demo',
+  days: 365,
+  usePreRunYear: true,
+  arrays: [
+    { name: 'Sued Dach', peakKw: 5.2, tiltDeg: 35, azimuthDeg: 0, lossPercent: 10, inverter: 'main' },
+    { name: 'Ost Dach', peakKw: 2.4, tiltDeg: 25, azimuthDeg: -90, lossPercent: 12, inverter: 'main' },
+    { name: 'Balkon 800W', peakKw: 1.1, tiltDeg: 20, azimuthDeg: 20, lossPercent: 8, inverter: 'micro800' }
+  ],
+  inverters: [
+    { id: 'main', role: 'grid', acLimitKw: 6.0 },
+    { id: 'micro800', role: 'micro800', acLimitKw: 0.8 },
+    { id: 'batteryOut', role: 'batteryOutput', acLimitKw: 0.8 }
+  ],
+  battery: { capacityKwh: 9.6, initialSocKwh: 4.8, minSocKwh: 0.5, maxChargeKw: 3.0, maxDischargeKw: 3.0, roundTripEfficiency: 0.92 },
+  loadProfileKwh: [0.45,0.38,0.34,0.32,0.35,0.52,0.85,0.95,0.75,0.62,0.58,0.62,0.70,0.72,0.65,0.68,0.82,1.15,1.35,1.12,0.92,0.72,0.62,0.52]
+};
+
+let lastResult = null;
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function dayOfYearToSeasonFactor(day) {
+  const angle = ((day - 172) / 365) * Math.PI * 2;
+  return clamp(0.58 + 0.42 * Math.cos(angle), 0.18, 1.0);
+}
+
+function sunFactor(hour) {
+  const daylightCurve = Math.sin(((hour - 6) / 12) * Math.PI);
+  return Math.max(0, daylightCurve);
+}
+
+function orientationFactor(array) {
+  const azimuthPenalty = Math.cos((Math.abs(array.azimuthDeg || 0) / 180) * Math.PI / 2);
+  const tiltPenalty = 1 - Math.min(Math.abs((array.tiltDeg || 30) - 35), 60) / 180;
+  return clamp(azimuthPenalty * tiltPenalty, 0.25, 1.05);
+}
+
+function simulate(config) {
+  const inverters = new Map((config.inverters || []).map(inv => [inv.id, inv]));
+  const battery = config.battery || null;
+  const roundTrip = battery ? Math.sqrt(battery.roundTripEfficiency || 0.9) : 1;
+  const steps = [];
+  let soc = battery ? clamp(battery.initialSocKwh || 0, battery.minSocKwh || 0, battery.capacityKwh || 0) : 0;
+  const totalDays = (config.usePreRunYear ? config.days : 0) + config.days;
+  const recordStartDay = config.usePreRunYear ? config.days : 0;
+
+  for (let day = 0; day < totalDays; day++) {
+    const season = dayOfYearToSeasonFactor((day % 365) + 1);
+    for (let hour = 0; hour < 24; hour++) {
+      let rawPv = 0;
+      let acPv = 0;
+      const inverterBuckets = new Map();
+
+      for (const array of config.arrays || []) {
+        const lossFactor = 1 - ((array.lossPercent || 0) / 100);
+        const production = (array.peakKw || 0) * sunFactor(hour) * season * orientationFactor(array) * lossFactor;
+        rawPv += production;
+        const inverterId = array.inverter || 'main';
+        inverterBuckets.set(inverterId, (inverterBuckets.get(inverterId) || 0) + production);
+      }
+
+      let curtailed = 0;
+      for (const [inverterId, production] of inverterBuckets.entries()) {
+        const limit = inverters.get(inverterId)?.acLimitKw ?? production;
+        acPv += Math.min(production, limit);
+        curtailed += Math.max(0, production - limit);
+      }
+
+      const load = (config.loadProfileKwh || demoConfig.loadProfileKwh)[hour] || 0;
+      const directUse = Math.min(acPv, load);
+      let remainingLoad = load - directUse;
+      let surplus = acPv - directUse;
+      let charge = 0;
+      let discharge = 0;
+
+      if (battery) {
+        const freeCapacity = Math.max(0, battery.capacityKwh - soc);
+        charge = Math.min(surplus, battery.maxChargeKw || surplus, freeCapacity / roundTrip);
+        soc += charge * roundTrip;
+        surplus -= charge;
+
+        const available = Math.max(0, soc - (battery.minSocKwh || 0));
+        discharge = Math.min(remainingLoad / roundTrip, battery.maxDischargeKw || remainingLoad, available);
+        soc -= discharge;
+        remainingLoad -= discharge * roundTrip;
+      }
+
+      const gridImport = Math.max(0, remainingLoad);
+      const feedIn = Math.max(0, surplus);
+
+      if (day >= recordStartDay) {
+        const actualDay = day - recordStartDay;
+        steps.push({
+          day: actualDay + 1,
+          month: Math.floor((actualDay / config.days) * 12) + 1,
+          hour,
+          rawPvKwh: rawPv,
+          acPvKwh: acPv,
+          loadKwh: load,
+          directUseKwh: directUse,
+          batteryChargeKwh: charge,
+          batteryDischargeKwh: discharge,
+          gridImportKwh: gridImport,
+          feedInKwh: feedIn,
+          curtailedKwh: curtailed,
+          socKwh: soc
+        });
+      }
+    }
+  }
+
+  const summary = steps.reduce((acc, row) => {
+    acc.rawPvKwh += row.rawPvKwh;
+    acc.acPvKwh += row.acPvKwh;
+    acc.loadKwh += row.loadKwh;
+    acc.directUseKwh += row.directUseKwh;
+    acc.batteryChargeKwh += row.batteryChargeKwh;
+    acc.batteryDischargeKwh += row.batteryDischargeKwh;
+    acc.gridImportKwh += row.gridImportKwh;
+    acc.feedInKwh += row.feedInKwh;
+    acc.curtailedKwh += row.curtailedKwh;
+    acc.finalSocKwh = row.socKwh;
+    return acc;
+  }, { rawPvKwh:0, acPvKwh:0, loadKwh:0, directUseKwh:0, batteryChargeKwh:0, batteryDischargeKwh:0, gridImportKwh:0, feedInKwh:0, curtailedKwh:0, finalSocKwh:soc });
+
+  summary.selfConsumptionPercent = summary.acPvKwh > 0 ? ((summary.directUseKwh + summary.batteryDischargeKwh) / summary.acPvKwh) * 100 : 0;
+  summary.autarkyPercent = summary.loadKwh > 0 ? (1 - summary.gridImportKwh / summary.loadKwh) * 100 : 0;
+
+  return { config, summary, steps };
+}
+
+function format(value) {
+  return Number(value).toLocaleString('de-DE', { maximumFractionDigits: 1 });
+}
+
+function render(result) {
+  const kpis = document.getElementById('kpis');
+  const s = result.summary;
+  kpis.innerHTML = [
+    ['AC-PV', `${format(s.acPvKwh)} kWh`],
+    ['Eigenverbrauch', `${format(s.selfConsumptionPercent)} %`],
+    ['Autarkie', `${format(s.autarkyPercent)} %`],
+    ['Netzbezug', `${format(s.gridImportKwh)} kWh`],
+    ['Einspeisung', `${format(s.feedInKwh)} kWh`],
+    ['Abregelung', `${format(s.curtailedKwh)} kWh`],
+    ['Batterieladung', `${format(s.batteryChargeKwh)} kWh`],
+    ['Finaler SOC', `${format(s.finalSocKwh)} kWh`]
+  ].map(([label, value]) => `<div class="kpi"><span>${label}</span><strong>${value}</strong></div>`).join('');
+
+  const months = new Map();
+  for (const row of result.steps) {
+    const m = months.get(row.month) || { pv:0, load:0, import:0, feed:0, curtailed:0 };
+    m.pv += row.acPvKwh;
+    m.load += row.loadKwh;
+    m.import += row.gridImportKwh;
+    m.feed += row.feedInKwh;
+    m.curtailed += row.curtailedKwh;
+    months.set(row.month, m);
+  }
+
+  const rows = Array.from(months.entries()).map(([month, m]) => `
+    <tr><td>${month}</td><td>${format(m.pv)}</td><td>${format(m.load)}</td><td>${format(m.import)}</td><td>${format(m.feed)}</td><td>${format(m.curtailed)}</td></tr>`).join('');
+  document.getElementById('monthlyTable').innerHTML = `
+    <table><thead><tr><th>Monat</th><th>PV kWh</th><th>Last kWh</th><th>Import kWh</th><th>Einspeisung kWh</th><th>Abregelung kWh</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function setStatus(message, type = 'ok') {
+  document.getElementById('status').innerHTML = `<div class="${type}">${message}</div>`;
+}
+
+function runSimulation() {
+  try {
+    const config = JSON.parse(document.getElementById('configInput').value);
+    lastResult = simulate(config);
+    render(lastResult);
+    setStatus(`Simulation abgeschlossen: ${lastResult.steps.length} Stunden erzeugt.`);
+  } catch (error) {
+    setStatus(`Fehler in Konfiguration oder Simulation:\n${error.message}`, 'error');
+  }
+}
+
+function resetDemo() {
+  document.getElementById('configInput').value = JSON.stringify(demoConfig, null, 2);
+  runSimulation();
+}
+
+function download(name, type, content) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportJson() {
+  if (!lastResult) runSimulation();
+  download('pv-calculator-result.json', 'application/json', JSON.stringify(lastResult, null, 2));
+}
+
+function exportCsv() {
+  if (!lastResult) runSimulation();
+  const header = Object.keys(lastResult.steps[0]);
+  const rows = lastResult.steps.map(row => header.map(key => row[key]).join(';'));
+  download('pv-calculator-timeseries.csv', 'text/csv', [header.join(';'), ...rows].join('\n'));
+}
+
+document.getElementById('runButton').addEventListener('click', runSimulation);
+document.getElementById('resetButton').addEventListener('click', resetDemo);
+document.getElementById('jsonButton').addEventListener('click', exportJson);
+document.getElementById('csvButton').addEventListener('click', exportCsv);
+resetDemo();
+</script>
+</body>
+</html>
