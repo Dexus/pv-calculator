@@ -159,16 +159,19 @@ class _ProjectListPageState extends State<ProjectListPage> {
             builder: (editorContext) => EditorPage(
               onRunRequested: () async {
                 final editorMessenger = ScaffoldMessenger.of(editorContext);
-                var saved = false;
                 try {
-                  await _store.saveConfig(controller.projectName, controller.draft.build());
-                  saved = true;
+                  await _store.saveConfig(
+                    controller.projectName.trim(),
+                    controller.draft.build(),
+                  );
                 } catch (e) {
-                  if (editorContext.mounted) {
-                    editorMessenger.showSnackBar(SnackBar(
-                      content: Text('Auto-Speichern fehlgeschlagen: $e'),
-                    ));
-                  }
+                  if (!editorContext.mounted) return;
+                  editorMessenger.showSnackBar(SnackBar(
+                    content: Text('Speichern fehlgeschlagen: $e'),
+                  ));
+                  // Block navigation so the user can fix the project name /
+                  // storage condition before losing their results.
+                  return;
                 }
                 if (!editorContext.mounted) return;
                 Navigator.of(editorContext).push(
@@ -183,11 +186,6 @@ class _ProjectListPageState extends State<ProjectListPage> {
                     ),
                   ),
                 );
-                if (!saved && editorContext.mounted) {
-                  editorMessenger.showSnackBar(const SnackBar(
-                    content: Text('Hinweis: Ergebnis wird angezeigt, das Projekt wurde aber nicht gespeichert.'),
-                  ));
-                }
               },
             ),
           ),

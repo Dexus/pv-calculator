@@ -18,18 +18,34 @@ class ImportedProject {
 class FileIo {
   const FileIo();
 
+  /// Cap on imported project file size. Hand-edited projects are well under
+  /// 5 KB; the limit guards against memory exhaustion via crafted uploads.
+  static const int maxImportBytes = 1024 * 1024;
+
   Future<bool> exportConfig(String suggestedName, SimulationConfig config) =>
       _saveString(suggestedName: suggestedName, content: jsonEncode(config.toJson()), mimeType: 'application/json');
 
   Future<bool> exportCsv({required String filename, required String content}) =>
       _saveString(suggestedName: filename, content: content, mimeType: 'text/csv');
 
+  /// Reads, validates and returns an [ImportedProject]. Throws [ArgumentError]
+  /// on oversize input, non-object JSON, or any [SimulationConfig.validate]
+  /// failure — callers should surface the error to the user.
   Future<ImportedProject?> importConfig() async {
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     final file = await openFile(acceptedTypeGroups: const [typeGroup]);
     if (file == null) return null;
     final raw = await file.readAsString();
-    final config = SimulationConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    if (raw.length > maxImportBytes) {
+      throw ArgumentError('Project file is too large (${raw.length} bytes, max $maxImportBytes).');
+    }
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) {
+      throw ArgumentError('Project JSON must be a top-level object.');
+    }
+    final config = SimulationConfig.fromJson(decoded.cast<String, dynamic>());
+    // Validate before returning so invalid imports never reach persistence.
+    config.validate();
     final name = file.name.replaceAll(RegExp(r'\.json$', caseSensitive: false), '');
     return ImportedProject(suggestedName: name.isEmpty ? 'Importiertes Projekt' : name, config: config);
   }
