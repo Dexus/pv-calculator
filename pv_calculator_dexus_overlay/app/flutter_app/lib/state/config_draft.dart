@@ -13,6 +13,7 @@ class ConfigDraft {
     this.preRunDays = 0,
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
+    this.longitudeDeg = 10.0,
     List<PvArrayDraft>? arrays,
     List<InverterDraft>? inverters,
     List<BatteryDraft>? batteries,
@@ -28,6 +29,7 @@ class ConfigDraft {
   int preRunDays;
   double? gridExportLimitKw;
   double latitudeDeg;
+  double longitudeDeg;
   final List<PvArrayDraft> arrays;
   final List<InverterDraft> inverters;
   final List<BatteryDraft> batteries;
@@ -44,6 +46,7 @@ class ConfigDraft {
         preRunDays: preRunDays,
         gridExportLimitKw: gridExportLimitKw,
         latitudeDeg: latitudeDeg,
+        longitudeDeg: longitudeDeg,
       );
 
   String? validationError() {
@@ -62,6 +65,7 @@ class ConfigDraft {
         preRunDays: config.preRunDays,
         gridExportLimitKw: config.gridExportLimitKw,
         latitudeDeg: config.latitudeDeg,
+        longitudeDeg: config.longitudeDeg,
         arrays: config.arrays.map(PvArrayDraft.fromArray).toList(),
         inverters: config.inverters.map(InverterDraft.fromInverter).toList(),
         batteries: config.batteries.map(BatteryDraft.fromBattery).toList(),
@@ -83,6 +87,7 @@ class ConfigDraft {
         preRunDays: 365,
         gridExportLimitKw: 6.0,
         latitudeDeg: 50.1,
+        longitudeDeg: 8.6,
       );
 }
 

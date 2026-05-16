@@ -22,7 +22,7 @@ Data Adapters / Persistence / APIs
 ## Module
 
 - `packages/pv_engine`: PV-Arrays, Wechselrichter, **Liste von Batterien**, Lastprofil, `SimulationConfig`, `PvSimulator`, Ergebniszusammenfassung, `SummaryAggregator` (Monatsbuckets), `stepsCsv`/`monthlyCsv` (CSV-Export). JSON-Serialisierung (`toJson`/`fromJson`) auf allen Domain-Typen — keine externen Runtime-Abhängigkeiten.
-- `app/flutter_app`: `ProjectController` (ChangeNotifier) + `ConfigDraft` als mutierbare Arbeitskopie der unveränderlichen Engine-Typen. Eingabeformulare (`widgets/forms/`), Ergebnisansicht mit KPI-Karten und Monats-Tabelle (`widgets/results/`), Projekt-Listing (`widgets/project_list_page.dart`).
+- `app/flutter_app`: `ProjectController` (ChangeNotifier) + `ConfigDraft` als mutierbare Arbeitskopie der unveränderlichen Engine-Typen. Eingabeformulare (`widgets/forms/`), Ergebnisansicht mit KPI-Karten und Monats-Tabelle (`widgets/results/`), Projekt-Listing (`widgets/project_list_page.dart`). Geocoding-Adapter (`services/geocoding.dart`) bindet OpenStreetMap Nominatim explizit hinter einem `GeocodingService`-Interface ein — keine Auto-Suche bei Tastendruck, fester `User-Agent`, 1 s Mindestabstand zwischen Anfragen (Usage-Policy).
 - `docs`: Anforderungen, Architektur, Roadmap, technische Entscheidungen.
 
 ## Persistenz
