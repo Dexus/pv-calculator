@@ -112,6 +112,16 @@ class _ArrayEditor extends StatelessWidget {
           label: 'Verschattung', suffix: '0..1', initialValue: array.shadingFactor, min: 0, max: 0.999,
           onChanged: (v) { if (v != null) { array.shadingFactor = v; onChanged(); } },
         )),
+        SizedBox(width: 200, child: NumberField(
+          label: 'Temperaturkoeff.', suffix: '%/°C',
+          initialValue: array.temperatureCoefficientPctPerC, min: -2, max: 0,
+          onChanged: (v) { if (v != null) { array.temperatureCoefficientPctPerC = v; onChanged(); } },
+        )),
+        SizedBox(width: 160, child: NumberField(
+          label: 'NOCT', suffix: '°C',
+          initialValue: array.nominalOperatingCellTempC, min: 20, max: 70,
+          onChanged: (v) { if (v != null) { array.nominalOperatingCellTempC = v; onChanged(); } },
+        )),
         SizedBox(width: 220, child: DropdownButtonFormField<String>(
           isExpanded: true,
           initialValue: inverterIds.contains(array.inverterId) ? array.inverterId : null,

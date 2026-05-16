@@ -96,6 +96,11 @@ class _InverterEditor extends StatelessWidget {
           label: 'Wirkungsgrad', suffix: '0..1', initialValue: inverter.efficiency, min: 0.01, max: 1.0,
           onChanged: (v) { if (v != null) { inverter.efficiency = v; onChanged(); } },
         )),
+        SizedBox(width: 200, child: NumberField(
+          label: 'Max. DC-Eingang', suffix: 'kW (optional)',
+          initialValue: inverter.maxDcInputKw, min: 0.001, allowNull: true,
+          onChanged: (v) { inverter.maxDcInputKw = v; onChanged(); },
+        )),
         SizedBox(width: 240, child: DropdownButtonFormField<InverterRole>(
           isExpanded: true,
           initialValue: inverter.role,

@@ -96,6 +96,8 @@ class PvArrayDraft {
     this.inverterId = '',
     this.lossFactor = 0.14,
     this.shadingFactor = 0.0,
+    this.temperatureCoefficientPctPerC = 0.0,
+    this.nominalOperatingCellTempC = 45.0,
   });
 
   String id;
@@ -106,6 +108,8 @@ class PvArrayDraft {
   String inverterId;
   double lossFactor;
   double shadingFactor;
+  double temperatureCoefficientPctPerC;
+  double nominalOperatingCellTempC;
 
   PvArray build() => PvArray(
         id: id,
@@ -116,6 +120,8 @@ class PvArrayDraft {
         inverterId: inverterId,
         lossFactor: lossFactor,
         shadingFactor: shadingFactor,
+        temperatureCoefficientPctPerC: temperatureCoefficientPctPerC,
+        nominalOperatingCellTempC: nominalOperatingCellTempC,
       );
 
   static PvArrayDraft fromArray(PvArray a) => PvArrayDraft(
@@ -127,6 +133,8 @@ class PvArrayDraft {
         inverterId: a.inverterId,
         lossFactor: a.lossFactor,
         shadingFactor: a.shadingFactor,
+        temperatureCoefficientPctPerC: a.temperatureCoefficientPctPerC,
+        nominalOperatingCellTempC: a.nominalOperatingCellTempC,
       );
 }
 
@@ -137,6 +145,7 @@ class InverterDraft {
     this.maxAcKw = 5.0,
     this.role = InverterRole.grid,
     this.efficiency = 0.965,
+    this.maxDcInputKw,
   });
 
   String id;
@@ -144,11 +153,17 @@ class InverterDraft {
   double maxAcKw;
   InverterRole role;
   double efficiency;
+  double? maxDcInputKw;
 
-  Inverter build() => Inverter(id: id, label: label, maxAcKw: maxAcKw, role: role, efficiency: efficiency);
+  Inverter build() => Inverter(
+        id: id, label: label, maxAcKw: maxAcKw, role: role, efficiency: efficiency,
+        maxDcInputKw: maxDcInputKw,
+      );
 
-  static InverterDraft fromInverter(Inverter i) =>
-      InverterDraft(id: i.id, label: i.label, maxAcKw: i.maxAcKw, role: i.role, efficiency: i.efficiency);
+  static InverterDraft fromInverter(Inverter i) => InverterDraft(
+        id: i.id, label: i.label, maxAcKw: i.maxAcKw, role: i.role, efficiency: i.efficiency,
+        maxDcInputKw: i.maxDcInputKw,
+      );
 }
 
 class BatteryDraft {
