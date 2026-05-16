@@ -53,10 +53,26 @@ async function sha256Hex(input: string): Promise<string> {
     .join('');
 }
 
-/** Builds a stable canonical query string from the recognised cache params. */
+/** Builds a stable canonical query string from the recognised cache params.
+ *
+ *  `outputformat` and `pvcalculation` are always normalised to their enforced
+ *  values (`json` / `1`) so the cache key reflects the actual upstream request,
+ *  not whatever the client happened to send. Without this, a caller varying
+ *  those params could generate unbounded distinct R2 keys for the same
+ *  effective PVGIS response.
+ */
 function canonicalParams(url: URL): string {
+  const ENFORCED: Partial<Record<(typeof CACHE_PARAMS)[number], string>> = {
+    outputformat: 'json',
+    pvcalculation: '1',
+  };
   const pairs: [string, string][] = [];
   for (const key of CACHE_PARAMS) {
+    const forced = ENFORCED[key];
+    if (forced !== undefined) {
+      pairs.push([key, forced]);
+      continue;
+    }
     const value = url.searchParams.get(key);
     if (value !== null && value !== '') {
       pairs.push([key, value]);
