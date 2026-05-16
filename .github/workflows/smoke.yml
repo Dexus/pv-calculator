@@ -10,6 +10,9 @@
 #   - windows-latest (x2)      : ~10 min ≈ 20 free-tier minutes
 # Skip the macos-ios / windows jobs from the dispatch dialog if you only care
 # about a quick check.
+#
+# Third-party actions are pinned to full commit SHAs (with the tag in a
+# trailing comment) per GitHub's supply-chain guidance.
 
 name: Multi-platform smoke build
 
@@ -25,13 +28,17 @@ on:
         type: boolean
         default: true
 
+# Least-privilege default token; jobs that need more must opt in explicitly.
+permissions:
+  contents: read
+
 jobs:
   engine-smoke:
     name: pv_engine analyze + test + example
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1
       - name: pub get
         working-directory: pv_calculator_dexus_overlay/packages/pv_engine
         run: dart pub get
@@ -49,8 +56,8 @@ jobs:
     name: Flutter web (build + artifact)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
       - name: pub get
@@ -66,7 +73,7 @@ jobs:
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter build web --release
       - name: upload web build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: flutter-web-build
           path: pv_calculator_dexus_overlay/app/flutter_app/build/web
@@ -76,12 +83,12 @@ jobs:
     name: Flutter Linux desktop
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: install Linux desktop deps
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libmpv-dev
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
       - name: pub get
@@ -97,12 +104,12 @@ jobs:
     name: Flutter Android (debug APK)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
       - name: pub get
@@ -117,8 +124,8 @@ jobs:
     if: ${{ inputs.include_macos_ios }}
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
       - name: pub get
@@ -138,8 +145,8 @@ jobs:
     if: ${{ inputs.include_windows }}
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
       - name: pub get
