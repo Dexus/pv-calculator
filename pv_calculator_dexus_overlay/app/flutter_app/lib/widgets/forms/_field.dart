@@ -77,9 +77,18 @@ class _NumberFieldState extends State<NumberField> {
   @override
   Widget build(BuildContext context) {
     final pattern = widget.allowDecimal ? r'[0-9.,\-]' : r'[0-9\-]';
+    // Mobile browsers render `numberWithOptions` as inputmode="decimal", which
+    // omits the minus key even when signed:true. Use the text keyboard whenever
+    // the field can hold a negative value so the "-" key is always reachable.
+    // FilteringTextInputFormatter still restricts input to valid characters.
+    final canBeNegative = widget.min == null || widget.min! < 0;
+    final keyboardType = canBeNegative
+        ? TextInputType.text
+        : TextInputType.numberWithOptions(
+            decimal: widget.allowDecimal, signed: false);
     return TextFormField(
       controller: _controller,
-      keyboardType: TextInputType.numberWithOptions(decimal: widget.allowDecimal, signed: true),
+      keyboardType: keyboardType,
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(pattern))],
       decoration: InputDecoration(
         labelText: widget.label,
