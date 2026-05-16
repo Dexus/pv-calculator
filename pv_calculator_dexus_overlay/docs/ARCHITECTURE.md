@@ -21,9 +21,18 @@ Data Adapters / Persistence / APIs
 
 ## Module
 
-- `packages/pv_engine`: PV-Arrays, Wechselrichter, Batterie, Lastprofil, SimulationConfig, PvSimulator, Ergebniszusammenfassung.
-- `app/flutter_app`: Eingabeformulare, KPI-Ausgabe, Tabellen/Charts, Projekt-Speichern/Laden.
+- `packages/pv_engine`: PV-Arrays, Wechselrichter, **Liste von Batterien**, Lastprofil, `SimulationConfig`, `PvSimulator`, Ergebniszusammenfassung, `SummaryAggregator` (Monatsbuckets), `stepsCsv`/`monthlyCsv` (CSV-Export). JSON-Serialisierung (`toJson`/`fromJson`) auf allen Domain-Typen — keine externen Runtime-Abhängigkeiten.
+- `app/flutter_app`: `ProjectController` (ChangeNotifier) + `ConfigDraft` als mutierbare Arbeitskopie der unveränderlichen Engine-Typen. Eingabeformulare (`widgets/forms/`), Ergebnisansicht mit KPI-Karten und Monats-Tabelle (`widgets/results/`), Projekt-Listing (`widgets/project_list_page.dart`).
 - `docs`: Anforderungen, Architektur, Roadmap, technische Entscheidungen.
+
+## Persistenz
+
+Zwei nebeneinanderliegende Wege:
+
+- `lib/persistence/project_store.dart` — `shared_preferences` als Projektliste mit Index-Schlüssel `pv_project_index` und Einträgen `pv_project:<name>`. Funktioniert auf Web (localStorage), Desktop und Mobile gleichermaßen.
+- `lib/persistence/file_io.dart` — `file_selector` für JSON-/CSV-Datei-Export und JSON-Import. Auf Web löst `getSaveLocation`+`XFile.saveTo` einen Browser-Download aus (kein Dateipfad); auf nativen Plattformen erscheint der OS-Dialog.
+
+Legacy-Migration: `SimulationConfig.fromJson` akzeptiert auch die alte 0.1-Form mit einzelnem `"battery"`-Feld und überführt sie in eine `batteries`-Liste mit synthetischer ID `battery-1`.
 
 ## Externe Datenquellen
 
@@ -31,6 +40,11 @@ PVGIS, Wetterdaten, reale Gerätekennlinien und Lastprofilimporte sollen später
 
 ## Teststrategie
 
-- Unit-Tests für Dispatch, SOC-Grenzen, Wechselrichterkappung, Export-Limit und Lastprofil.
-- Widget-Tests für wichtigste UI-Zustände.
+- Engine-Unit-Tests: Dispatch (inkl. Mehrfach-Batterie-Reihenfolge), SOC-Grenzen, 800-W-Microkappung, Export-Limit, Lastprofil, JSON-Roundtrip pro Typ, Monats-Bucket-Summen, CSV-Format.
+- Widget-Tests: Editor-Validierung (Run-Button disabled bei invalider Konfiguration), Run-Flow → Ergebnisseite, Projektliste rendert leer korrekt.
+- Persistence-Tests: `shared_preferences` mit `setMockInitialValues({})`, Save/List/Load/Delete und Sonderfälle.
 - Regressionstests mit Beispielkonfigurationen.
+
+## Manueller Multi-Plattform-Smoke-Build
+
+`.github/workflows/smoke.yml` (nur `workflow_dispatch`, schont das Free-Tier-Minutenkontingent) baut den Flutter-Client für Web, Linux, Android, macOS, iOS und Windows und führt das Engine-Beispiel als Ende-zu-Ende-Smoke aus. Triggern über GitHub → Actions → „Multi-platform smoke build" → „Run workflow".
