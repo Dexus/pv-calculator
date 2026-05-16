@@ -1,4 +1,4 @@
-name = "pvgis-proxy"
+name = "pv-calculator"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 
