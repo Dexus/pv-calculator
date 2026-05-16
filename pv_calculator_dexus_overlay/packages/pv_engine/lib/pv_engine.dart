@@ -68,14 +68,18 @@ class Inverter {
 
 class BatteryConfig {
   const BatteryConfig({
+    required this.id,
     required this.capacityKwh,
     required this.maxChargeKw,
     required this.maxDischargeKw,
+    this.label = '',
     this.roundTripEfficiency = 0.9,
     this.minSocKwh = 0,
     this.initialSocKwh,
   });
 
+  final String id;
+  final String label;
   final double capacityKwh;
   final double maxChargeKw;
   final double maxDischargeKw;
@@ -88,11 +92,12 @@ class BatteryConfig {
   double get dischargeEfficiency => math.sqrt(roundTripEfficiency);
 
   void validate() {
-    _require(capacityKwh >= 0, 'Battery capacityKwh must not be negative.');
-    _require(maxChargeKw >= 0, 'Battery maxChargeKw must not be negative.');
-    _require(maxDischargeKw >= 0, 'Battery maxDischargeKw must not be negative.');
-    _require(roundTripEfficiency > 0 && roundTripEfficiency <= 1, 'Battery roundTripEfficiency must be in (0, 1].');
-    _require(minSocKwh >= 0 && minSocKwh <= capacityKwh, 'Battery minSocKwh must be between 0 and capacityKwh.');
+    _require(id.isNotEmpty, 'Battery id must not be empty.');
+    _require(capacityKwh >= 0, 'Battery $id capacityKwh must not be negative.');
+    _require(maxChargeKw >= 0, 'Battery $id maxChargeKw must not be negative.');
+    _require(maxDischargeKw >= 0, 'Battery $id maxDischargeKw must not be negative.');
+    _require(roundTripEfficiency > 0 && roundTripEfficiency <= 1, 'Battery $id roundTripEfficiency must be in (0, 1].');
+    _require(minSocKwh >= 0 && minSocKwh <= capacityKwh, 'Battery $id minSocKwh must be between 0 and capacityKwh.');
   }
 }
 
@@ -130,7 +135,7 @@ class SimulationConfig {
     required this.arrays,
     required this.inverters,
     required this.loadProfile,
-    this.battery,
+    this.batteries = const [],
     this.startDayOfYear = 1,
     this.days = 365,
     this.timeStep = TimeStep.hourly,
@@ -141,7 +146,7 @@ class SimulationConfig {
 
   final List<PvArray> arrays;
   final List<Inverter> inverters;
-  final BatteryConfig? battery;
+  final List<BatteryConfig> batteries;
   final LoadProfile loadProfile;
   final int startDayOfYear;
   final int days;
@@ -165,7 +170,11 @@ class SimulationConfig {
       array.validate();
       _require(inverterIds.contains(array.inverterId), 'PV array ${array.id} references missing inverter ${array.inverterId}.');
     }
-    battery?.validate();
+    final batteryIds = <String>{};
+    for (final battery in batteries) {
+      battery.validate();
+      _require(batteryIds.add(battery.id), 'Duplicate battery id: ${battery.id}.');
+    }
     loadProfile.validate();
   }
 }
@@ -183,6 +192,9 @@ class SimulationStep {
     required this.batteryChargeKwh,
     required this.batteryDischargeKwh,
     required this.batterySocKwh,
+    required this.batteryChargesKwh,
+    required this.batteryDischargesKwh,
+    required this.batterySocsKwh,
     required this.gridImportKwh,
     required this.gridExportKwh,
     required this.curtailedKwh,
@@ -199,6 +211,9 @@ class SimulationStep {
   final double batteryChargeKwh;
   final double batteryDischargeKwh;
   final double batterySocKwh;
+  final List<double> batteryChargesKwh;
+  final List<double> batteryDischargesKwh;
+  final List<double> batterySocsKwh;
   final double gridImportKwh;
   final double gridExportKwh;
   final double curtailedKwh;
@@ -216,6 +231,7 @@ class SimulationSummary {
     required this.gridExportKwh,
     required this.curtailedKwh,
     required this.finalBatterySocKwh,
+    required this.finalBatterySocsKwh,
   });
 
   final double pvDcKwh;
@@ -228,6 +244,7 @@ class SimulationSummary {
   final double gridExportKwh;
   final double curtailedKwh;
   final double finalBatterySocKwh;
+  final List<double> finalBatterySocsKwh;
 
   double get selfConsumptionRate => pvAcKwh <= 0 ? 0 : selfConsumptionKwh / pvAcKwh;
   double get autarkyRate => loadKwh <= 0 ? 0 : selfConsumptionKwh / loadKwh;
@@ -245,21 +262,20 @@ class PvSimulator {
   SimulationResult run(SimulationConfig config) {
     config.validate();
     final steps = <SimulationStep>[];
-    var soc = config.battery?.effectiveInitialSocKwh ?? 0.0;
+    final socs = [for (final b in config.batteries) b.effectiveInitialSocKwh];
 
     for (var dayIndex = -config.preRunDays; dayIndex < config.days; dayIndex++) {
       final dayOfYear = _wrapDay(config.startDayOfYear + dayIndex);
       for (var stepOfDay = 0; stepOfDay < config.timeStep.stepsPerDay; stepOfDay++) {
         final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
-        final step = _simulateStep(config, soc, dayIndex, dayOfYear, stepOfDay, hourOfDay);
-        soc = step.batterySocKwh;
+        final step = _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay);
         if (dayIndex >= 0) steps.add(step);
       }
     }
-    return SimulationResult(steps: steps, summary: _summarize(steps));
+    return SimulationResult(steps: steps, summary: _summarize(steps, socs));
   }
 
-  SimulationStep _simulateStep(SimulationConfig config, double batterySoc, int dayIndex, int dayOfYear, int stepOfDay, double hourOfDay) {
+  SimulationStep _simulateStep(SimulationConfig config, List<double> socs, int dayIndex, int dayOfYear, int stepOfDay, double hourOfDay) {
     final stepHours = config.timeStep.hours;
     final inverterById = {for (final i in config.inverters) i.id: i};
     final dcByInverter = <String, double>{};
@@ -287,27 +303,40 @@ class PvSimulator {
     var remainingLoadKwh = math.max(0.0, loadKwh - pvAcKwh);
     var batteryChargeKwh = 0.0;
     var batteryDischargeKwh = 0.0;
+    final perBatteryCharge = List<double>.filled(config.batteries.length, 0.0);
+    final perBatteryDischarge = List<double>.filled(config.batteries.length, 0.0);
 
-    final battery = config.battery;
-    if (battery != null && battery.capacityKwh > 0) {
-      if (surplusKwh > 0 && battery.maxChargeKw > 0) {
-        final capacityLeft = math.max(0.0, battery.capacityKwh - batterySoc);
-        final maxInput = math.min(surplusKwh, battery.maxChargeKw * stepHours);
-        final input = math.min(maxInput, capacityLeft / battery.chargeEfficiency);
-        batterySoc += input * battery.chargeEfficiency;
-        batteryChargeKwh = input;
-        surplusKwh -= input;
-      }
-      if (remainingLoadKwh > 0 && battery.maxDischargeKw > 0) {
-        final usableSoc = math.max(0.0, batterySoc - battery.minSocKwh);
-        final maxOutput = math.min(remainingLoadKwh, battery.maxDischargeKw * stepHours);
-        final output = math.min(maxOutput, usableSoc * battery.dischargeEfficiency);
-        batterySoc -= output / battery.dischargeEfficiency;
-        batteryDischargeKwh = output;
-        selfConsumptionKwh += output;
-        remainingLoadKwh -= output;
-      }
-      batterySoc = batterySoc.clamp(battery.minSocKwh, battery.capacityKwh).toDouble();
+    for (var i = 0; i < config.batteries.length; i++) {
+      if (surplusKwh <= 0) break;
+      final battery = config.batteries[i];
+      if (battery.capacityKwh <= 0 || battery.maxChargeKw <= 0) continue;
+      final capacityLeft = math.max(0.0, battery.capacityKwh - socs[i]);
+      final maxInput = math.min(surplusKwh, battery.maxChargeKw * stepHours);
+      final input = math.min(maxInput, capacityLeft / battery.chargeEfficiency);
+      if (input <= 0) continue;
+      socs[i] += input * battery.chargeEfficiency;
+      perBatteryCharge[i] = input;
+      batteryChargeKwh += input;
+      surplusKwh -= input;
+    }
+
+    for (var i = 0; i < config.batteries.length; i++) {
+      if (remainingLoadKwh <= 0) break;
+      final battery = config.batteries[i];
+      if (battery.capacityKwh <= 0 || battery.maxDischargeKw <= 0) continue;
+      final usableSoc = math.max(0.0, socs[i] - battery.minSocKwh);
+      final maxOutput = math.min(remainingLoadKwh, battery.maxDischargeKw * stepHours);
+      final output = math.min(maxOutput, usableSoc * battery.dischargeEfficiency);
+      if (output <= 0) continue;
+      socs[i] -= output / battery.dischargeEfficiency;
+      perBatteryDischarge[i] = output;
+      batteryDischargeKwh += output;
+      selfConsumptionKwh += output;
+      remainingLoadKwh -= output;
+    }
+
+    for (var i = 0; i < config.batteries.length; i++) {
+      socs[i] = socs[i].clamp(config.batteries[i].minSocKwh, config.batteries[i].capacityKwh).toDouble();
     }
 
     var gridExportKwh = surplusKwh;
@@ -320,6 +349,8 @@ class PvSimulator {
       }
     }
 
+    final aggregateSoc = socs.fold<double>(0.0, (a, b) => a + b);
+
     return SimulationStep(
       dayIndex: dayIndex,
       dayOfYear: dayOfYear,
@@ -331,7 +362,10 @@ class PvSimulator {
       selfConsumptionKwh: selfConsumptionKwh,
       batteryChargeKwh: batteryChargeKwh,
       batteryDischargeKwh: batteryDischargeKwh,
-      batterySocKwh: batterySoc,
+      batterySocKwh: aggregateSoc,
+      batteryChargesKwh: List<double>.unmodifiable(perBatteryCharge),
+      batteryDischargesKwh: List<double>.unmodifiable(perBatteryDischarge),
+      batterySocsKwh: List<double>.unmodifiable(socs),
       gridImportKwh: remainingLoadKwh,
       gridExportKwh: gridExportKwh,
       curtailedKwh: curtailedKwh,
@@ -353,7 +387,7 @@ class PvSimulator {
     return array.peakKw * sun * season * orientation * retained;
   }
 
-  SimulationSummary _summarize(List<SimulationStep> steps) {
+  SimulationSummary _summarize(List<SimulationStep> steps, List<double> finalSocs) {
     double sum(double Function(SimulationStep step) selector) => steps.fold<double>(0.0, (total, step) => total + selector(step));
     return SimulationSummary(
       pvDcKwh: sum((s) => s.pvDcKwh),
@@ -365,7 +399,8 @@ class PvSimulator {
       gridImportKwh: sum((s) => s.gridImportKwh),
       gridExportKwh: sum((s) => s.gridExportKwh),
       curtailedKwh: sum((s) => s.curtailedKwh),
-      finalBatterySocKwh: steps.isEmpty ? 0 : steps.last.batterySocKwh,
+      finalBatterySocKwh: finalSocs.fold<double>(0.0, (a, b) => a + b),
+      finalBatterySocsKwh: List<double>.unmodifiable(finalSocs),
     );
   }
 
