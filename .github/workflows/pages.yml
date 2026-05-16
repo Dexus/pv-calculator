@@ -53,7 +53,19 @@ jobs:
 
       - name: Flutter build web
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
-        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/app/"
+        env:
+          # Optional: set the PVGIS_PROXY secret in the repository to route
+          # PVGIS requests through the Cloudflare caching worker.
+          # The build works without it; the app falls back to the public API.
+          PVGIS_PROXY: ${{ secrets.PVGIS_PROXY }}
+        run: |
+          dart_defines=""
+          if [ -n "$PVGIS_PROXY" ]; then
+            dart_defines="--dart-define=PVGIS_PROXY=$PVGIS_PROXY"
+          fi
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/app/" \
+            $dart_defines
 
       - name: Stage Flutter app at /app/
         run: |
