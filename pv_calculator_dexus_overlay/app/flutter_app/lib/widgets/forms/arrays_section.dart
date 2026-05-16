@@ -210,6 +210,8 @@ class _PvgisRowState extends State<_PvgisRow> {
           coveredYears: List<int>.unmodifiable(years),
           latitudeDeg: imported.data.latitudeDeg,
           longitudeDeg: imported.data.longitudeDeg,
+          slopeDeg: imported.data.slopeDeg,
+          appAzimuthDeg: imported.data.appAzimuthDeg,
         ),
       );
       widget.onChanged();
@@ -236,6 +238,7 @@ class _PvgisRowState extends State<_PvgisRow> {
     final info = draft.weatherInfoFor(widget.arrayId);
     final hasData = info != null;
     final scheme = Theme.of(context).colorScheme;
+    final mismatch = hasData ? _orientationMismatch(info, draft, widget.arrayId) : null;
 
     final status = Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(
@@ -244,7 +247,7 @@ class _PvgisRowState extends State<_PvgisRow> {
       ),
       const SizedBox(width: 10),
       ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: const BoxConstraints(maxWidth: 460),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,8 +261,31 @@ class _PvgisRowState extends State<_PvgisRow> {
               Text(
                 '${info.sourceLabel} · ${info.entryCount} Stunden · '
                 'Jahre ${info.coveredYears.isEmpty ? "?" : info.coveredYears.join(", ")} · '
-                'PVGIS-Lage ${info.latitudeDeg.toStringAsFixed(3)}°/${info.longitudeDeg.toStringAsFixed(3)}°',
+                'PVGIS-Lage ${info.latitudeDeg.toStringAsFixed(3)}°/${info.longitudeDeg.toStringAsFixed(3)}°'
+                '${_orientationSuffix(info)}',
                 style: Theme.of(context).textTheme.bodySmall,
+                softWrap: true,
+              ),
+              if (mismatch != null) ...[
+                const SizedBox(height: 4),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
+                  const SizedBox(width: 4),
+                  Flexible(child: Text(
+                    mismatch,
+                    key: Key('pvgis-orientation-warning-${widget.arrayId}'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.error),
+                    softWrap: true,
+                  )),
+                ]),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                'Hinweis: PVGIS-Importe gelten nur für diese Sitzung — sie werden nicht im Projekt-JSON gespeichert.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                ),
                 softWrap: true,
               ),
             ],
@@ -305,4 +331,52 @@ class _PvgisRowState extends State<_PvgisRow> {
       ),
     );
   }
+}
+
+/// Tilt/azimuth fragment appended to the metadata line. Empty when
+/// neither was carried in the PVGIS document.
+String _orientationSuffix(PvgisImportInfo info) {
+  final tilt = info.slopeDeg;
+  final az = info.appAzimuthDeg;
+  if (tilt == null && az == null) return '';
+  final parts = <String>[];
+  if (tilt != null) parts.add('Neigung ${tilt.toStringAsFixed(0)}°');
+  if (az != null) parts.add('Azimut ${az.toStringAsFixed(0)}°');
+  return ' · ${parts.join(", ")}';
+}
+
+/// Returns a warning string when the PVGIS request orientation drifts
+/// far enough from the array's configured orientation to materially
+/// change yield (5° tilt or 15° azimuth). `null` when the PVGIS file
+/// carries no mounting metadata or both values are within tolerance.
+String? _orientationMismatch(PvgisImportInfo info, ConfigDraft draft, String arrayId) {
+  final array = _findArray(draft, arrayId);
+  if (array == null) return null;
+  final tiltDelta = info.slopeDeg == null ? null : (info.slopeDeg! - array.tiltDeg).abs();
+  final az = info.appAzimuthDeg;
+  final azDelta = az == null ? null : _azimuthDelta(az, array.azimuthDeg);
+  final issues = <String>[];
+  if (tiltDelta != null && tiltDelta > 5) {
+    issues.add('Neigung ${info.slopeDeg!.toStringAsFixed(0)}° vs ${array.tiltDeg.toStringAsFixed(0)}°');
+  }
+  if (azDelta != null && azDelta > 15) {
+    issues.add('Azimut ${az!.toStringAsFixed(0)}° vs ${array.azimuthDeg.toStringAsFixed(0)}°');
+  }
+  if (issues.isEmpty) return null;
+  return 'PVGIS-Ausrichtung weicht ab (${issues.join("; ")}). '
+      'Die importierten POA-Werte gelten für die PVGIS-Ausrichtung, '
+      'nicht für die hier eingestellte.';
+}
+
+PvArrayDraft? _findArray(ConfigDraft draft, String id) {
+  for (final a in draft.arrays) {
+    if (a.id == id) return a;
+  }
+  return null;
+}
+
+/// Shortest absolute distance between two azimuths on the 0–360° circle.
+double _azimuthDelta(double a, double b) {
+  final diff = (a - b).abs() % 360.0;
+  return diff > 180.0 ? 360.0 - diff : diff;
 }

@@ -29,6 +29,60 @@ void main() {
       expect(data.entries[1].pvPowerW, 2400);
     });
 
+    test('parses optional mounting_system slope/azimuth and exposes app azimuth', () {
+      final json = jsonEncode({
+        'inputs': {
+          'location': {'latitude': 50.1, 'longitude': 7.0},
+          'mounting_system': {
+            'fixed': {
+              'slope': {'value': 35.0, 'optimal': false},
+              'azimuth': {'value': -90.0, 'optimal': false},
+            }
+          }
+        },
+        'outputs': {
+          'hourly': [
+            {'time': '20200101:0010', 'G(i)': 0.0, 'T2m': 2.5, 'WS10m': 3.2},
+          ]
+        }
+      });
+      final data = parsePvgisHourlyJson(json);
+      expect(data.slopeDeg, closeTo(35.0, 1e-9));
+      // PVGIS azimuth −90° (east) maps to app azimuth 90°.
+      expect(data.azimuthDegPvgis, closeTo(-90.0, 1e-9));
+      expect(data.appAzimuthDeg, closeTo(90.0, 1e-9));
+    });
+
+    test('appAzimuthDeg covers the canonical PVGIS quadrants', () {
+      PvgisHourlyData mk(double a) => PvgisHourlyData(
+            entries: const [], latitudeDeg: 0, longitudeDeg: 0,
+            azimuthDegPvgis: a,
+          );
+      // PVGIS 0 (south) → app 180
+      expect(mk(0).appAzimuthDeg, closeTo(180.0, 1e-9));
+      // PVGIS +90 (west) → app 270
+      expect(mk(90).appAzimuthDeg, closeTo(270.0, 1e-9));
+      // PVGIS −180 (north) → app 0
+      expect(mk(-180).appAzimuthDeg, closeTo(0.0, 1e-9));
+      // PVGIS missing → null
+      expect(PvgisHourlyData(entries: const [], latitudeDeg: 0, longitudeDeg: 0)
+          .appAzimuthDeg, isNull);
+    });
+
+    test('leaves slope/azimuth null when mounting_system is absent', () {
+      final json = jsonEncode({
+        'outputs': {
+          'hourly': [
+            {'time': '20200101:0010', 'G(i)': 0.0, 'T2m': 2.5, 'WS10m': 3.2},
+          ]
+        }
+      });
+      final data = parsePvgisHourlyJson(json);
+      expect(data.slopeDeg, isNull);
+      expect(data.azimuthDegPvgis, isNull);
+      expect(data.appAzimuthDeg, isNull);
+    });
+
     test('also accepts ISO-8601 timestamps', () {
       final json = jsonEncode({
         'outputs': {

@@ -9,16 +9,18 @@ import 'load_section.dart';
 import 'project_section.dart';
 
 String _weatherHint(int withPvgis, int totalArrays) {
+  const sessionNote = ' PVGIS-Importe gelten nur für diese Sitzung; '
+      'beim erneuten Öffnen eines gespeicherten Projekts müssen sie neu importiert werden.';
   if (totalArrays == 0 || withPvgis == 0) {
     return 'Hinweis: Diese Simulation nutzt ein synthetisches Demo-Strahlungsmodell und ersetzt keine PVGIS-Validierung. '
         'Du kannst pro Modulfeld eine PVGIS-Stündliche-Daten-JSON importieren, um reale Einstrahlung zu nutzen.';
   }
   if (withPvgis == totalArrays) {
     return 'Wetterquelle: PVGIS-Daten für alle $totalArrays Modulfelder importiert. '
-        'TMY-Mittelwerte über die in der Datei enthaltenen Jahre.';
+        'TMY-Mittelwerte über die in der Datei enthaltenen Jahre.$sessionNote';
   }
   return 'Wetterquelle gemischt: $withPvgis von $totalArrays Modulfeldern nutzen importierte PVGIS-Daten, '
-      'die übrigen fallen auf das synthetische Demo-Modell zurück.';
+      'die übrigen fallen auf das synthetische Demo-Modell zurück.$sessionNote';
 }
 
 class EditorPage extends StatelessWidget {

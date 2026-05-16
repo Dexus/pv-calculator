@@ -30,7 +30,7 @@ class _FakeFileIo implements FileIo {
   Future<ImportedProject?> importConfig() async => null;
 }
 
-ImportedPvgis _buildFakeImport() {
+ImportedPvgis _buildFakeImport({double? slopeDeg, double? azimuthDegPvgis}) {
   final entries = <PvgisHourlyEntry>[
     PvgisHourlyEntry(
       timestampUtc: DateTime.utc(2020, 6, 21, 12),
@@ -39,7 +39,10 @@ ImportedPvgis _buildFakeImport() {
   ];
   return ImportedPvgis(
     sourceLabel: 'mock-pvgis',
-    data: PvgisHourlyData(entries: entries, latitudeDeg: 50.1, longitudeDeg: 8.6),
+    data: PvgisHourlyData(
+      entries: entries, latitudeDeg: 50.1, longitudeDeg: 8.6,
+      slopeDeg: slopeDeg, azimuthDegPvgis: azimuthDegPvgis,
+    ),
   );
 }
 
@@ -115,6 +118,80 @@ void main() {
         reason: 'Weather must be keyed under the exact PvArray.id used by the simulator.');
     expect(controller.draft.hasWeatherFor('spaced'), isFalse,
         reason: 'Import handler must not implicitly trim the key.');
+  });
+
+  testWidgets('flags PVGIS tilt/azimuth mismatch against the array configuration', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 2000));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+    // Demo array: south-facing roof at 35° tilt (azimuthDeg 180).
+    final controller = ProjectController();
+    // PVGIS file generated for a flat (5°) east-facing (PVGIS azimuth
+    // −90 → app 90) setup. Both deltas exceed the tolerance.
+    final fileIo = _FakeFileIo(result: _buildFakeImport(slopeDeg: 5.0, azimuthDegPvgis: -90.0));
+
+    await tester.pumpWidget(MaterialApp(
+      home: ChangeNotifierProvider<ProjectController>.value(
+        value: controller,
+        child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('pvgis-import-south-roof')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('pvgis-orientation-warning-south-roof')), findsOneWidget);
+    // Both the metadata suffix and the warning quote the imported values,
+    // so the literal "Neigung 5°"/"Azimut 90°" fragments may appear twice.
+    // Pin to the warning's distinctive "vs <array value>" phrasing.
+    expect(find.textContaining('Neigung 5° vs 35°'), findsOneWidget);
+    expect(find.textContaining('Azimut 90° vs 180°'), findsOneWidget);
+  });
+
+  testWidgets('matching orientation does not raise a warning', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 2000));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+    final controller = ProjectController(); // demo: tilt 35, az 180
+    final fileIo = _FakeFileIo(result: _buildFakeImport(slopeDeg: 35.0, azimuthDegPvgis: 0.0));
+
+    await tester.pumpWidget(MaterialApp(
+      home: ChangeNotifierProvider<ProjectController>.value(
+        value: controller,
+        child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('pvgis-import-south-roof')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('pvgis-orientation-warning-south-roof')), findsNothing);
+  });
+
+  testWidgets('shows the session-only persistence notice once data is attached', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 2000));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+    final controller = ProjectController();
+    final fileIo = _FakeFileIo(result: _buildFakeImport());
+
+    await tester.pumpWidget(MaterialApp(
+      home: ChangeNotifierProvider<ProjectController>.value(
+        value: controller,
+        child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Before import: no session notice yet (synthetic state has its own message).
+    expect(find.textContaining('nur für diese Sitzung'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('pvgis-import-south-roof')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('nur für diese Sitzung'), findsOneWidget);
   });
 
   testWidgets('cancelled import (user closes file picker) leaves state untouched', (tester) async {

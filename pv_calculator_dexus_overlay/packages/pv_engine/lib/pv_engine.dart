@@ -324,8 +324,13 @@ class SimulationConfig {
       inverter.validate();
       _require(inverterIds.add(inverter.id), 'Duplicate inverter id: ${inverter.id}.');
     }
+    // Duplicate array ids would silently share PVGIS weather imports
+    // (which are keyed by array id) and confuse per-array curtailment
+    // reporting. Reject them at validation time.
+    final arrayIds = <String>{};
     for (final array in arrays) {
       array.validate();
+      _require(arrayIds.add(array.id), 'Duplicate PV array id: ${array.id}.');
       _require(inverterIds.contains(array.inverterId), 'PV array ${array.id} references missing inverter ${array.inverterId}.');
     }
     final batteryIds = <String>{};

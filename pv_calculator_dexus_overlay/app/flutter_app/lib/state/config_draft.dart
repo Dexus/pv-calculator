@@ -10,6 +10,8 @@ class PvgisImportInfo {
     required this.coveredYears,
     required this.latitudeDeg,
     required this.longitudeDeg,
+    this.slopeDeg,
+    this.appAzimuthDeg,
   });
 
   /// Free-text label, usually the source filename or `URL`.
@@ -26,6 +28,16 @@ class PvgisImportInfo {
 
   /// Longitude reported in the PVGIS `inputs.location` block (degrees).
   final double longitudeDeg;
+
+  /// Module tilt (slope) the PVGIS request was generated for, in
+  /// degrees from horizontal. `null` when the document didn't carry
+  /// mounting metadata.
+  final double? slopeDeg;
+
+  /// PVGIS module azimuth translated into the engine's 0–360°
+  /// convention (180° = south). `null` when the document didn't carry
+  /// mounting metadata.
+  final double? appAzimuthDeg;
 }
 
 /// Mutable working copy of [SimulationConfig] for UI editing.
