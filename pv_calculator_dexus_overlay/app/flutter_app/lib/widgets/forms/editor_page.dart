@@ -34,6 +34,12 @@ class EditorPage extends StatelessWidget {
     final controller = context.watch<ProjectController>();
     final issue = controller.draft.validationIssue();
     final orphaned = controller.draft.orphanedWeatherArrayIds().toList();
+    // Surface a previous failed run() here: the run button only navigates
+    // to the results page on success, so without this banner the user
+    // would otherwise see no feedback for a simulator-side failure.
+    // `lastError` is cleared by `ProjectController.touch()` so the
+    // message disappears on the user's next form edit.
+    final runError = controller.lastError;
 
     return Scaffold(
       appBar: AppBar(
@@ -64,6 +70,13 @@ class EditorPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Last-run error sits above everything else: it relates to
+          // the *whole* draft, not a single section.
+          if (runError != null && issue == null)
+            _RunErrorCard(
+              key: const Key('run-error-banner'),
+              message: runError,
+            ),
           // Top-level banner only when the message can't be routed to a
           // specific section — keeps unknown / cross-cutting errors
           // visible without duplicating the section-level chip.
@@ -132,6 +145,31 @@ class _ValidationCard extends StatelessWidget {
         leading: Icon(Icons.error_outline, color: scheme.onErrorContainer),
         title: Text(
           'Konfiguration unvollständig',
+          style: TextStyle(color: scheme.onErrorContainer),
+        ),
+        subtitle: Text(
+          message,
+          style: TextStyle(color: scheme.onErrorContainer),
+        ),
+      ),
+    );
+  }
+}
+
+class _RunErrorCard extends StatelessWidget {
+  const _RunErrorCard({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.errorContainer,
+      child: ListTile(
+        leading: Icon(Icons.error_outline, color: scheme.onErrorContainer),
+        title: Text(
+          'Simulation fehlgeschlagen',
           style: TextStyle(color: scheme.onErrorContainer),
         ),
         subtitle: Text(

@@ -6,6 +6,26 @@ import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/forms/editor_page.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+/// Test-only stand-in that lets us mount the editor in the rare state
+/// where validation passes but the simulator still failed (e.g. an
+/// engine throw past validate()). Overriding the [lastError] getter
+/// keeps the production controller free of `@visibleForTesting`
+/// setters that have no real consumer.
+class _ControllerWithStubError extends ProjectController {
+  _ControllerWithStubError({required String message}) : _stubError = message;
+
+  String? _stubError;
+
+  @override
+  String? get lastError => _stubError;
+
+  @override
+  void touch() {
+    _stubError = null;
+    super.touch();
+  }
+}
+
 void main() {
   group('classifyValidationMessage', () {
     test('routes array messages to the arrays section', () {
@@ -161,6 +181,78 @@ void main() {
     expect(ok, isTrue);
     expect(controller.result, isNotNull);
     expect(controller.result!.summary.pvAcKwh, greaterThan(0));
+  });
+
+  testWidgets('surfaces controller.lastError on the editor after a failed run', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 4000));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+    // Start from a valid draft so the run button is enabled, then
+    // monkey-patch the draft into an invalid shape *after* the editor
+    // mounts so the failure happens inside controller.run().
+    final controller = ProjectController();
+    expect(controller.draft.validationIssue(), isNull);
+
+    await tester.pumpWidget(MaterialApp(
+      home: ChangeNotifierProvider<ProjectController>.value(
+        value: controller,
+        child: const EditorPage(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Make the draft invalid post-mount: clear all inverters. The
+    // run-button gate would normally catch this, but `run()` itself
+    // re-validates, so calling it directly exercises the failure path
+    // the user could reach via a race or a future engine throw.
+    controller.draft.inverters.clear();
+    final ok = controller.run();
+    expect(ok, isFalse);
+    expect(controller.lastError, isNotNull);
+
+    await tester.pumpAndSettle();
+
+    // The validation gate now reports the same issue (no inverters),
+    // so the section-scoped banner appears. The run-error banner only
+    // shows when validation passes but the simulator still failed, so
+    // here we expect the section banner. The point of this test is
+    // that controller.lastError survived until the next touch().
+    expect(controller.lastError, isNotNull,
+        reason: 'lastError persists until the next draft mutation.');
+
+    // Editing the form clears the stale failure message.
+    controller.touch();
+    expect(controller.lastError, isNull);
+  });
+
+  testWidgets('run-error banner appears when validation passes but run() throws', (tester) async {
+    // This is the path the reviewer flagged as previously unreachable:
+    // a controller with no validation issues but a populated
+    // lastError. We synthesise the state directly because the engine
+    // currently can't fail past validate() with the demo draft.
+    await tester.binding.setSurfaceSize(const Size(1200, 4000));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+    final controller = _ControllerWithStubError(
+      message: 'Synthetic engine failure',
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: ChangeNotifierProvider<ProjectController>.value(
+        value: controller,
+        child: const EditorPage(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('run-error-banner')), findsOneWidget);
+    expect(find.text('Simulation fehlgeschlagen'), findsOneWidget);
+    expect(find.text('Synthetic engine failure'), findsOneWidget);
+
+    // touch() clears the stale message.
+    controller.touch();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('run-error-banner')), findsNothing);
   });
 
   testWidgets('orphaned PVGIS imports surface a chip the user can drop', (tester) async {

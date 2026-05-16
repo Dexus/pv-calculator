@@ -18,17 +18,17 @@ class ResultsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final result = controller.result;
-    final error = controller.lastError;
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Ergebnis — ${controller.projectName}'),
       ),
+      // Run failures are surfaced on the editor (the only screen the
+      // run button stays on after a failed run), so this page only has
+      // to handle the happy and the never-ran states.
       body: result != null
           ? _ResultsBody(result: result, projectName: controller.projectName, onExportCsv: onExportCsv)
-          : error != null
-              ? _RunErrorBody(message: error)
-              : const _EmptyResultsBody(),
+          : const _EmptyResultsBody(),
     );
   }
 }
@@ -53,54 +53,6 @@ class _EmptyResultsBody extends StatelessWidget {
             label: const Text('Zurück zur Konfiguration'),
           ),
         ]),
-      ),
-    );
-  }
-}
-
-class _RunErrorBody extends StatelessWidget {
-  const _RunErrorBody({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Card(
-            key: const Key('results-run-error-card'),
-            color: scheme.errorContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.error_outline, size: 48, color: scheme.onErrorContainer),
-                const SizedBox(height: 12),
-                Text(
-                  'Simulation fehlgeschlagen',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: scheme.onErrorContainer,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: scheme.onErrorContainer),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.tonalIcon(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Zurück zur Konfiguration'),
-                ),
-              ]),
-            ),
-          ),
-        ),
       ),
     );
   }

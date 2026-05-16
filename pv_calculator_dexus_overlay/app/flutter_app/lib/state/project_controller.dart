@@ -30,7 +30,14 @@ class ProjectController extends ChangeNotifier {
   }
 
   /// Notify listeners — call from form widgets after mutating draft fields.
-  void touch() => notifyListeners();
+  ///
+  /// Also clears the last simulation error, since any draft edit could
+  /// be the user's response to that error and a stale message next to
+  /// a now-valid form would be misleading.
+  void touch() {
+    _lastError = null;
+    notifyListeners();
+  }
 
   void loadDraft(String name, ConfigDraft draft) {
     _projectName = name;
