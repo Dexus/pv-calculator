@@ -105,7 +105,7 @@ PvgisHourlyData parsePvgisHourlyJson(String json) {
   if (outputs is! Map) {
     throw const FormatException('PVGIS JSON missing "outputs" object.');
   }
-  final hourly = (outputs as Map)['hourly'];
+  final hourly = outputs['hourly'];
   if (hourly is! List) {
     throw const FormatException('PVGIS JSON missing "outputs.hourly" array.');
   }
@@ -122,12 +122,13 @@ PvgisHourlyData parsePvgisHourlyJson(String json) {
       throw FormatException('PVGIS hourly entry $i has no "time" string.');
     }
     final ts = _parsePvgisTimestamp(timeStr, i);
+    final p = e['P'];
     entries.add(PvgisHourlyEntry(
       timestampUtc: ts,
       poaIrradianceWPerM2: _readDouble(e, 'G(i)', i),
       ambientTempC: _readDouble(e, 'T2m', i),
       windMS: _readDouble(e, 'WS10m', i, fallback: 1.0),
-      pvPowerW: e['P'] is num ? (e['P'] as num).toDouble() : null,
+      pvPowerW: p is num ? p.toDouble() : null,
     ));
   }
 
@@ -135,11 +136,13 @@ PvgisHourlyData parsePvgisHourlyJson(String json) {
   double lon = 0;
   final inputs = root['inputs'];
   if (inputs is Map) {
-    final location = (inputs as Map)['location'];
+    final location = inputs['location'];
     if (location is Map) {
       final loc = location.cast<String, dynamic>();
-      if (loc['latitude'] is num) lat = (loc['latitude'] as num).toDouble();
-      if (loc['longitude'] is num) lon = (loc['longitude'] as num).toDouble();
+      final latRaw = loc['latitude'];
+      final lonRaw = loc['longitude'];
+      if (latRaw is num) lat = latRaw.toDouble();
+      if (lonRaw is num) lon = lonRaw.toDouble();
     }
   }
 
