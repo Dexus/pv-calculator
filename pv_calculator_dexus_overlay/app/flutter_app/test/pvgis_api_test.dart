@@ -87,6 +87,54 @@ void main() {
       );
     });
 
+    test('prefers PVGIS JSON message field over the raw body on error', () async {
+      final mock = MockClient((_) async => http.Response(
+            jsonEncode({'message': 'location outside of coverage', 'status': 400}),
+            400,
+            headers: {'content-type': 'application/json'},
+          ));
+      final api = PvgisApiService(client: mock, minimumInterval: Duration.zero);
+      await expectLater(
+        api.fetch(_frankfurtRequest),
+        throwsA(isA<PvgisApiException>()
+            .having((e) => e.statusCode, 'statusCode', 400)
+            .having((e) => e.message, 'message',
+                contains('location outside of coverage'))
+            // Raw JSON braces would leak through if we returned the body verbatim.
+            .having((e) => e.message, 'message', isNot(contains('{')))),
+      );
+    });
+
+    test('falls back to truncated raw body when error is not JSON', () async {
+      final mock = MockClient((_) async =>
+          http.Response('<html>plain server error</html>', 502));
+      final api = PvgisApiService(client: mock, minimumInterval: Duration.zero);
+      await expectLater(
+        api.fetch(_frankfurtRequest),
+        throwsA(isA<PvgisApiException>().having(
+            (e) => e.message, 'message', contains('plain server error'))),
+      );
+    });
+
+    test('reads nested errors[].message arrays when present', () async {
+      final mock = MockClient((_) async => http.Response(
+            jsonEncode({
+              'status': 'error',
+              'errors': [
+                {'message': 'angle out of range'},
+                {'message': 'second'},
+              ],
+            }),
+            422,
+          ));
+      final api = PvgisApiService(client: mock, minimumInterval: Duration.zero);
+      await expectLater(
+        api.fetch(_frankfurtRequest),
+        throwsA(isA<PvgisApiException>().having(
+            (e) => e.message, 'message', contains('angle out of range'))),
+      );
+    });
+
     test('surfaces malformed JSON as PvgisApiException', () async {
       final mock = MockClient((_) async => http.Response('not json', 200));
       final api = PvgisApiService(client: mock, minimumInterval: Duration.zero);

@@ -8,24 +8,48 @@ import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
 import '_field.dart';
 
-class ArraysSection extends StatelessWidget {
+class ArraysSection extends StatefulWidget {
   const ArraysSection({super.key, this.fileIo, this.pvgisApi});
 
   /// Injected for tests. Defaults to the production [FileIo] when null.
   final FileIo? fileIo;
 
-  /// Injected for tests. Defaults to a production [PvgisApiService]
-  /// (created lazily so widget tests that never tap the API button
-  /// don't open a real HTTP client).
+  /// Injected for tests. Defaults to a section-wide production
+  /// [PvgisApiService] created lazily on first API click. Sharing one
+  /// service across array rows is what makes [PvgisApiService]'s
+  /// minimum-interval rate limit actually apply across arrays — a
+  /// per-row service would silently fire concurrent requests.
   final PvgisApiService? pvgisApi;
+
+  @override
+  State<ArraysSection> createState() => _ArraysSectionState();
+}
+
+class _ArraysSectionState extends State<ArraysSection> {
+  PvgisApiService? _ownedApi;
+
+  /// Returns the API service this section should hand down to its
+  /// rows. When the caller injected one, use it as-is. Otherwise
+  /// create a single shared default on first access so the rate
+  /// limiter inside [PvgisApiService] serializes requests across rows.
+  PvgisApiService _apiService() {
+    final injected = widget.pvgisApi;
+    if (injected != null) return injected;
+    return _ownedApi ??= PvgisApiService();
+  }
+
+  @override
+  void dispose() {
+    _ownedApi?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final draft = controller.draft;
     final inverterIds = draft.inverters.map((i) => i.id).where((id) => id.isNotEmpty).toList();
-    final io = fileIo ?? const FileIo();
-    final api = pvgisApi;
+    final io = widget.fileIo ?? const FileIo();
 
     return Card(
       child: Padding(
@@ -60,7 +84,7 @@ class ArraysSection extends StatelessWidget {
               array: draft.arrays[i],
               inverterIds: inverterIds,
               fileIo: io,
-              pvgisApi: api,
+              pvgisApiBuilder: _apiService,
               onChanged: controller.touch,
               onRemove: () {
                 draft.clearArrayWeather(draft.arrays[i].id);
@@ -82,7 +106,7 @@ class _ArrayEditor extends StatelessWidget {
     required this.array,
     required this.inverterIds,
     required this.fileIo,
-    required this.pvgisApi,
+    required this.pvgisApiBuilder,
     required this.onChanged,
     required this.onRemove,
   });
@@ -91,7 +115,7 @@ class _ArrayEditor extends StatelessWidget {
   final PvArrayDraft array;
   final List<String> inverterIds;
   final FileIo fileIo;
-  final PvgisApiService? pvgisApi;
+  final PvgisApiService Function() pvgisApiBuilder;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
 
@@ -170,7 +194,7 @@ class _ArrayEditor extends StatelessWidget {
         key: Key('pvgis-row-${array.id}'),
         arrayId: array.id,
         fileIo: fileIo,
-        pvgisApi: pvgisApi,
+        pvgisApiBuilder: pvgisApiBuilder,
         onChanged: onChanged,
       ),
     ]);
@@ -182,13 +206,19 @@ class _PvgisRow extends StatefulWidget {
     super.key,
     required this.arrayId,
     required this.fileIo,
-    required this.pvgisApi,
+    required this.pvgisApiBuilder,
     required this.onChanged,
   });
 
   final String arrayId;
   final FileIo fileIo;
-  final PvgisApiService? pvgisApi;
+
+  /// Resolves to the section-wide [PvgisApiService] on demand. Going
+  /// through a builder (instead of a value) keeps rows from forcing a
+  /// production service to spin up before any user actually taps
+  /// fetch.
+  final PvgisApiService Function() pvgisApiBuilder;
+
   final VoidCallback onChanged;
 
   @override
@@ -197,19 +227,6 @@ class _PvgisRow extends StatefulWidget {
 
 class _PvgisRowState extends State<_PvgisRow> {
   bool _busy = false;
-  PvgisApiService? _ownedApi;
-
-  /// Lazily-created production [PvgisApiService] so tests that never
-  /// touch the API button never open a real HTTP client.
-  PvgisApiService get _api {
-    return widget.pvgisApi ?? (_ownedApi ??= PvgisApiService());
-  }
-
-  @override
-  void dispose() {
-    _ownedApi?.dispose();
-    super.dispose();
-  }
 
   Future<void> _import() async {
     if (_busy) return;
@@ -277,7 +294,7 @@ class _PvgisRowState extends State<_PvgisRow> {
     }
     setState(() => _busy = true);
     try {
-      final data = await _api.fetch(request);
+      final data = await widget.pvgisApiBuilder().fetch(request);
       if (!mounted) return;
       _applyImport(
         controller: controller,
@@ -484,13 +501,8 @@ PvArrayDraft? _findArray(ConfigDraft draft, String id) {
 }
 
 /// Builds a [PvgisRequest] for one array using the draft's site
-/// coordinates and the array's own orientation/loss/peak fields.
-///
-/// Year range: the public PVGIS SARAH3 database typically covers up
-/// to two years before "today" — we use a fixed historical window
-/// (2020–2023) that's stable across SARAH3 releases. Users who need
-/// other years can still import a hand-fetched JSON via the file
-/// importer.
+/// coordinates and PVGIS-window settings plus the array's own
+/// orientation/loss/peak fields.
 PvgisRequest _buildRequestFor(ConfigDraft draft, PvArrayDraft array) {
   return PvgisRequest(
     latitudeDeg: draft.latitudeDeg,
@@ -499,16 +511,11 @@ PvgisRequest _buildRequestFor(ConfigDraft draft, PvArrayDraft array) {
     tiltDeg: array.tiltDeg,
     appAzimuthDeg: array.azimuthDeg,
     lossFactor: array.lossFactor,
-    startYear: _defaultPvgisStartYear,
-    endYear: _defaultPvgisEndYear,
+    startYear: draft.pvgisStartYear,
+    endYear: draft.pvgisEndYear,
+    radDatabase: draft.pvgisRadDatabase,
   );
 }
-
-/// Year window for in-app PVGIS API requests. SARAH3 currently covers
-/// 2005-01-01 through ~end-2023; we use the last four full years to
-/// average out short-term weather variation.
-const int _defaultPvgisStartYear = 2020;
-const int _defaultPvgisEndYear = 2023;
 
 /// Shortest absolute distance between two azimuths on the 0–360° circle.
 double _azimuthDelta(double a, double b) {

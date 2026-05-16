@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:pv_engine/pv_engine.dart';
@@ -106,14 +107,45 @@ class PvgisApiService {
     _nextAllowedAt = DateTime.now().add(minimumInterval);
   }
 
-  /// Best-effort excerpt from a PVGIS error response. Returns the
-  /// first 200 chars of the body when JSON parsing fails so callers
-  /// can still see what came back.
-  String _extractErrorMessage(String body) {
+  /// Best-effort excerpt from a PVGIS error response.
+  ///
+  /// PVGIS documents JSON error payloads of the shape
+  /// `{"message": "...", ...}` (sometimes `error` or nested `errors`
+  /// arrays). When the body parses as JSON, prefer the first such
+  /// human-readable field so users see "outside coverage" instead of
+  /// `{"message":"outside coverage","status":400}`. Falls back to a
+  /// 200-char excerpt of the raw body when JSON parsing fails or no
+  /// known message field is present.
+  static String _extractErrorMessage(String body) {
     if (body.isEmpty) return '';
-    final lower = body.trim();
-    if (lower.length > 200) return lower.substring(0, 200);
-    return lower;
+    final trimmed = body.trim();
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is Map) {
+        for (final key in const ['message', 'error', 'detail']) {
+          final value = decoded[key];
+          if (value is String && value.trim().isNotEmpty) {
+            return value.trim();
+          }
+        }
+        final errors = decoded['errors'];
+        if (errors is List && errors.isNotEmpty) {
+          final first = errors.first;
+          if (first is String && first.trim().isNotEmpty) return first.trim();
+          if (first is Map) {
+            for (final key in const ['message', 'error', 'detail']) {
+              final value = first[key];
+              if (value is String && value.trim().isNotEmpty) {
+                return value.trim();
+              }
+            }
+          }
+        }
+      }
+    } on FormatException {
+      // Body wasn't JSON — fall through to the raw excerpt.
+    }
+    return trimmed.length > 200 ? trimmed.substring(0, 200) : trimmed;
   }
 
   void dispose() => _client.close();
