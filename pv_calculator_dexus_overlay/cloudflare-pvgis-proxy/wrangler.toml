@@ -1,0 +1,7 @@
+name = "pvgis-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+[[r2_buckets]]
+binding = "PVGIS_CACHE"
+bucket_name = "pvgis-cache"

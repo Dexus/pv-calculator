@@ -71,7 +71,14 @@ jobs:
         run: flutter test
       - name: build web
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
-        run: flutter build web --release
+        env:
+          PVGIS_PROXY: ${{ secrets.PVGIS_PROXY }}
+        run: |
+          dart_defines=""
+          if [ -n "$PVGIS_PROXY" ]; then
+            dart_defines="--dart-define=PVGIS_PROXY=$PVGIS_PROXY"
+          fi
+          flutter build web --release $dart_defines
       - name: upload web build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

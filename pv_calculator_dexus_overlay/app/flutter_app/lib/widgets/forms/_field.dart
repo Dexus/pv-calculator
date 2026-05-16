@@ -30,6 +30,7 @@ class NumberField extends StatefulWidget {
 
 class _NumberFieldState extends State<NumberField> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
@@ -37,6 +38,14 @@ class _NumberFieldState extends State<NumberField> {
     _controller = TextEditingController(
       text: widget.initialValue == null ? '' : _format(widget.initialValue!),
     );
+    _focusNode = FocusNode()..addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    // When the field loses focus, force a revalidation pass so incomplete
+    // values like "-" or "-0." are flagged as errors. While the field is
+    // focused the validator suppresses these intermediate states (see below).
+    if (!_focusNode.hasFocus) setState(() {});
   }
 
   @override
@@ -50,6 +59,9 @@ class _NumberFieldState extends State<NumberField> {
 
   @override
   void dispose() {
+    _focusNode
+      ..removeListener(_onFocusChange)
+      ..dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -65,6 +77,14 @@ class _NumberFieldState extends State<NumberField> {
       if (widget.allowNull) return null;
       return 'Pflichtfeld';
     }
+    // Suppress errors for incomplete input only while the field has focus,
+    // so typing "-0.4" doesn't flash errors on intermediate keystrokes.
+    // _onFocusChange triggers a rebuild on blur so this guard is inactive
+    // when the form is submitted or focus moves away.
+    if (_focusNode.hasFocus &&
+        (value == '-' || value.endsWith('.') || value.endsWith(','))) {
+      return null;
+    }
     final parsed = double.tryParse(value.replaceAll(',', '.'));
     if (parsed == null) return 'Bitte eine Zahl eingeben';
     if (widget.min != null && parsed < widget.min!) return 'Mindestens ${widget.min}';
@@ -75,9 +95,19 @@ class _NumberFieldState extends State<NumberField> {
   @override
   Widget build(BuildContext context) {
     final pattern = widget.allowDecimal ? r'[0-9.,\-]' : r'[0-9\-]';
+    // Mobile browsers render `numberWithOptions` as inputmode="decimal", which
+    // omits the minus key even when signed:true. Use the text keyboard whenever
+    // the field can hold a negative value so the "-" key is always reachable.
+    // FilteringTextInputFormatter still restricts input to valid characters.
+    final canBeNegative = widget.min == null || widget.min! < 0;
+    final keyboardType = canBeNegative
+        ? TextInputType.text
+        : TextInputType.numberWithOptions(
+            decimal: widget.allowDecimal, signed: false);
     return TextFormField(
       controller: _controller,
-      keyboardType: TextInputType.numberWithOptions(decimal: widget.allowDecimal, signed: true),
+      focusNode: _focusNode,
+      keyboardType: keyboardType,
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(pattern))],
       decoration: InputDecoration(
         labelText: widget.label,
