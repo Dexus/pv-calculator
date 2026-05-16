@@ -264,6 +264,60 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('fallback source covers arrays without imported series', () {
+      // One array has a real PVGIS slot, the other has no series and
+      // must fall back to the synthetic model rather than throwing.
+      final samples = List<WeatherSample>.filled(8760, WeatherSample.empty);
+      samples[4116] = const WeatherSample(poaWPerM2: 1000, ambientTempC: 20);
+      final series = HourlyWeatherSeries(
+        {'roof': samples},
+        fallback: const SyntheticIrradianceSource(),
+      );
+
+      final result = const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(
+            id: 'roof', label: 'Roof', peakKw: 4.0, azimuthDeg: 180, tiltDeg: 35,
+            inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0,
+          ),
+          PvArray(
+            id: 'balcony', label: 'Balcony', peakKw: 0.4, azimuthDeg: 180, tiltDeg: 30,
+            inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0,
+          ),
+        ],
+        inverters: const [Inverter(id: 'inv', label: 'Inv', maxAcKw: 5.0, efficiency: 1.0)],
+        loadProfile: LoadProfile(dailyKwh: 0),
+        startDayOfYear: 172,
+        days: 1,
+        weatherSource: HourlyWeatherSeries({}),
+      ).copyWithSeries(series));
+
+      // PVGIS slot still produces full 4 kWh at peak; synthetic delivers
+      // continuous yield for the balcony array across the day.
+      final pvgisStep = result.steps.firstWhere((s) => s.hourOfDay > 12 && s.hourOfDay < 13);
+      expect(pvgisStep.pvAcKwh, greaterThan(4.0));
+      // Synthetic balcony alone produces > 0 over the whole day.
+      final balconyOnly = result.summary.pvAcKwh;
+      expect(balconyOnly, greaterThan(4.0));
+    });
+
+    test('fallback skips the missing-array check', () {
+      final series = HourlyWeatherSeries(
+        {'roof': List<WeatherSample>.filled(8760, WeatherSample.empty)},
+        fallback: const SyntheticIrradianceSource(),
+      );
+      // Should not throw even though 'balcony' has no imported series.
+      const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(id: 'roof', label: 'R', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+          PvArray(id: 'balcony', label: 'B', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5)],
+        loadProfile: LoadProfile(dailyKwh: 1),
+        days: 1,
+      ).copyWithSeries(series));
+    });
   });
 }
 
