@@ -1,0 +1,152 @@
+# Manual multi-platform smoke build.
+#
+# Triggered ONLY by `workflow_dispatch` to avoid burning the free-tier GitHub
+# Actions minutes on every push. Run from the Actions tab when you want to
+# confirm the Flutter app still builds on every target platform.
+#
+# Approximate cost per full run (free-tier minute multipliers in parentheses):
+#   - ubuntu-latest jobs (x1)  : ~25 min total across engine, web, linux, android
+#   - macos-latest (x10)       : ~12 min ≈ 120 free-tier minutes
+#   - windows-latest (x2)      : ~10 min ≈ 20 free-tier minutes
+# Skip the macos-ios / windows jobs from the dispatch dialog if you only care
+# about a quick check.
+
+name: Multi-platform smoke build
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_macos_ios:
+        description: 'Also build macOS + iOS (costs ~120 free-tier minutes)'
+        type: boolean
+        default: true
+      include_windows:
+        description: 'Also build Windows (costs ~20 free-tier minutes)'
+        type: boolean
+        default: true
+
+jobs:
+  engine-smoke:
+    name: pv_engine analyze + test + example
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - name: pub get
+        working-directory: pv_calculator_dexus_overlay/packages/pv_engine
+        run: dart pub get
+      - name: analyze
+        working-directory: pv_calculator_dexus_overlay/packages/pv_engine
+        run: dart analyze
+      - name: test
+        working-directory: pv_calculator_dexus_overlay/packages/pv_engine
+        run: dart test
+      - name: example smoke
+        working-directory: pv_calculator_dexus_overlay/packages/pv_engine
+        run: dart run bin/example.dart
+
+  flutter-web:
+    name: Flutter web (build + artifact)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: pub get
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter pub get
+      - name: analyze
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter analyze
+      - name: test
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter test
+      - name: build web
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter build web --release
+      - name: upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-build
+          path: pv_calculator_dexus_overlay/app/flutter_app/build/web
+          retention-days: 7
+
+  flutter-linux:
+    name: Flutter Linux desktop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install Linux desktop deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libmpv-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: pub get
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter pub get
+      - name: enable linux desktop
+        run: flutter config --enable-linux-desktop
+      - name: build linux
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter build linux --release
+
+  flutter-android:
+    name: Flutter Android (debug APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: pub get
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter pub get
+      - name: build apk
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter build apk --debug
+
+  flutter-macos-ios:
+    name: Flutter macOS + iOS
+    if: ${{ inputs.include_macos_ios }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: pub get
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter pub get
+      - name: enable macos desktop
+        run: flutter config --enable-macos-desktop
+      - name: build macos
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter build macos --release
+      - name: build ios (no codesign)
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter build ios --debug --no-codesign
+
+  flutter-windows:
+    name: Flutter Windows desktop
+    if: ${{ inputs.include_windows }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: pub get
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter pub get
+      - name: enable windows desktop
+        run: flutter config --enable-windows-desktop
+      - name: build windows
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter build windows --release
