@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_calculator_app/persistence/file_io.dart';
+import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/forms/arrays_section.dart';
 import 'package:pv_engine/pv_engine.dart';
@@ -80,6 +81,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.draft.hasWeatherFor('south-roof'), isFalse);
     expect(find.text('Wetterquelle: synthetisches Demo-Modell'), findsOneWidget);
+  });
+
+  testWidgets('stores weather under the exact array id (no implicit trim)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 2000));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+    // The simulator queries WeatherQuery by the exact PvArray.id string.
+    // If the import handler trimmed the key, an id like ' foo ' would
+    // silently fall back to synthetic. Build an array with a
+    // surrounding-space id and verify the import key matches.
+    final draft = ConfigDraft(
+      arrays: [PvArrayDraft(id: ' spaced ', label: 'Test', inverterId: 'inv')],
+      inverters: [InverterDraft(id: 'inv', label: 'Inv', maxAcKw: 5)],
+      batteries: [],
+      loadProfile: LoadProfileDraft(dailyKwh: 1),
+    );
+    final controller = ProjectController(draft: draft);
+    final fileIo = _FakeFileIo(result: _buildFakeImport());
+
+    await tester.pumpWidget(MaterialApp(
+      home: ChangeNotifierProvider<ProjectController>.value(
+        value: controller,
+        child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('pvgis-import- spaced ')));
+    await tester.pumpAndSettle();
+
+    expect(controller.draft.hasWeatherFor(' spaced '), isTrue,
+        reason: 'Weather must be keyed under the exact PvArray.id used by the simulator.');
+    expect(controller.draft.hasWeatherFor('spaced'), isFalse,
+        reason: 'Import handler must not implicitly trim the key.');
   });
 
   testWidgets('cancelled import (user closes file picker) leaves state untouched', (tester) async {

@@ -45,6 +45,23 @@ void main() {
       );
     });
 
+    test('renameArrayWeather survives an empty-id transit (clear-then-retype)', () {
+      // Mirrors the common UI flow where the user clears the ID field
+      // before typing a new value: south-roof → '' → main-roof.
+      final draft = ConfigDraft.demo();
+      final samples = List<WeatherSample>.filled(365 * 24, WeatherSample.empty);
+      draft.setArrayWeather('south-roof', samples, const PvgisImportInfo(
+        sourceLabel: 'demo', entryCount: 8760, coveredYears: [2020],
+        latitudeDeg: 0, longitudeDeg: 0,
+      ));
+
+      expect(draft.renameArrayWeather('south-roof', ''), isTrue);
+      expect(draft.hasWeatherFor(''), isTrue);
+      expect(draft.renameArrayWeather('', 'main-roof'), isTrue);
+      expect(draft.hasWeatherFor('main-roof'), isTrue);
+      expect(draft.hasWeatherFor(''), isFalse);
+    });
+
     test('renameArrayWeather moves data to the new id', () {
       final draft = ConfigDraft.demo();
       final samples = List<WeatherSample>.filled(365 * 24, WeatherSample.empty);
@@ -89,6 +106,22 @@ void main() {
         latitudeDeg: 0, longitudeDeg: 0,
       ));
       expect(draft.orphanedWeatherArrayIds(), ['ghost']);
+    });
+
+    test('arraysWithWeatherCount excludes orphaned imports', () {
+      // demo() ships with one array, 'south-roof'.
+      final draft = ConfigDraft.demo();
+      final samples = List<WeatherSample>.filled(365 * 24, WeatherSample.empty);
+      draft.setArrayWeather('south-roof', samples, const PvgisImportInfo(
+        sourceLabel: 'real', entryCount: 8760, coveredYears: [],
+        latitudeDeg: 0, longitudeDeg: 0,
+      ));
+      draft.setArrayWeather('ghost', samples, const PvgisImportInfo(
+        sourceLabel: 'orphan', entryCount: 8760, coveredYears: [],
+        latitudeDeg: 0, longitudeDeg: 0,
+      ));
+      expect(draft.arraysWithWeatherCount, 1,
+          reason: 'Only south-roof matches a draft array; ghost is orphaned.');
     });
   });
 

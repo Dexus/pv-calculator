@@ -79,8 +79,12 @@ class ConfigDraft {
   /// Metadata for [arrayId], or `null` if no series is imported.
   PvgisImportInfo? weatherInfoFor(String arrayId) => _arrayWeatherInfo[arrayId];
 
-  /// Number of arrays that currently have an imported series.
-  int get arraysWithWeatherCount => _arrayWeather.length;
+  /// Number of arrays in the current draft that have an imported
+  /// series. Orphaned imports (whose array was renamed or deleted) are
+  /// excluded so the editor's hint reflects what the simulator will
+  /// actually use.
+  int get arraysWithWeatherCount =>
+      arrays.where((a) => _arrayWeather.containsKey(a.id)).length;
 
   /// Attaches an imported PVGIS series for [arrayId]. Replaces any
   /// previously stored series for the same id.

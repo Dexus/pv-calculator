@@ -49,10 +49,8 @@ class FileIo {
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     final file = await openFile(acceptedTypeGroups: const [typeGroup]);
     if (file == null) return null;
+    await _enforceSizeLimit(file, maxImportBytes, kind: 'Project');
     final raw = await file.readAsString();
-    if (raw.length > maxImportBytes) {
-      throw ArgumentError('Project file is too large (${raw.length} bytes, max $maxImportBytes).');
-    }
     final decoded = jsonDecode(raw);
     if (decoded is! Map) {
       throw ArgumentError('Project JSON must be a top-level object.');
@@ -72,13 +70,22 @@ class FileIo {
     const typeGroup = XTypeGroup(label: 'PVGIS JSON', extensions: <String>['json']);
     final file = await openFile(acceptedTypeGroups: const [typeGroup]);
     if (file == null) return null;
+    await _enforceSizeLimit(file, maxPvgisImportBytes, kind: 'PVGIS');
     final raw = await file.readAsString();
-    if (raw.length > maxPvgisImportBytes) {
-      throw ArgumentError('PVGIS file is too large (${raw.length} bytes, max $maxPvgisImportBytes).');
-    }
     final data = parsePvgisHourlyJson(raw);
     final label = file.name.replaceAll(RegExp(r'\.json$', caseSensitive: false), '');
     return ImportedPvgis(sourceLabel: label.isEmpty ? 'PVGIS-Import' : label, data: data);
+  }
+
+  /// Throws [ArgumentError] if the picked file's byte length exceeds
+  /// [maxBytes]. Checking before `readAsString()` keeps a crafted
+  /// multi-gigabyte payload from being decoded into memory just so we
+  /// can reject it after the fact.
+  Future<void> _enforceSizeLimit(XFile file, int maxBytes, {required String kind}) async {
+    final size = await file.length();
+    if (size > maxBytes) {
+      throw ArgumentError('$kind file is too large ($size bytes, max $maxBytes).');
+    }
   }
 
   Future<bool> _saveString({required String suggestedName, required String content, required String mimeType}) async {

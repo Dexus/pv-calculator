@@ -178,10 +178,16 @@ class HourlyWeatherSeries extends IrradianceSource {
 
   @override
   void validateForArrays(Iterable<String> arrayIds) {
-    if (allowMissing || fallback != null) {
-      fallback?.validateForArrays(arrayIds);
+    if (fallback != null) {
+      // Only the ids this series doesn't cover get delegated. Asking
+      // the fallback to validate ids we already serve would force any
+      // keyed fallback (e.g. another HourlyWeatherSeries) to also have
+      // them — defeating the point of layering sources.
+      final missing = missingArrayIds(arrayIds);
+      if (missing.isNotEmpty) fallback!.validateForArrays(missing);
       return;
     }
+    if (allowMissing) return;
     final missing = missingArrayIds(arrayIds);
     if (missing.isNotEmpty) {
       throw ArgumentError(

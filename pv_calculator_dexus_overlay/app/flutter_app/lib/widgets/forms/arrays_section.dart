@@ -100,10 +100,11 @@ class _ArrayEditor extends StatelessWidget {
             final oldId = array.id;
             array.id = v;
             // PVGIS series are keyed by array id — keep the import
-            // attached when the user renames an array.
-            if (oldId.isNotEmpty) {
-              draft.renameArrayWeather(oldId, v);
-            }
+            // attached across every transition, including the common
+            // edit flow where the field passes through an empty value
+            // (select-all, delete, retype). renameArrayWeather is a
+            // no-op when there's no series under [oldId].
+            draft.renameArrayWeather(oldId, v);
             onChanged();
           },
         )),
@@ -182,8 +183,10 @@ class _PvgisRowState extends State<_PvgisRow> {
     if (_busy) return;
     final messenger = ScaffoldMessenger.of(context);
     final controller = context.read<ProjectController>();
-    final id = widget.arrayId.trim();
-    if (id.isEmpty) {
+    // The simulator looks up samples by the *exact* PvArray.id string,
+    // so the storage key must be identical to widget.arrayId — not a
+    // trimmed copy. Trim only for the empty-check.
+    if (widget.arrayId.trim().isEmpty) {
       messenger.showSnackBar(const SnackBar(
         content: Text('Bitte zuerst eine Modulfeld-ID vergeben.'),
       ));
@@ -192,11 +195,14 @@ class _PvgisRowState extends State<_PvgisRow> {
     setState(() => _busy = true);
     try {
       final imported = await widget.fileIo.importPvgisJson();
+      // Picker is asynchronous — bail if the user closed the editor
+      // before they finished choosing a file.
+      if (!mounted) return;
       if (imported == null) return;
       final samples = imported.data.toAveragedYear();
       final years = (imported.data.entries.map((e) => e.timestampUtc.year).toSet().toList()..sort());
       controller.draft.setArrayWeather(
-        id,
+        widget.arrayId,
         samples,
         PvgisImportInfo(
           sourceLabel: imported.sourceLabel,
@@ -207,9 +213,8 @@ class _PvgisRowState extends State<_PvgisRow> {
         ),
       );
       widget.onChanged();
-      if (!mounted) return;
       messenger.showSnackBar(SnackBar(
-        content: Text('PVGIS-Daten für "$id" importiert (${imported.data.entries.length} Werte).'),
+        content: Text('PVGIS-Daten für "${widget.arrayId}" importiert (${imported.data.entries.length} Werte).'),
       ));
     } catch (e) {
       if (!mounted) return;
@@ -232,20 +237,18 @@ class _PvgisRowState extends State<_PvgisRow> {
     final hasData = info != null;
     final scheme = Theme.of(context).colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
+    final status = Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(
+        hasData ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+        color: hasData ? scheme.primary : scheme.outline,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Icon(
-          hasData ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
-          color: hasData ? scheme.primary : scheme.outline,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(width: 10),
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
               hasData ? 'PVGIS-Daten geladen' : 'Wetterquelle: synthetisches Demo-Modell',
               style: Theme.of(context).textTheme.bodyMedium,
@@ -257,28 +260,49 @@ class _PvgisRowState extends State<_PvgisRow> {
                 'Jahre ${info.coveredYears.isEmpty ? "?" : info.coveredYears.join(", ")} · '
                 'PVGIS-Lage ${info.latitudeDeg.toStringAsFixed(3)}°/${info.longitudeDeg.toStringAsFixed(3)}°',
                 style: Theme.of(context).textTheme.bodySmall,
+                softWrap: true,
               ),
             ],
+          ],
+        ),
+      ),
+    ]);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      // Wrap lets the action buttons drop below the status block on
+      // narrow editor widths instead of overflowing the row.
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          status,
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            if (hasData)
+              TextButton.icon(
+                key: Key('pvgis-remove-${widget.arrayId}'),
+                onPressed: _busy ? null : _remove,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Entfernen'),
+              ),
+            const SizedBox(width: 4),
+            FilledButton.tonalIcon(
+              key: Key('pvgis-import-${widget.arrayId}'),
+              onPressed: _busy ? null : _import,
+              icon: _busy
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.file_upload_outlined, size: 18),
+              label: Text(hasData ? 'Ersetzen' : 'PVGIS-JSON importieren'),
+            ),
           ]),
-        ),
-        const SizedBox(width: 12),
-        if (hasData)
-          TextButton.icon(
-            key: Key('pvgis-remove-${widget.arrayId}'),
-            onPressed: _busy ? null : _remove,
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Entfernen'),
-          ),
-        const SizedBox(width: 4),
-        FilledButton.tonalIcon(
-          key: Key('pvgis-import-${widget.arrayId}'),
-          onPressed: _busy ? null : _import,
-          icon: _busy
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.file_upload_outlined, size: 18),
-          label: Text(hasData ? 'Ersetzen' : 'PVGIS-JSON importieren'),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }

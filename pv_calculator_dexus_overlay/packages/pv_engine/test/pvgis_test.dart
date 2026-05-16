@@ -302,6 +302,26 @@ void main() {
       expect(balconyOnly, greaterThan(4.0));
     });
 
+    test('chained HourlyWeatherSeries validate only the ids they each cover', () {
+      // Primary covers 'roof'; fallback covers 'balcony'. Together they
+      // cover both arrays — neither alone does. validateForArrays must
+      // not ask the fallback about 'roof' (which it doesn't have).
+      final primary = HourlyWeatherSeries(
+        {'roof': List<WeatherSample>.filled(8760, WeatherSample.empty)},
+        fallback: HourlyWeatherSeries({
+          'balcony': List<WeatherSample>.filled(8760, WeatherSample.empty),
+        }),
+      );
+      // Should not throw.
+      primary.validateForArrays(const ['roof', 'balcony']);
+      // But a truly missing id still surfaces from the keyed fallback.
+      expect(
+        () => primary.validateForArrays(const ['roof', 'balcony', 'shed']),
+        throwsA(isA<ArgumentError>()
+            .having((e) => e.message, 'message', contains('shed'))),
+      );
+    });
+
     test('fallback skips the missing-array check', () {
       final series = HourlyWeatherSeries(
         {'roof': List<WeatherSample>.filled(8760, WeatherSample.empty)},
