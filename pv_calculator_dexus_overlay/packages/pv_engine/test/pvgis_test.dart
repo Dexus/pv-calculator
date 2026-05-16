@@ -197,8 +197,10 @@ void main() {
       final series = HourlyWeatherSeries({
         'known': List<WeatherSample>.filled(8760, WeatherSample.empty),
       });
-      final sample = series.sampleFor(WeatherQuery(
-        array: const PvArray(id: 'unknown', label: 'U', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+      final sample = series.sampleFor(const WeatherQuery(
+        arrayId: 'unknown',
+        tiltDeg: 35,
+        azimuthDeg: 180,
         dayOfYear: 100,
         hourOfDay: 12,
         latitudeDeg: 50,

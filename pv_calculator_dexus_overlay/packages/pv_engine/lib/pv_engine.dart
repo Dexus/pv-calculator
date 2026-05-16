@@ -499,7 +499,9 @@ class PvSimulator {
 
     for (final array in config.arrays) {
       final weather = source.sampleFor(WeatherQuery(
-        array: array,
+        arrayId: array.id,
+        tiltDeg: array.tiltDeg,
+        azimuthDeg: array.azimuthDeg,
         dayOfYear: dayOfYear,
         hourOfDay: hourOfDay,
         latitudeDeg: config.latitudeDeg,

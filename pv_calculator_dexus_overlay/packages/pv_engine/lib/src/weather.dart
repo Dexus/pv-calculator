@@ -1,7 +1,5 @@
 import 'dart:math' as math;
 
-import '../pv_engine.dart';
-
 /// Plane-of-array weather sample at one instant for one array.
 ///
 /// `poaWPerM2` is irradiance on the tilted module plane in W/m². At
@@ -23,15 +21,24 @@ class WeatherSample {
 }
 
 /// Query passed to an [IrradianceSource] for one (array, instant) pair.
+///
+/// Carries only the scalar fields a source needs — array id (so series
+/// can index per array) plus the orientation needed by geometry-aware
+/// sources. Keeping `PvArray` out of this file prevents an import
+/// cycle with the rest of the engine.
 class WeatherQuery {
   const WeatherQuery({
-    required this.array,
+    required this.arrayId,
+    required this.tiltDeg,
+    required this.azimuthDeg,
     required this.dayOfYear,
     required this.hourOfDay,
     required this.latitudeDeg,
   });
 
-  final PvArray array;
+  final String arrayId;
+  final double tiltDeg;
+  final double azimuthDeg;
   final int dayOfYear;
   final double hourOfDay;
   final double latitudeDeg;
@@ -65,7 +72,8 @@ class SyntheticIrradianceSource extends IrradianceSource {
   @override
   WeatherSample sampleFor(WeatherQuery query) {
     final f = normalizedPowerFactor(
-      array: query.array,
+      azimuthDeg: query.azimuthDeg,
+      tiltDeg: query.tiltDeg,
       dayOfYear: query.dayOfYear,
       hourOfDay: query.hourOfDay,
       latitudeDeg: query.latitudeDeg,
@@ -81,7 +89,8 @@ class SyntheticIrradianceSource extends IrradianceSource {
   /// tilt penalties. Exposed so tests and adapters can reuse the
   /// same shape without re-deriving it.
   static double normalizedPowerFactor({
-    required PvArray array,
+    required double azimuthDeg,
+    required double tiltDeg,
     required int dayOfYear,
     required double hourOfDay,
     required double latitudeDeg,
@@ -95,8 +104,8 @@ class SyntheticIrradianceSource extends IrradianceSource {
     if (hourOfDay < sunrise || hourOfDay > sunset) return 0;
     final sun = math.sin(math.pi * (hourOfDay - sunrise) / dayLength).clamp(0.0, 1.0).toDouble();
     final season = (0.72 + 0.28 * math.cos(2 * math.pi * (dayOfYear - 172) / 365.0)).clamp(0.25, 1.0).toDouble();
-    final azimuthPenalty = ((array.azimuthDeg - 180).abs() / 180.0).clamp(0.0, 1.0).toDouble();
-    final tiltPenalty = ((array.tiltDeg - 35).abs() / 90.0).clamp(0.0, 1.0).toDouble();
+    final azimuthPenalty = ((azimuthDeg - 180).abs() / 180.0).clamp(0.0, 1.0).toDouble();
+    final tiltPenalty = ((tiltDeg - 35).abs() / 90.0).clamp(0.0, 1.0).toDouble();
     final orientation = (1.0 - 0.22 * azimuthPenalty - 0.12 * tiltPenalty).clamp(0.55, 1.0).toDouble();
     return sun * season * orientation;
   }
@@ -128,10 +137,12 @@ class HourlyWeatherSeries extends IrradianceSource {
 
   @override
   WeatherSample sampleFor(WeatherQuery query) {
-    final series = _samplesByArrayId[query.array.id];
+    final series = _samplesByArrayId[query.arrayId];
     if (series == null) return WeatherSample.empty;
-    final day = (query.dayOfYear - 1).clamp(0, 364);
-    final hour = query.hourOfDay.floor().clamp(0, 23);
+    // `num.clamp` is statically typed `num`, so cast back to `int`
+    // before computing the list index.
+    final day = (query.dayOfYear - 1).clamp(0, 364).toInt();
+    final hour = query.hourOfDay.floor().clamp(0, 23).toInt();
     return series[day * 24 + hour];
   }
 }
