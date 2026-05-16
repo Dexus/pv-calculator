@@ -8,12 +8,13 @@
 - Flutter-Projektgerüst prüfen.
 - CI grün bekommen.
 
-## Phase 2 – MVP-App
+## Phase 2 – MVP-App ✓
 
-- Eingabemasken für PV-Arrays, Wechselrichter, Batterie und Lastprofil.
-- Simulation starten und KPIs anzeigen.
-- Tages-/Monats-/Jahrestabellen.
-- Projekt als JSON speichern/laden.
+- [x] Eingabemasken für PV-Arrays, Wechselrichter, Batterien (Mehrfach-Speicher) und Lastprofil.
+- [x] Simulation starten und KPIs anzeigen.
+- [x] Monats-Tabelle inkl. CSV-Export von Schritten und Monatswerten.
+- [x] Projekt als JSON speichern/laden (lokale Liste über `shared_preferences`, plus Datei-Import/Export über `file_selector`).
+- [x] Engine-API erweitert: `SimulationConfig.batteries` als Liste, schemaversionierte JSON-Serialisierung mit Legacy-Migration des einzelnen `battery`-Feldes.
 
 ## Phase 3 – Fachliche Genauigkeit
 

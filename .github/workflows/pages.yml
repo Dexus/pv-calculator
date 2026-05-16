@@ -1,10 +1,25 @@
 name: Deploy GitHub Pages
 
+# Triggers:
+#   - push to main when HTML prototype, Flutter app, engine, or this workflow change
+#   - workflow_dispatch (manual trigger from the Actions tab)
+#
+# Every deploy ships BOTH the HTML prototype at the site root and the Flutter
+# web app under /app/. GitHub Pages serves only the most recently uploaded
+# artifact, so a partial deploy would wipe the sibling path; keeping them
+# bundled guarantees the site is always whole.
+#
+# Third-party actions are pinned to full commit SHAs (with the tag in a
+# trailing comment) per GitHub's supply-chain guidance. Update the SHA and
+# the comment together when bumping a version.
+
 on:
   push:
     branches: [main]
     paths:
       - 'pv_calculator_pvgis_clientv4pgis.html'
+      - 'pv_calculator_dexus_overlay/app/flutter_app/**'
+      - 'pv_calculator_dexus_overlay/packages/pv_engine/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -21,16 +36,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Stage site
+      - name: Stage HTML prototype at site root
         run: |
           mkdir -p _site
           cp pv_calculator_pvgis_clientv4pgis.html _site/index.html
 
-      - uses: actions/configure-pages@v5
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Flutter pub get
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter pub get
+
+      - name: Flutter build web
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/app/"
+
+      - name: Stage Flutter app at /app/
+        run: |
+          mkdir -p _site/app
+          cp -r pv_calculator_dexus_overlay/app/flutter_app/build/web/. _site/app/
+
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site
 
@@ -42,4 +74,33 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
+  cleanup:
+    needs: deploy
+    if: always() && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete all artifacts uploaded by this run
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId,
+                per_page: 100,
+              }
+            );
+            for (const artifact of artifacts) {
+              await github.rest.actions.deleteArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+              });
+              core.info(`Deleted artifact ${artifact.name} (#${artifact.id})`);
+            }

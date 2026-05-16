@@ -1,15 +1,21 @@
 name: CI
 
+# Third-party actions are pinned to full commit SHAs (tag in trailing comment)
+# per GitHub's supply-chain guidance. Update SHA and comment together on bump.
+
 on:
   push:
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   pv-engine:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1
       - name: Install dependencies
         working-directory: pv_calculator_dexus_overlay/packages/pv_engine
         run: dart pub get
@@ -23,8 +29,8 @@ jobs:
   flutter-app:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
       - name: Install dependencies
