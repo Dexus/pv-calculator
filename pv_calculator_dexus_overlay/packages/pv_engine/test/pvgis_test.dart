@@ -29,6 +29,60 @@ void main() {
       expect(data.entries[1].pvPowerW, 2400);
     });
 
+    test('parses optional mounting_system slope/azimuth and exposes app azimuth', () {
+      final json = jsonEncode({
+        'inputs': {
+          'location': {'latitude': 50.1, 'longitude': 7.0},
+          'mounting_system': {
+            'fixed': {
+              'slope': {'value': 35.0, 'optimal': false},
+              'azimuth': {'value': -90.0, 'optimal': false},
+            }
+          }
+        },
+        'outputs': {
+          'hourly': [
+            {'time': '20200101:0010', 'G(i)': 0.0, 'T2m': 2.5, 'WS10m': 3.2},
+          ]
+        }
+      });
+      final data = parsePvgisHourlyJson(json);
+      expect(data.slopeDeg, closeTo(35.0, 1e-9));
+      // PVGIS azimuth −90° (east) maps to app azimuth 90°.
+      expect(data.azimuthDegPvgis, closeTo(-90.0, 1e-9));
+      expect(data.appAzimuthDeg, closeTo(90.0, 1e-9));
+    });
+
+    test('appAzimuthDeg covers the canonical PVGIS quadrants', () {
+      PvgisHourlyData mk(double a) => PvgisHourlyData(
+            entries: const [], latitudeDeg: 0, longitudeDeg: 0,
+            azimuthDegPvgis: a,
+          );
+      // PVGIS 0 (south) → app 180
+      expect(mk(0).appAzimuthDeg, closeTo(180.0, 1e-9));
+      // PVGIS +90 (west) → app 270
+      expect(mk(90).appAzimuthDeg, closeTo(270.0, 1e-9));
+      // PVGIS −180 (north) → app 0
+      expect(mk(-180).appAzimuthDeg, closeTo(0.0, 1e-9));
+      // PVGIS missing → null
+      expect(PvgisHourlyData(entries: const [], latitudeDeg: 0, longitudeDeg: 0)
+          .appAzimuthDeg, isNull);
+    });
+
+    test('leaves slope/azimuth null when mounting_system is absent', () {
+      final json = jsonEncode({
+        'outputs': {
+          'hourly': [
+            {'time': '20200101:0010', 'G(i)': 0.0, 'T2m': 2.5, 'WS10m': 3.2},
+          ]
+        }
+      });
+      final data = parsePvgisHourlyJson(json);
+      expect(data.slopeDeg, isNull);
+      expect(data.azimuthDegPvgis, isNull);
+      expect(data.appAzimuthDeg, isNull);
+    });
+
     test('also accepts ISO-8601 timestamps', () {
       final json = jsonEncode({
         'outputs': {
@@ -263,6 +317,80 @@ void main() {
         () => HourlyWeatherSeries({'bad': List<WeatherSample>.filled(10, WeatherSample.empty)}),
         throwsArgumentError,
       );
+    });
+
+    test('fallback source covers arrays without imported series', () {
+      // One array has a real PVGIS slot, the other has no series and
+      // must fall back to the synthetic model rather than throwing.
+      final samples = List<WeatherSample>.filled(8760, WeatherSample.empty);
+      samples[4116] = const WeatherSample(poaWPerM2: 1000, ambientTempC: 20);
+      final series = HourlyWeatherSeries(
+        {'roof': samples},
+        fallback: const SyntheticIrradianceSource(),
+      );
+
+      final result = const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(
+            id: 'roof', label: 'Roof', peakKw: 4.0, azimuthDeg: 180, tiltDeg: 35,
+            inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0,
+          ),
+          PvArray(
+            id: 'balcony', label: 'Balcony', peakKw: 0.4, azimuthDeg: 180, tiltDeg: 30,
+            inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0,
+          ),
+        ],
+        inverters: const [Inverter(id: 'inv', label: 'Inv', maxAcKw: 5.0, efficiency: 1.0)],
+        loadProfile: LoadProfile(dailyKwh: 0),
+        startDayOfYear: 172,
+        days: 1,
+        weatherSource: HourlyWeatherSeries({}),
+      ).copyWithSeries(series));
+
+      // PVGIS slot still produces full 4 kWh at peak; synthetic delivers
+      // continuous yield for the balcony array across the day.
+      final pvgisStep = result.steps.firstWhere((s) => s.hourOfDay > 12 && s.hourOfDay < 13);
+      expect(pvgisStep.pvAcKwh, greaterThan(4.0));
+      // Synthetic balcony alone produces > 0 over the whole day.
+      final balconyOnly = result.summary.pvAcKwh;
+      expect(balconyOnly, greaterThan(4.0));
+    });
+
+    test('chained HourlyWeatherSeries validate only the ids they each cover', () {
+      // Primary covers 'roof'; fallback covers 'balcony'. Together they
+      // cover both arrays — neither alone does. validateForArrays must
+      // not ask the fallback about 'roof' (which it doesn't have).
+      final primary = HourlyWeatherSeries(
+        {'roof': List<WeatherSample>.filled(8760, WeatherSample.empty)},
+        fallback: HourlyWeatherSeries({
+          'balcony': List<WeatherSample>.filled(8760, WeatherSample.empty),
+        }),
+      );
+      // Should not throw.
+      primary.validateForArrays(const ['roof', 'balcony']);
+      // But a truly missing id still surfaces from the keyed fallback.
+      expect(
+        () => primary.validateForArrays(const ['roof', 'balcony', 'shed']),
+        throwsA(isA<ArgumentError>()
+            .having((e) => e.message, 'message', contains('shed'))),
+      );
+    });
+
+    test('fallback skips the missing-array check', () {
+      final series = HourlyWeatherSeries(
+        {'roof': List<WeatherSample>.filled(8760, WeatherSample.empty)},
+        fallback: const SyntheticIrradianceSource(),
+      );
+      // Should not throw even though 'balcony' has no imported series.
+      const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(id: 'roof', label: 'R', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+          PvArray(id: 'balcony', label: 'B', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5)],
+        loadProfile: LoadProfile(dailyKwh: 1),
+        days: 1,
+      ).copyWithSeries(series));
     });
   });
 }

@@ -1,5 +1,45 @@
 import 'package:pv_engine/pv_engine.dart';
 
+/// Metadata about an imported PVGIS series. Held alongside the samples
+/// so the UI can show the user which file/year-range fed each array
+/// without retaining the raw JSON.
+class PvgisImportInfo {
+  const PvgisImportInfo({
+    required this.sourceLabel,
+    required this.entryCount,
+    required this.coveredYears,
+    required this.latitudeDeg,
+    required this.longitudeDeg,
+    this.slopeDeg,
+    this.appAzimuthDeg,
+  });
+
+  /// Free-text label, usually the source filename or `URL`.
+  final String sourceLabel;
+
+  /// Number of hourly entries in the original PVGIS document.
+  final int entryCount;
+
+  /// Sorted, distinct calendar years covered by the original entries.
+  final List<int> coveredYears;
+
+  /// Latitude reported in the PVGIS `inputs.location` block (degrees).
+  final double latitudeDeg;
+
+  /// Longitude reported in the PVGIS `inputs.location` block (degrees).
+  final double longitudeDeg;
+
+  /// Module tilt (slope) the PVGIS request was generated for, in
+  /// degrees from horizontal. `null` when the document didn't carry
+  /// mounting metadata.
+  final double? slopeDeg;
+
+  /// PVGIS module azimuth translated into the engine's 0–360°
+  /// convention (180° = south). `null` when the document didn't carry
+  /// mounting metadata.
+  final double? appAzimuthDeg;
+}
+
 /// Mutable working copy of [SimulationConfig] for UI editing.
 ///
 /// Engine types are immutable; the editor needs fields the user can mutate
@@ -35,6 +75,83 @@ class ConfigDraft {
   final List<BatteryDraft> batteries;
   LoadProfileDraft loadProfile;
 
+  /// Per-array imported PVGIS series (8760 samples each).
+  ///
+  /// Session-only: not persisted with the project JSON. Arrays not in
+  /// this map are simulated with the synthetic fallback model via the
+  /// engine's [HourlyWeatherSeries.fallback] hook.
+  final Map<String, List<WeatherSample>> _arrayWeather = {};
+
+  /// Display metadata for each imported series. Keyed by array id.
+  final Map<String, PvgisImportInfo> _arrayWeatherInfo = {};
+
+  /// Whether [arrayId] has an imported PVGIS series attached.
+  bool hasWeatherFor(String arrayId) => _arrayWeather.containsKey(arrayId);
+
+  /// Metadata for [arrayId], or `null` if no series is imported.
+  PvgisImportInfo? weatherInfoFor(String arrayId) => _arrayWeatherInfo[arrayId];
+
+  /// Number of arrays in the current draft that have an imported
+  /// series. Orphaned imports (whose array was renamed or deleted) are
+  /// excluded so the editor's hint reflects what the simulator will
+  /// actually use.
+  int get arraysWithWeatherCount =>
+      arrays.where((a) => _arrayWeather.containsKey(a.id)).length;
+
+  /// Attaches an imported PVGIS series for [arrayId]. Replaces any
+  /// previously stored series for the same id.
+  void setArrayWeather(String arrayId, List<WeatherSample> samples, PvgisImportInfo info) {
+    if (samples.length != 365 * 24) {
+      throw ArgumentError('PVGIS series for "$arrayId" must have ${365 * 24} samples, got ${samples.length}.');
+    }
+    _arrayWeather[arrayId] = List<WeatherSample>.unmodifiable(samples);
+    _arrayWeatherInfo[arrayId] = info;
+  }
+
+  /// Drops the imported series for [arrayId] (no-op if none).
+  void clearArrayWeather(String arrayId) {
+    _arrayWeather.remove(arrayId);
+    _arrayWeatherInfo.remove(arrayId);
+  }
+
+  /// Moves an imported series from [oldId] to [newId] without re-parsing.
+  /// Returns `true` if a series existed under [oldId] and was rekeyed.
+  /// No-op (returns `false`) when [oldId] has no series, when the ids
+  /// are equal, or when a series already exists under [newId].
+  bool renameArrayWeather(String oldId, String newId) {
+    if (oldId == newId) return false;
+    final samples = _arrayWeather[oldId];
+    final info = _arrayWeatherInfo[oldId];
+    if (samples == null || info == null) return false;
+    if (_arrayWeather.containsKey(newId)) return false;
+    _arrayWeather.remove(oldId);
+    _arrayWeatherInfo.remove(oldId);
+    _arrayWeather[newId] = samples;
+    _arrayWeatherInfo[newId] = info;
+    return true;
+  }
+
+  /// Returns ids that have imported series but no matching array left
+  /// in the draft — useful for the UI to surface orphaned imports
+  /// after the user renamed or deleted an array.
+  Iterable<String> orphanedWeatherArrayIds() {
+    final ids = arrays.map((a) => a.id).toSet();
+    return _arrayWeather.keys.where((id) => !ids.contains(id)).toList();
+  }
+
+  /// Builds the [IrradianceSource] used by the engine, or `null` to
+  /// fall back to the engine default (synthetic). Returns an
+  /// [HourlyWeatherSeries] with synthetic fallback when at least one
+  /// array has imported data, so missing arrays keep producing yield
+  /// instead of zero.
+  IrradianceSource? buildWeatherSource() {
+    if (_arrayWeather.isEmpty) return null;
+    return HourlyWeatherSeries(
+      _arrayWeather,
+      fallback: const SyntheticIrradianceSource(),
+    );
+  }
+
   SimulationConfig build() => SimulationConfig(
         arrays: arrays.map((a) => a.build()).toList(growable: false),
         inverters: inverters.map((i) => i.build()).toList(growable: false),
@@ -47,6 +164,7 @@ class ConfigDraft {
         gridExportLimitKw: gridExportLimitKw,
         latitudeDeg: latitudeDeg,
         longitudeDeg: longitudeDeg,
+        weatherSource: buildWeatherSource(),
       );
 
   String? validationError() {

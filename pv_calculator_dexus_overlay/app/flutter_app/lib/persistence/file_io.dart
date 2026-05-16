@@ -10,6 +10,15 @@ class ImportedProject {
   final SimulationConfig config;
 }
 
+class ImportedPvgis {
+  const ImportedPvgis({required this.sourceLabel, required this.data});
+
+  /// Source filename without `.json`, surfaced by the UI as the
+  /// import's origin label.
+  final String sourceLabel;
+  final PvgisHourlyData data;
+}
+
 /// Cross-platform file I/O backed by `file_selector`.
 ///
 /// On web, [getSaveLocation] returns a [FileSaveLocation] whose `path` is the
@@ -21,6 +30,11 @@ class FileIo {
   /// Cap on imported project file size. Hand-edited projects are well under
   /// 5 KB; the limit guards against memory exhaustion via crafted uploads.
   static const int maxImportBytes = 1024 * 1024;
+
+  /// Cap on imported PVGIS file size. A 10-year hourly `seriescalc`
+  /// document is on the order of 5–10 MB; 25 MB leaves headroom while
+  /// still blocking obvious junk uploads.
+  static const int maxPvgisImportBytes = 25 * 1024 * 1024;
 
   Future<bool> exportConfig(String suggestedName, SimulationConfig config) =>
       _saveString(suggestedName: suggestedName, content: jsonEncode(config.toJson()), mimeType: 'application/json');
@@ -35,10 +49,8 @@ class FileIo {
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     final file = await openFile(acceptedTypeGroups: const [typeGroup]);
     if (file == null) return null;
+    await _enforceSizeLimit(file, maxImportBytes, kind: 'Project');
     final raw = await file.readAsString();
-    if (raw.length > maxImportBytes) {
-      throw ArgumentError('Project file is too large (${raw.length} bytes, max $maxImportBytes).');
-    }
     final decoded = jsonDecode(raw);
     if (decoded is! Map) {
       throw ArgumentError('Project JSON must be a top-level object.');
@@ -48,6 +60,32 @@ class FileIo {
     config.validate();
     final name = file.name.replaceAll(RegExp(r'\.json$', caseSensitive: false), '');
     return ImportedProject(suggestedName: name.isEmpty ? 'Importiertes Projekt' : name, config: config);
+  }
+
+  /// Opens a file picker for a PVGIS `seriescalc` JSON file and
+  /// parses it. Returns `null` if the user cancels. Throws
+  /// [ArgumentError] on oversize input and rethrows the underlying
+  /// [FormatException] when the JSON shape doesn't match PVGIS.
+  Future<ImportedPvgis?> importPvgisJson() async {
+    const typeGroup = XTypeGroup(label: 'PVGIS JSON', extensions: <String>['json']);
+    final file = await openFile(acceptedTypeGroups: const [typeGroup]);
+    if (file == null) return null;
+    await _enforceSizeLimit(file, maxPvgisImportBytes, kind: 'PVGIS');
+    final raw = await file.readAsString();
+    final data = parsePvgisHourlyJson(raw);
+    final label = file.name.replaceAll(RegExp(r'\.json$', caseSensitive: false), '');
+    return ImportedPvgis(sourceLabel: label.isEmpty ? 'PVGIS-Import' : label, data: data);
+  }
+
+  /// Throws [ArgumentError] if the picked file's byte length exceeds
+  /// [maxBytes]. Checking before `readAsString()` keeps a crafted
+  /// multi-gigabyte payload from being decoded into memory just so we
+  /// can reject it after the fact.
+  Future<void> _enforceSizeLimit(XFile file, int maxBytes, {required String kind}) async {
+    final size = await file.length();
+    if (size > maxBytes) {
+      throw ArgumentError('$kind file is too large ($size bytes, max $maxBytes).');
+    }
   }
 
   Future<bool> _saveString({required String suggestedName, required String content, required String mimeType}) async {

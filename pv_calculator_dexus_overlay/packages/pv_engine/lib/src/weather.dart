@@ -126,11 +126,15 @@ class SyntheticIrradianceSource extends IrradianceSource {
 /// [StateError] so a typo or a missing import doesn't silently turn
 /// into zero production for a whole array. Pass `allowMissing: true`
 /// only when you deliberately want unknown ids to fall back to
-/// [WeatherSample.empty].
+/// [WeatherSample.empty]. Alternatively pass [fallback] to delegate
+/// unknown ids to another [IrradianceSource] (e.g. the synthetic demo
+/// model) — this enables hybrid setups where only some arrays have
+/// imported PVGIS data.
 class HourlyWeatherSeries extends IrradianceSource {
   HourlyWeatherSeries(
     Map<String, List<WeatherSample>> samplesByArrayId, {
     this.allowMissing = false,
+    this.fallback,
   }) : _samplesByArrayId = {
           for (final entry in samplesByArrayId.entries)
             entry.key: _validateLength(entry.key, entry.value),
@@ -140,8 +144,16 @@ class HourlyWeatherSeries extends IrradianceSource {
 
   /// When `true`, unknown array ids resolve to [WeatherSample.empty]
   /// instead of throwing. Off by default — silent zeros are the kind
-  /// of bug that's hard to spot in summary metrics.
+  /// of bug that's hard to spot in summary metrics. Ignored when
+  /// [fallback] is set.
   final bool allowMissing;
+
+  /// Optional delegate for arrays without their own series. When set,
+  /// unknown ids are routed to this source and [validateForArrays]
+  /// stops complaining about missing arrays. Useful for hybrid setups
+  /// where the UI has only imported PVGIS data for some arrays and
+  /// the rest should keep using the synthetic demo model.
+  final IrradianceSource? fallback;
 
   static List<WeatherSample> _validateLength(String arrayId, List<WeatherSample> samples) {
     if (samples.length != 365 * 24) {
@@ -166,6 +178,15 @@ class HourlyWeatherSeries extends IrradianceSource {
 
   @override
   void validateForArrays(Iterable<String> arrayIds) {
+    if (fallback != null) {
+      // Only the ids this series doesn't cover get delegated. Asking
+      // the fallback to validate ids we already serve would force any
+      // keyed fallback (e.g. another HourlyWeatherSeries) to also have
+      // them — defeating the point of layering sources.
+      final missing = missingArrayIds(arrayIds);
+      if (missing.isNotEmpty) fallback!.validateForArrays(missing);
+      return;
+    }
     if (allowMissing) return;
     final missing = missingArrayIds(arrayIds);
     if (missing.isNotEmpty) {
@@ -182,6 +203,8 @@ class HourlyWeatherSeries extends IrradianceSource {
   WeatherSample sampleFor(WeatherQuery query) {
     final series = _samplesByArrayId[query.arrayId];
     if (series == null) {
+      final delegate = fallback;
+      if (delegate != null) return delegate.sampleFor(query);
       if (allowMissing) return WeatherSample.empty;
       throw StateError(
         'HourlyWeatherSeries has no data for array "${query.arrayId}". '

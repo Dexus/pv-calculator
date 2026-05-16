@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../persistence/file_io.dart';
 import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
 import '_field.dart';
 
 class ArraysSection extends StatelessWidget {
-  const ArraysSection({super.key});
+  const ArraysSection({super.key, this.fileIo});
+
+  /// Injected for tests. Defaults to the production [FileIo] when null.
+  final FileIo? fileIo;
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final draft = controller.draft;
     final inverterIds = draft.inverters.map((i) => i.id).where((id) => id.isNotEmpty).toList();
+    final io = fileIo ?? const FileIo();
 
     return Card(
       child: Padding(
@@ -46,8 +51,10 @@ class ArraysSection extends StatelessWidget {
               index: i,
               array: draft.arrays[i],
               inverterIds: inverterIds,
+              fileIo: io,
               onChanged: controller.touch,
               onRemove: () {
+                draft.clearArrayWeather(draft.arrays[i].id);
                 draft.arrays.removeAt(i);
                 controller.touch();
               },
@@ -65,6 +72,7 @@ class _ArrayEditor extends StatelessWidget {
     required this.index,
     required this.array,
     required this.inverterIds,
+    required this.fileIo,
     required this.onChanged,
     required this.onRemove,
   });
@@ -72,6 +80,7 @@ class _ArrayEditor extends StatelessWidget {
   final int index;
   final PvArrayDraft array;
   final List<String> inverterIds;
+  final FileIo fileIo;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
 
@@ -86,7 +95,18 @@ class _ArrayEditor extends StatelessWidget {
       Wrap(spacing: 12, runSpacing: 12, children: [
         SizedBox(width: 180, child: StringField(
           label: 'ID', initialValue: array.id, required: true,
-          onChanged: (v) { array.id = v; onChanged(); },
+          onChanged: (v) {
+            final draft = context.read<ProjectController>().draft;
+            final oldId = array.id;
+            array.id = v;
+            // PVGIS series are keyed by array id — keep the import
+            // attached across every transition, including the common
+            // edit flow where the field passes through an empty value
+            // (select-all, delete, retype). renameArrayWeather is a
+            // no-op when there's no series under [oldId].
+            draft.renameArrayWeather(oldId, v);
+            onChanged();
+          },
         )),
         SizedBox(width: 220, child: StringField(
           label: 'Bezeichnung', initialValue: array.label,
@@ -134,6 +154,229 @@ class _ArrayEditor extends StatelessWidget {
           validator: (v) => (v == null || v.isEmpty) ? 'Wechselrichter auswählen' : null,
         )),
       ]),
+      const SizedBox(height: 12),
+      _PvgisRow(
+        key: Key('pvgis-row-${array.id}'),
+        arrayId: array.id,
+        fileIo: fileIo,
+        onChanged: onChanged,
+      ),
     ]);
   }
+}
+
+class _PvgisRow extends StatefulWidget {
+  const _PvgisRow({super.key, required this.arrayId, required this.fileIo, required this.onChanged});
+
+  final String arrayId;
+  final FileIo fileIo;
+  final VoidCallback onChanged;
+
+  @override
+  State<_PvgisRow> createState() => _PvgisRowState();
+}
+
+class _PvgisRowState extends State<_PvgisRow> {
+  bool _busy = false;
+
+  Future<void> _import() async {
+    if (_busy) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final controller = context.read<ProjectController>();
+    // The simulator looks up samples by the *exact* PvArray.id string,
+    // so the storage key must be identical to widget.arrayId — not a
+    // trimmed copy. Trim only for the empty-check.
+    if (widget.arrayId.trim().isEmpty) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Bitte zuerst eine Modulfeld-ID vergeben.'),
+      ));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final imported = await widget.fileIo.importPvgisJson();
+      // Picker is asynchronous — bail if the user closed the editor
+      // before they finished choosing a file.
+      if (!mounted) return;
+      if (imported == null) return;
+      final samples = imported.data.toAveragedYear();
+      final years = (imported.data.entries.map((e) => e.timestampUtc.year).toSet().toList()..sort());
+      controller.draft.setArrayWeather(
+        widget.arrayId,
+        samples,
+        PvgisImportInfo(
+          sourceLabel: imported.sourceLabel,
+          entryCount: imported.data.entries.length,
+          coveredYears: List<int>.unmodifiable(years),
+          latitudeDeg: imported.data.latitudeDeg,
+          longitudeDeg: imported.data.longitudeDeg,
+          slopeDeg: imported.data.slopeDeg,
+          appAzimuthDeg: imported.data.appAzimuthDeg,
+        ),
+      );
+      widget.onChanged();
+      messenger.showSnackBar(SnackBar(
+        content: Text('PVGIS-Daten für "${widget.arrayId}" importiert (${imported.data.entries.length} Werte).'),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('PVGIS-Import fehlgeschlagen: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _remove() {
+    final controller = context.read<ProjectController>();
+    controller.draft.clearArrayWeather(widget.arrayId);
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final draft = context.watch<ProjectController>().draft;
+    final info = draft.weatherInfoFor(widget.arrayId);
+    final hasData = info != null;
+    final scheme = Theme.of(context).colorScheme;
+    final mismatch = hasData ? _orientationMismatch(info, draft, widget.arrayId) : null;
+
+    final status = Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(
+        hasData ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+        color: hasData ? scheme.primary : scheme.outline,
+      ),
+      const SizedBox(width: 10),
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              hasData ? 'PVGIS-Daten geladen' : 'Wetterquelle: synthetisches Demo-Modell',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            if (hasData) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${info.sourceLabel} · ${info.entryCount} Stunden · '
+                'Jahre ${info.coveredYears.isEmpty ? "?" : info.coveredYears.join(", ")} · '
+                'PVGIS-Lage ${info.latitudeDeg.toStringAsFixed(3)}°/${info.longitudeDeg.toStringAsFixed(3)}°'
+                '${_orientationSuffix(info)}',
+                style: Theme.of(context).textTheme.bodySmall,
+                softWrap: true,
+              ),
+              if (mismatch != null) ...[
+                const SizedBox(height: 4),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
+                  const SizedBox(width: 4),
+                  Flexible(child: Text(
+                    mismatch,
+                    key: Key('pvgis-orientation-warning-${widget.arrayId}'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.error),
+                    softWrap: true,
+                  )),
+                ]),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                'Hinweis: PVGIS-Importe gelten nur für diese Sitzung — sie werden nicht im Projekt-JSON gespeichert.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                ),
+                softWrap: true,
+              ),
+            ],
+          ],
+        ),
+      ),
+    ]);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      // Wrap lets the action buttons drop below the status block on
+      // narrow editor widths instead of overflowing the row.
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          status,
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            if (hasData)
+              TextButton.icon(
+                key: Key('pvgis-remove-${widget.arrayId}'),
+                onPressed: _busy ? null : _remove,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Entfernen'),
+              ),
+            const SizedBox(width: 4),
+            FilledButton.tonalIcon(
+              key: Key('pvgis-import-${widget.arrayId}'),
+              onPressed: _busy ? null : _import,
+              icon: _busy
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.file_upload_outlined, size: 18),
+              label: Text(hasData ? 'Ersetzen' : 'PVGIS-JSON importieren'),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tilt/azimuth fragment appended to the metadata line. Empty when
+/// neither was carried in the PVGIS document.
+String _orientationSuffix(PvgisImportInfo info) {
+  final tilt = info.slopeDeg;
+  final az = info.appAzimuthDeg;
+  if (tilt == null && az == null) return '';
+  final parts = <String>[];
+  if (tilt != null) parts.add('Neigung ${tilt.toStringAsFixed(0)}°');
+  if (az != null) parts.add('Azimut ${az.toStringAsFixed(0)}°');
+  return ' · ${parts.join(", ")}';
+}
+
+/// Returns a warning string when the PVGIS request orientation drifts
+/// far enough from the array's configured orientation to materially
+/// change yield (5° tilt or 15° azimuth). `null` when the PVGIS file
+/// carries no mounting metadata or both values are within tolerance.
+String? _orientationMismatch(PvgisImportInfo info, ConfigDraft draft, String arrayId) {
+  final array = _findArray(draft, arrayId);
+  if (array == null) return null;
+  final tiltDelta = info.slopeDeg == null ? null : (info.slopeDeg! - array.tiltDeg).abs();
+  final az = info.appAzimuthDeg;
+  final azDelta = az == null ? null : _azimuthDelta(az, array.azimuthDeg);
+  final issues = <String>[];
+  if (tiltDelta != null && tiltDelta > 5) {
+    issues.add('Neigung ${info.slopeDeg!.toStringAsFixed(0)}° vs ${array.tiltDeg.toStringAsFixed(0)}°');
+  }
+  if (azDelta != null && azDelta > 15) {
+    issues.add('Azimut ${az!.toStringAsFixed(0)}° vs ${array.azimuthDeg.toStringAsFixed(0)}°');
+  }
+  if (issues.isEmpty) return null;
+  return 'PVGIS-Ausrichtung weicht ab (${issues.join("; ")}). '
+      'Die importierten POA-Werte gelten für die PVGIS-Ausrichtung, '
+      'nicht für die hier eingestellte.';
+}
+
+PvArrayDraft? _findArray(ConfigDraft draft, String id) {
+  for (final a in draft.arrays) {
+    if (a.id == id) return a;
+  }
+  return null;
+}
+
+/// Shortest absolute distance between two azimuths on the 0–360° circle.
+double _azimuthDelta(double a, double b) {
+  final diff = (a - b).abs() % 360.0;
+  return diff > 180.0 ? 360.0 - diff : diff;
 }

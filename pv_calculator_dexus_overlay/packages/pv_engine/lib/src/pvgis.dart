@@ -41,11 +41,37 @@ class PvgisHourlyData {
     required this.entries,
     required this.latitudeDeg,
     required this.longitudeDeg,
+    this.slopeDeg,
+    this.azimuthDegPvgis,
   });
 
   final List<PvgisHourlyEntry> entries;
   final double latitudeDeg;
   final double longitudeDeg;
+
+  /// Module tilt the PVGIS request was generated for, in degrees from
+  /// horizontal. Read from `inputs.mounting_system.fixed.slope.value`.
+  /// `null` when the document doesn't carry mounting metadata (e.g.
+  /// hand-trimmed fixtures).
+  final double? slopeDeg;
+
+  /// Module azimuth the PVGIS request was generated for, **in the
+  /// PVGIS convention**: 0° = south, negative = east, positive = west
+  /// (range −180…+180). Read from
+  /// `inputs.mounting_system.fixed.azimuth.value`. Use
+  /// [appAzimuthDeg] to compare against this engine's
+  /// `PvArray.azimuthDeg` field, which uses the 0° = north / 180° =
+  /// south convention.
+  final double? azimuthDegPvgis;
+
+  /// PVGIS azimuth translated into the engine's 0–360° convention
+  /// (0/360 = north, 90 = east, 180 = south, 270 = west). `null` when
+  /// [azimuthDegPvgis] is missing.
+  double? get appAzimuthDeg {
+    final p = azimuthDegPvgis;
+    if (p == null) return null;
+    return (180.0 + p + 360.0) % 360.0;
+  }
 
   /// Average each (dayOfYear, hour) across every covered year and
   /// return 8760 samples (Feb 29 ignored — engine uses a 365-day year).
@@ -142,6 +168,8 @@ PvgisHourlyData parsePvgisHourlyJson(String json) {
 
   double lat = 0;
   double lon = 0;
+  double? slope;
+  double? azimuth;
   final inputs = root['inputs'];
   if (inputs is Map) {
     final location = inputs['location'];
@@ -152,9 +180,34 @@ PvgisHourlyData parsePvgisHourlyJson(String json) {
       if (latRaw is num) lat = latRaw.toDouble();
       if (lonRaw is num) lon = lonRaw.toDouble();
     }
+    final mounting = inputs['mounting_system'];
+    if (mounting is Map) {
+      final fixed = mounting['fixed'];
+      if (fixed is Map) {
+        final fixedMap = fixed.cast<String, dynamic>();
+        slope = _readOptionalAngle(fixedMap, 'slope');
+        azimuth = _readOptionalAngle(fixedMap, 'azimuth');
+      }
+    }
   }
 
-  return PvgisHourlyData(entries: entries, latitudeDeg: lat, longitudeDeg: lon);
+  return PvgisHourlyData(
+    entries: entries,
+    latitudeDeg: lat,
+    longitudeDeg: lon,
+    slopeDeg: slope,
+    azimuthDegPvgis: azimuth,
+  );
+}
+
+/// PVGIS wraps each angle in `{"value": …, "optimal": …}`. Returns
+/// `null` when the block is absent or its `value` is not numeric.
+double? _readOptionalAngle(Map<String, dynamic> fixed, String key) {
+  final block = fixed[key];
+  if (block is! Map) return null;
+  final value = block['value'];
+  if (value is num) return value.toDouble();
+  return null;
 }
 
 double _readDouble(Map<String, dynamic> obj, String key, int index, {double? fallback}) {

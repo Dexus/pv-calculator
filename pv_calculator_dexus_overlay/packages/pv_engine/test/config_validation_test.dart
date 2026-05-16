@@ -54,6 +54,23 @@ void main() {
       );
     });
 
+    test('rejects duplicate PV array ids', () {
+      final config = SimulationConfig(
+        arrays: const [
+          PvArray(id: 'roof', label: 'A', peakKw: 1.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+          PvArray(id: 'roof', label: 'B', peakKw: 2.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        loadProfile: const LoadProfile(dailyKwh: 1),
+        days: 1,
+      );
+      expect(
+        () => config.validate(),
+        throwsA(isA<ArgumentError>()
+            .having((e) => e.message, 'message', contains('Duplicate PV array id'))),
+      );
+    });
+
     test('PvArray.fromJson and Inverter.fromJson trim ids on decode', () {
       final array = PvArray.fromJson({
         'id': '  roof  ', 'label': 'Roof', 'peakKw': 1.0,
