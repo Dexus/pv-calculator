@@ -1,7 +1,13 @@
 import 'dart:math' as math;
 
+import 'src/temperature_model.dart';
+import 'src/weather.dart';
+
 export 'src/csv_export.dart';
+export 'src/pvgis.dart';
 export 'src/summary_aggregator.dart';
+export 'src/temperature_model.dart';
+export 'src/weather.dart';
 
 enum InverterRole { grid, microInverter800W, batteryCoupled }
 
@@ -25,6 +31,8 @@ class PvArray {
     required this.inverterId,
     this.lossFactor = 0.14,
     this.shadingFactor = 0.0,
+    this.temperatureCoefficientPctPerC = 0.0,
+    this.nominalOperatingCellTempC = 45.0,
   });
 
   final String id;
@@ -36,12 +44,27 @@ class PvArray {
   final double lossFactor;
   final double shadingFactor;
 
+  /// Module power temperature coefficient in %/°C. Typical crystalline
+  /// silicon is around -0.4. Default 0.0 keeps the legacy synthetic
+  /// model untouched — set a negative value to enable temperature
+  /// derating.
+  final double temperatureCoefficientPctPerC;
+
+  /// Nominal Operating Cell Temperature (NOCT) of the module in °C.
+  /// Used by [NoctTemperatureModel] to translate ambient + irradiance
+  /// into operating cell temperature. Typical 45–48 °C.
+  final double nominalOperatingCellTempC;
+
   void validate() {
     _require(id.trim().isNotEmpty, 'PV array id must not be empty.');
     _require(peakKw > 0, 'PV array $id peakKw must be positive.');
     _require(tiltDeg >= 0 && tiltDeg <= 90, 'PV array $id tiltDeg must be between 0 and 90.');
     _require(lossFactor >= 0 && lossFactor < 1, 'PV array $id lossFactor must be in [0, 1).');
     _require(shadingFactor >= 0 && shadingFactor < 1, 'PV array $id shadingFactor must be in [0, 1).');
+    _require(temperatureCoefficientPctPerC >= -2.0 && temperatureCoefficientPctPerC <= 0.0,
+        'PV array $id temperatureCoefficientPctPerC must be in [-2, 0] %/°C.');
+    _require(nominalOperatingCellTempC >= 20 && nominalOperatingCellTempC <= 70,
+        'PV array $id nominalOperatingCellTempC must be in [20, 70] °C.');
   }
 
   Map<String, dynamic> toJson() => {
@@ -53,6 +76,8 @@ class PvArray {
         'inverterId': inverterId,
         'lossFactor': lossFactor,
         'shadingFactor': shadingFactor,
+        'temperatureCoefficientPctPerC': temperatureCoefficientPctPerC,
+        'nominalOperatingCellTempC': nominalOperatingCellTempC,
       };
 
   static PvArray fromJson(Map<String, dynamic> json) => PvArray(
@@ -64,6 +89,8 @@ class PvArray {
         inverterId: (json['inverterId'] as String).trim(),
         lossFactor: _toDouble(json['lossFactor'] ?? 0.14),
         shadingFactor: _toDouble(json['shadingFactor'] ?? 0.0),
+        temperatureCoefficientPctPerC: _toDouble(json['temperatureCoefficientPctPerC'] ?? 0.0),
+        nominalOperatingCellTempC: _toDouble(json['nominalOperatingCellTempC'] ?? 45.0),
       );
 }
 
@@ -74,6 +101,7 @@ class Inverter {
     required this.maxAcKw,
     this.role = InverterRole.grid,
     this.efficiency = 0.965,
+    this.maxDcInputKw,
   });
 
   final String id;
@@ -82,12 +110,23 @@ class Inverter {
   final InverterRole role;
   final double efficiency;
 
+  /// Optional DC input cap in kW. Models string/MPPT clipping when a
+  /// PV array is oversized relative to the inverter (DC/AC ratio > 1):
+  /// DC power exceeding this value is curtailed before AC conversion.
+  /// `null` means no DC cap and the inverter is assumed to be sized
+  /// for its arrays.
+  final double? maxDcInputKw;
+
   double get effectiveMaxAcKw => role == InverterRole.microInverter800W ? math.min(maxAcKw, 0.8) : maxAcKw;
 
   void validate() {
     _require(id.trim().isNotEmpty, 'Inverter id must not be empty.');
     _require(maxAcKw > 0, 'Inverter $id maxAcKw must be positive.');
     _require(efficiency > 0 && efficiency <= 1, 'Inverter $id efficiency must be in (0, 1].');
+    final dcLimit = maxDcInputKw;
+    if (dcLimit != null) {
+      _require(dcLimit > 0, 'Inverter $id maxDcInputKw must be positive.');
+    }
   }
 
   Map<String, dynamic> toJson() => {
@@ -96,6 +135,7 @@ class Inverter {
         'maxAcKw': maxAcKw,
         'role': role.name,
         'efficiency': efficiency,
+        'maxDcInputKw': maxDcInputKw,
       };
 
   static Inverter fromJson(Map<String, dynamic> json) => Inverter(
@@ -104,6 +144,7 @@ class Inverter {
         maxAcKw: _toDouble(json['maxAcKw']),
         role: _inverterRoleFromName(json['role'] as String? ?? 'grid'),
         efficiency: _toDouble(json['efficiency'] ?? 0.965),
+        maxDcInputKw: json['maxDcInputKw'] == null ? null : _toDouble(json['maxDcInputKw']),
       );
 }
 
@@ -230,6 +271,8 @@ class SimulationConfig {
     this.preRunDays = 0,
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
+    this.weatherSource,
+    this.temperatureModel = const NoctTemperatureModel(),
   });
 
   final List<PvArray> arrays;
@@ -242,6 +285,19 @@ class SimulationConfig {
   final int preRunDays;
   final double? gridExportLimitKw;
   final double latitudeDeg;
+
+  /// Source for plane-of-array irradiance + ambient conditions per
+  /// (array, time). `null` means the engine falls back to the
+  /// [SyntheticIrradianceSource] demo model. Plug an
+  /// [HourlyWeatherSeries] built from PVGIS data here to drive the
+  /// simulation from real measurements.
+  final IrradianceSource? weatherSource;
+
+  /// Strategy that maps weather + module NOCT into cell temperature
+  /// for the array-level temperature derating.
+  final TemperatureModel temperatureModel;
+
+  IrradianceSource get effectiveWeatherSource => weatherSource ?? const SyntheticIrradianceSource();
 
   void validate() {
     _require(arrays.isNotEmpty, 'At least one PV array is required.');
@@ -427,10 +483,18 @@ class PvSimulator {
     final stepHours = config.timeStep.hours;
     final inverterById = {for (final i in config.inverters) i.id: i};
     final dcByInverter = <String, double>{};
+    final source = config.effectiveWeatherSource;
+    final tempModel = config.temperatureModel;
     var pvDcKwh = 0.0;
 
     for (final array in config.arrays) {
-      final dcKwh = _dcPowerKw(array, dayOfYear, hourOfDay, config.latitudeDeg) * stepHours;
+      final weather = source.sampleFor(WeatherQuery(
+        array: array,
+        dayOfYear: dayOfYear,
+        hourOfDay: hourOfDay,
+        latitudeDeg: config.latitudeDeg,
+      ));
+      final dcKwh = _dcPowerKwFromWeather(array, weather, tempModel) * stepHours;
       pvDcKwh += dcKwh;
       dcByInverter.update(array.inverterId, (value) => value + dcKwh, ifAbsent: () => dcKwh);
     }
@@ -439,7 +503,18 @@ class PvSimulator {
     var curtailedKwh = 0.0;
     for (final entry in dcByInverter.entries) {
       final inverter = inverterById[entry.key]!;
-      final rawAc = entry.value * inverter.efficiency;
+      var dcKwh = entry.value;
+      // DC-side clipping: oversized arrays driving the inverter past
+      // its MPPT/DC rating lose the surplus before AC conversion.
+      final dcLimit = inverter.maxDcInputKw;
+      if (dcLimit != null) {
+        final dcCapKwh = dcLimit * stepHours;
+        if (dcKwh > dcCapKwh) {
+          curtailedKwh += dcKwh - dcCapKwh;
+          dcKwh = dcCapKwh;
+        }
+      }
+      final rawAc = dcKwh * inverter.efficiency;
       final limitedAc = math.min(rawAc, inverter.effectiveMaxAcKw * stepHours);
       pvAcKwh += limitedAc;
       curtailedKwh += math.max(0.0, rawAc - limitedAc);
@@ -520,19 +595,15 @@ class PvSimulator {
     );
   }
 
-  double _dcPowerKw(PvArray array, int dayOfYear, double hourOfDay, double latitudeDeg) {
-    final latitudeImpact = (latitudeDeg.abs() / 90.0).clamp(0.0, 1.0).toDouble();
-    final dayLength = (12.0 + 4.0 * latitudeImpact * math.cos(2 * math.pi * (dayOfYear - 172) / 365.0)).clamp(7.0, 17.0).toDouble();
-    final sunrise = 12.0 - dayLength / 2.0;
-    final sunset = 12.0 + dayLength / 2.0;
-    if (hourOfDay < sunrise || hourOfDay > sunset) return 0;
-    final sun = math.sin(math.pi * (hourOfDay - sunrise) / dayLength).clamp(0.0, 1.0).toDouble();
-    final season = (0.72 + 0.28 * math.cos(2 * math.pi * (dayOfYear - 172) / 365.0)).clamp(0.25, 1.0).toDouble();
-    final azimuthPenalty = ((array.azimuthDeg - 180).abs() / 180.0).clamp(0.0, 1.0).toDouble();
-    final tiltPenalty = ((array.tiltDeg - 35).abs() / 90.0).clamp(0.0, 1.0).toDouble();
-    final orientation = (1.0 - 0.22 * azimuthPenalty - 0.12 * tiltPenalty).clamp(0.55, 1.0).toDouble();
+  double _dcPowerKwFromWeather(PvArray array, WeatherSample weather, TemperatureModel tempModel) {
+    if (weather.poaWPerM2 <= 0) return 0;
+    final cellTemp = tempModel.cellTemperatureC(
+      weather,
+      nominalOperatingCellTempC: array.nominalOperatingCellTempC,
+    );
+    final tempDerate = 1.0 + (array.temperatureCoefficientPctPerC / 100.0) * (cellTemp - 25.0);
     final retained = (1 - array.lossFactor) * (1 - array.shadingFactor);
-    return array.peakKw * sun * season * orientation * retained;
+    return array.peakKw * (weather.poaWPerM2 / 1000.0) * retained * math.max(0.0, tempDerate);
   }
 
   SimulationSummary _summarize(List<SimulationStep> steps, List<double> finalSocs) {
