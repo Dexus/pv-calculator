@@ -37,7 +37,7 @@ class PvArray {
   final double shadingFactor;
 
   void validate() {
-    _require(id.isNotEmpty, 'PV array id must not be empty.');
+    _require(id.trim().isNotEmpty, 'PV array id must not be empty.');
     _require(peakKw > 0, 'PV array $id peakKw must be positive.');
     _require(tiltDeg >= 0 && tiltDeg <= 90, 'PV array $id tiltDeg must be between 0 and 90.');
     _require(lossFactor >= 0 && lossFactor < 1, 'PV array $id lossFactor must be in [0, 1).');
@@ -56,12 +56,12 @@ class PvArray {
       };
 
   static PvArray fromJson(Map<String, dynamic> json) => PvArray(
-        id: json['id'] as String,
+        id: (json['id'] as String).trim(),
         label: json['label'] as String,
         peakKw: _toDouble(json['peakKw']),
         azimuthDeg: _toDouble(json['azimuthDeg']),
         tiltDeg: _toDouble(json['tiltDeg']),
-        inverterId: json['inverterId'] as String,
+        inverterId: (json['inverterId'] as String).trim(),
         lossFactor: _toDouble(json['lossFactor'] ?? 0.14),
         shadingFactor: _toDouble(json['shadingFactor'] ?? 0.0),
       );
@@ -85,7 +85,7 @@ class Inverter {
   double get effectiveMaxAcKw => role == InverterRole.microInverter800W ? math.min(maxAcKw, 0.8) : maxAcKw;
 
   void validate() {
-    _require(id.isNotEmpty, 'Inverter id must not be empty.');
+    _require(id.trim().isNotEmpty, 'Inverter id must not be empty.');
     _require(maxAcKw > 0, 'Inverter $id maxAcKw must be positive.');
     _require(efficiency > 0 && efficiency <= 1, 'Inverter $id efficiency must be in (0, 1].');
   }
@@ -99,7 +99,7 @@ class Inverter {
       };
 
   static Inverter fromJson(Map<String, dynamic> json) => Inverter(
-        id: json['id'] as String,
+        id: (json['id'] as String).trim(),
         label: json['label'] as String,
         maxAcKw: _toDouble(json['maxAcKw']),
         role: _inverterRoleFromName(json['role'] as String? ?? 'grid'),
@@ -246,8 +246,14 @@ class SimulationConfig {
   void validate() {
     _require(arrays.isNotEmpty, 'At least one PV array is required.');
     _require(inverters.isNotEmpty, 'At least one inverter is required.');
-    _require(days > 0, 'days must be positive.');
-    _require(preRunDays >= 0, 'preRunDays must not be negative.');
+    // Days/preRunDays are bounded to one year: the engine's _wrapDay folds
+    // dayOfYear into [1, 365] regardless, and a 365-day run already produces
+    // the full annual summary. Higher values waste CPU/memory with no extra
+    // information and would be a DoS surface for malicious imports.
+    _require(days >= 1 && days <= 365, 'days must be in [1, 365].');
+    _require(preRunDays >= 0 && preRunDays <= 365, 'preRunDays must be in [0, 365].');
+    _require(startDayOfYear >= 1 && startDayOfYear <= 365, 'startDayOfYear must be in [1, 365].');
+    _require(latitudeDeg >= -90 && latitudeDeg <= 90, 'latitudeDeg must be in [-90, 90].');
     _require(gridExportLimitKw == null || gridExportLimitKw! >= 0, 'gridExportLimitKw must not be negative.');
     final inverterIds = <String>{};
     for (final inverter in inverters) {
@@ -547,14 +553,9 @@ class PvSimulator {
   }
 
   int _wrapDay(int day) {
-    var normalized = day;
-    while (normalized < 1) {
-      normalized += 365;
-    }
-    while (normalized > 365) {
-      normalized -= 365;
-    }
-    return normalized;
+    // Modulo wrap into [1, 365] in O(1). The double-modulo form handles
+    // negative inputs correctly under Dart's truncating `%`.
+    return ((day - 1) % 365 + 365) % 365 + 1;
   }
 }
 

@@ -19,11 +19,13 @@ void main() {
       // 24 data rows + 1 header + 1 empty trailing element from split on final CRLF
       expect(lines, hasLength(24 + 1 + 1));
       expect(lines.first.split(';'), contains('pvAcKwh'));
-      expect(lines.first.split(';'), isNot(contains('socKwh_1')),
-          reason: 'no per-battery columns when batteryCount is 0');
+      for (final col in ['socKwh_1', 'chargeKwh_1', 'dischargeKwh_1']) {
+        expect(lines.first.split(';'), isNot(contains(col)),
+            reason: 'no per-battery columns when batteryCount is 0');
+      }
     });
 
-    test('appends one socKwh_N column per battery in declared order', () {
+    test('appends per-battery charge / discharge / soc columns in declared order', () {
       final result = const PvSimulator().run(SimulationConfig(
         arrays: const [
           PvArray(id: 'r', label: 'R', peakKw: 2.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
@@ -41,8 +43,15 @@ void main() {
       final csv = stepsCsv(result.steps, batteryCount: 2);
       final lines = csv.split('\r\n');
       final headers = lines.first.split(';');
-      expect(headers, containsAll(['socKwh_1', 'socKwh_2']));
-      // index 1 socKwh_1 follows index 0 socKwh_1 alphabetic? Check explicit order:
+      expect(headers, containsAll([
+        'chargeKwh_1', 'chargeKwh_2',
+        'dischargeKwh_1', 'dischargeKwh_2',
+        'socKwh_1', 'socKwh_2',
+      ]));
+      // Charge → discharge → soc, each in declared order.
+      expect(headers.indexOf('chargeKwh_1'), lessThan(headers.indexOf('chargeKwh_2')));
+      expect(headers.indexOf('chargeKwh_2'), lessThan(headers.indexOf('dischargeKwh_1')));
+      expect(headers.indexOf('dischargeKwh_2'), lessThan(headers.indexOf('socKwh_1')));
       expect(headers.indexOf('socKwh_1'), lessThan(headers.indexOf('socKwh_2')));
     });
 

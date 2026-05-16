@@ -12,6 +12,8 @@ String stepsCsv(
     'pvDcKwh', 'pvAcKwh', 'loadKwh', 'selfConsumptionKwh',
     'batteryChargeKwh', 'batteryDischargeKwh', 'batterySocKwh',
     'gridImportKwh', 'gridExportKwh', 'curtailedKwh',
+    for (var i = 1; i <= batteryCount; i++) 'chargeKwh_$i',
+    for (var i = 1; i <= batteryCount; i++) 'dischargeKwh_$i',
     for (var i = 1; i <= batteryCount; i++) 'socKwh_$i',
   ];
 
@@ -33,6 +35,10 @@ String stepsCsv(
       _num(step.gridImportKwh),
       _num(step.gridExportKwh),
       _num(step.curtailedKwh),
+      for (var i = 0; i < batteryCount; i++)
+        _num(i < step.batteryChargesKwh.length ? step.batteryChargesKwh[i] : 0.0),
+      for (var i = 0; i < batteryCount; i++)
+        _num(i < step.batteryDischargesKwh.length ? step.batteryDischargesKwh[i] : 0.0),
       for (var i = 0; i < batteryCount; i++)
         _num(i < step.batterySocsKwh.length ? step.batterySocsKwh[i] : 0.0),
     ];
