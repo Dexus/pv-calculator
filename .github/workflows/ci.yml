@@ -11,13 +11,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
       - name: Install dependencies
-        working-directory: packages/pv_engine
+        working-directory: pv_calculator_dexus_overlay/packages/pv_engine
         run: dart pub get
       - name: Analyze
-        working-directory: packages/pv_engine
+        working-directory: pv_calculator_dexus_overlay/packages/pv_engine
         run: dart analyze
       - name: Test
-        working-directory: packages/pv_engine
+        working-directory: pv_calculator_dexus_overlay/packages/pv_engine
         run: dart test
 
   flutter-app:
@@ -28,11 +28,11 @@ jobs:
         with:
           channel: stable
       - name: Install dependencies
-        working-directory: app/flutter_app
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter pub get
       - name: Analyze
-        working-directory: app/flutter_app
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter analyze
       - name: Test
-        working-directory: app/flutter_app
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter test
