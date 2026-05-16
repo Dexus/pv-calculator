@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 /// One match returned by a geocoder.
@@ -35,8 +36,14 @@ class GeocodingException implements Exception {
 /// before changing this:
 ///
 /// * **User-Agent** — Nominatim requires every request to identify
-///   the calling application. We pass a project-specific UA so OSM
-///   operators can reach us if we ever misbehave.
+///   the calling application. On native targets we set a
+///   project-specific UA so OSM operators can reach us. **On Flutter
+///   web** the browser ignores the supplied header (User-Agent is on
+///   the Fetch spec's forbidden-header list and Chrome/Firefox strip
+///   it silently), so we additionally send `Referer` which Nominatim
+///   accepts as a fallback identifier. For higher-volume web use,
+///   deploy a thin server-side proxy that can set User-Agent freely
+///   or run a self-hosted Nominatim instance.
 /// * **Rate limit** — at most one request per second. This class
 ///   enforces a per-instance minimum delay so accidental double-taps
 ///   don't burst the public endpoint.
@@ -51,15 +58,20 @@ class NominatimGeocoder implements GeocodingService {
     this.userAgent =
         'pv-calculator/0.3 (+https://github.com/Dexus/pv-calculator)',
     this.endpoint = 'https://nominatim.openstreetmap.org/search',
+    this.referer = 'https://github.com/Dexus/pv-calculator',
     this.minimumInterval = const Duration(seconds: 1),
     this.requestTimeout = const Duration(seconds: 10),
-  }) : _client = client ?? http.Client();
+    bool? isWeb,
+  })  : _client = client ?? http.Client(),
+        _isWeb = isWeb ?? kIsWeb;
 
   final http.Client _client;
   final String userAgent;
   final String endpoint;
+  final String referer;
   final Duration minimumInterval;
   final Duration requestTimeout;
+  final bool _isWeb;
 
   DateTime _nextAllowedAt = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -76,15 +88,21 @@ class NominatimGeocoder implements GeocodingService {
       'addressdetails': '0',
     });
 
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'Accept-Language': 'de,en',
+    };
+    if (_isWeb) {
+      // Browsers strip User-Agent. Send Referer instead so Nominatim
+      // can still see where the request originates.
+      headers['Referer'] = referer;
+    } else {
+      headers['User-Agent'] = userAgent;
+    }
+
     final http.Response response;
     try {
-      response = await _client
-          .get(uri, headers: {
-            'User-Agent': userAgent,
-            'Accept': 'application/json',
-            'Accept-Language': 'de,en',
-          })
-          .timeout(requestTimeout);
+      response = await _client.get(uri, headers: headers).timeout(requestTimeout);
     } on TimeoutException {
       throw GeocodingException('Zeitüberschreitung bei der Adresssuche.');
     } catch (e) {

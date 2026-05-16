@@ -76,7 +76,8 @@ void main() {
         expect(s.pvAcKwh, lessThanOrEqualTo(0.8 + 1e-9));
       }
       // Curtailment must be non-trivial when 2 kWp peaks behind 800 W AC.
-      expect(result.summary.curtailedKwh, greaterThan(0));
+      // The cap fires on the AC side, so the loss lands in curtailedAcKwh.
+      expect(result.summary.curtailedAcKwh, greaterThan(0));
     });
   });
 

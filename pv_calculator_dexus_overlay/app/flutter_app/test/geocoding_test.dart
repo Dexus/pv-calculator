@@ -12,7 +12,7 @@ void main() {
         expect(request.url.host, 'nominatim.openstreetmap.org');
         expect(request.url.queryParameters['q'], 'Frankfurt am Main');
         expect(request.url.queryParameters['format'], 'jsonv2');
-        // Usage policy: User-Agent must be set.
+        // Usage policy on native: User-Agent must be set.
         expect(request.headers['User-Agent'], isNotNull);
         expect(request.headers['User-Agent'], isNotEmpty);
         return http.Response(
@@ -38,6 +38,23 @@ void main() {
       expect(results[0].displayName, startsWith('Frankfurt am Main'));
       expect(results[0].latitudeDeg, closeTo(50.1106, 1e-6));
       expect(results[0].longitudeDeg, closeTo(8.6822, 1e-6));
+    });
+
+    test('on web, sends Referer and omits User-Agent (which browsers strip)', () async {
+      final mock = MockClient((request) async {
+        // The browser would drop User-Agent anyway; we don't even
+        // try to set it on web so the request looks honest.
+        expect(request.headers.containsKey('User-Agent'), isFalse);
+        expect(request.headers['Referer'], isNotNull);
+        expect(request.headers['Referer'], isNotEmpty);
+        return http.Response('[]', 200);
+      });
+      final geocoder = NominatimGeocoder(
+        client: mock,
+        isWeb: true,
+        minimumInterval: Duration.zero,
+      );
+      await geocoder.search('whatever');
     });
 
     test('returns empty for blank query without hitting the network', () async {

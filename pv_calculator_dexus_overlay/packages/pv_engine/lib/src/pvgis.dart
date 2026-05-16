@@ -49,6 +49,14 @@ class PvgisHourlyData {
 
   /// Average each (dayOfYear, hour) across every covered year and
   /// return 8760 samples (Feb 29 ignored — engine uses a 365-day year).
+  ///
+  /// Bucketing is by `timestampUtc.hour` only — the minute component
+  /// is dropped. PVGIS labels its hourly entries by the start of the
+  /// hour with a small minute offset that varies by radiation
+  /// database (SARAH uses `:10`, ERA5 uses `:30`); both represent the
+  /// same hour window, so flooring to `t.hour` keeps SARAH and ERA5
+  /// records in the same slot. Sub-hour resampling would need a
+  /// proper resolution-aware bucketer.
   List<WeatherSample> toAveragedYear() {
     final poa = List<double>.filled(365 * 24, 0);
     final temp = List<double>.filled(365 * 24, 0);

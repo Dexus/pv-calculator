@@ -193,19 +193,69 @@ void main() {
       expect(nonZero.first.hourOfDay, closeTo(12.5, 0.5));
     });
 
-    test('unknown arrayId returns empty samples', () {
+    test('unknown arrayId throws by default (strict mode)', () {
       final series = HourlyWeatherSeries({
         'known': List<WeatherSample>.filled(8760, WeatherSample.empty),
       });
+      expect(
+        () => series.sampleFor(const WeatherQuery(
+          arrayId: 'unknown',
+          tiltDeg: 35, azimuthDeg: 180,
+          dayOfYear: 100, hourOfDay: 12, latitudeDeg: 50,
+        )),
+        throwsStateError,
+      );
+    });
+
+    test('allowMissing: true falls back to empty samples for unknown ids', () {
+      final series = HourlyWeatherSeries(
+        {'known': List<WeatherSample>.filled(8760, WeatherSample.empty)},
+        allowMissing: true,
+      );
       final sample = series.sampleFor(const WeatherQuery(
         arrayId: 'unknown',
-        tiltDeg: 35,
-        azimuthDeg: 180,
-        dayOfYear: 100,
-        hourOfDay: 12,
-        latitudeDeg: 50,
+        tiltDeg: 35, azimuthDeg: 180,
+        dayOfYear: 100, hourOfDay: 12, latitudeDeg: 50,
       ));
       expect(sample.poaWPerM2, 0);
+    });
+
+    test('validateForArrays surfaces missing arrays before the simulator runs', () {
+      final series = HourlyWeatherSeries({
+        'roof': List<WeatherSample>.filled(8760, WeatherSample.empty),
+      });
+      // PvSimulator.run() calls validateForArrays under the hood, so
+      // an array with no series fails up-front.
+      expect(
+        () => const PvSimulator().run(SimulationConfig(
+          arrays: const [
+            PvArray(id: 'roof', label: 'R', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+            PvArray(id: 'balcony', label: 'B', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+          ],
+          inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5)],
+          loadProfile: LoadProfile(dailyKwh: 1),
+          days: 1,
+        ).copyWithSeries(series)),
+        throwsA(isA<ArgumentError>()
+            .having((e) => e.message, 'message', contains('balcony'))),
+      );
+    });
+
+    test('validateForArrays passes when every array has data', () {
+      final series = HourlyWeatherSeries({
+        'roof': List<WeatherSample>.filled(8760, WeatherSample.empty),
+        'balcony': List<WeatherSample>.filled(8760, WeatherSample.empty),
+      });
+      // Should not throw.
+      const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(id: 'roof', label: 'R', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+          PvArray(id: 'balcony', label: 'B', peakKw: 1, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5)],
+        loadProfile: LoadProfile(dailyKwh: 1),
+        days: 1,
+      ).copyWithSeries(series));
     });
 
     test('rejects series of wrong length', () {

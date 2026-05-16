@@ -31,12 +31,13 @@ void main() {
           weatherSource: const _FullSunWeather(),
         );
 
-    test('AC stays at the AC limit; curtailment grows when DC limit is tight', () {
+    test('AC stays at the AC limit; DC curtailment grows when DC limit is tight', () {
       final loose = const PvSimulator().run(configWith(maxDcInputKw: 10.0));
       final tight = const PvSimulator().run(configWith(maxDcInputKw: 4.5));
       // Tight DC limit must keep AC below the (loose) reference.
       expect(tight.summary.pvAcKwh, lessThan(loose.summary.pvAcKwh));
-      expect(tight.summary.curtailedKwh, greaterThan(loose.summary.curtailedKwh));
+      // The extra loss shows up specifically as DC-side curtailment.
+      expect(tight.summary.curtailedDcKwh, greaterThan(loose.summary.curtailedDcKwh));
       // pvDcKwh is module output (pre-clip) and should be identical
       // between the two runs — the modules generated the same energy,
       // the inverter just couldn't ingest it all.
@@ -75,15 +76,18 @@ void main() {
           expect(s.pvDcKwh, closeTo(10.0, 1e-9));
           // AC reflects clipped 4 kWh * 0.5 = 2 kWh.
           expect(s.pvAcKwh, closeTo(2.0, 1e-9));
-          // Curtailment = pre-AC 6 kWh per daylight hour.
-          expect(s.curtailedKwh, closeTo(6.0, 1e-9));
+          // DC-side loss: 10 - 4 = 6 DC-kWh per daylight hour.
+          expect(s.curtailedDcKwh, closeTo(6.0, 1e-9));
+          // No AC-side or export-side clipping fires here.
+          expect(s.curtailedAcKwh, closeTo(0, 1e-9));
+          expect(s.curtailedExportKwh, closeTo(0, 1e-9));
         }
       }
     });
 
-    test('AC efficiency loss is not double-counted as curtailment', () {
-      // Without a DC cap, only the AC limit and export limit drive
-      // curtailment; the eff loss must NOT show up there.
+    test('AC efficiency loss is not counted as curtailment', () {
+      // Without a DC cap or export cap, all three curtailment fields
+      // must stay at zero; the eff loss alone is not curtailment.
       final result = const PvSimulator().run(SimulationConfig(
         arrays: const [
           PvArray(
@@ -98,7 +102,9 @@ void main() {
         days: 1,
         weatherSource: _FullSunWeather(),
       ));
-      expect(result.summary.curtailedKwh, closeTo(0, 1e-9));
+      expect(result.summary.curtailedDcKwh, closeTo(0, 1e-9));
+      expect(result.summary.curtailedAcKwh, closeTo(0, 1e-9));
+      expect(result.summary.curtailedExportKwh, closeTo(0, 1e-9));
     });
   });
 

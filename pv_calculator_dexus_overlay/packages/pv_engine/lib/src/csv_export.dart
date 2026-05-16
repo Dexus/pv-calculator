@@ -11,7 +11,8 @@ String stepsCsv(
     'dayIndex', 'dayOfYear', 'stepOfDay', 'hourOfDay',
     'pvDcKwh', 'pvAcKwh', 'loadKwh', 'selfConsumptionKwh',
     'batteryChargeKwh', 'batteryDischargeKwh', 'batterySocKwh',
-    'gridImportKwh', 'gridExportKwh', 'curtailedKwh',
+    'gridImportKwh', 'gridExportKwh',
+    'curtailedDcKwh', 'curtailedAcKwh', 'curtailedExportKwh',
     for (var i = 1; i <= batteryCount; i++) 'chargeKwh_$i',
     for (var i = 1; i <= batteryCount; i++) 'dischargeKwh_$i',
     for (var i = 1; i <= batteryCount; i++) 'socKwh_$i',
@@ -34,7 +35,9 @@ String stepsCsv(
       _num(step.batterySocKwh),
       _num(step.gridImportKwh),
       _num(step.gridExportKwh),
-      _num(step.curtailedKwh),
+      _num(step.curtailedDcKwh),
+      _num(step.curtailedAcKwh),
+      _num(step.curtailedExportKwh),
       for (var i = 0; i < batteryCount; i++)
         _num(i < step.batteryChargesKwh.length ? step.batteryChargesKwh[i] : 0.0),
       for (var i = 0; i < batteryCount; i++)
@@ -52,7 +55,8 @@ String monthlyCsv(List<MonthlyBucket> buckets, {String delimiter = ';'}) {
   const headers = [
     'month', 'pvAcKwh', 'loadKwh', 'selfConsumptionKwh',
     'batteryChargeKwh', 'batteryDischargeKwh',
-    'gridImportKwh', 'gridExportKwh', 'curtailedKwh',
+    'gridImportKwh', 'gridExportKwh',
+    'curtailedDcKwh', 'curtailedAcKwh', 'curtailedExportKwh',
   ];
 
   final buffer = StringBuffer()..write(headers.map((h) => _quote(h, delimiter)).join(delimiter))..write(_lineEnding);
@@ -67,7 +71,9 @@ String monthlyCsv(List<MonthlyBucket> buckets, {String delimiter = ';'}) {
       _num(b.batteryDischargeKwh),
       _num(b.gridImportKwh),
       _num(b.gridExportKwh),
-      _num(b.curtailedKwh),
+      _num(b.curtailedDcKwh),
+      _num(b.curtailedAcKwh),
+      _num(b.curtailedExportKwh),
     ];
     buffer..write(row.map((v) => _quote(v, delimiter)).join(delimiter))..write(_lineEnding);
   }

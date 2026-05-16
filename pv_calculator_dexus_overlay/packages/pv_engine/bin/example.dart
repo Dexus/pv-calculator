@@ -8,7 +8,9 @@ void main() {
   print('Self consumption: ${s.selfConsumptionKwh.toStringAsFixed(0)} kWh');
   print('Grid import: ${s.gridImportKwh.toStringAsFixed(0)} kWh');
   print('Grid export: ${s.gridExportKwh.toStringAsFixed(0)} kWh');
-  print('Curtailed: ${s.curtailedKwh.toStringAsFixed(0)} kWh');
+  print('Curtailed DC (MPPT): ${s.curtailedDcKwh.toStringAsFixed(0)} kWh');
+  print('Curtailed AC (inverter cap): ${s.curtailedAcKwh.toStringAsFixed(0)} kWh');
+  print('Curtailed export: ${s.curtailedExportKwh.toStringAsFixed(0)} kWh');
   print('Autarky: ${(s.autarkyRate * 100).toStringAsFixed(1)}%');
   print('Final battery SOC per pack: ${s.finalBatterySocsKwh.map((v) => v.toStringAsFixed(2)).join(', ')}');
 }

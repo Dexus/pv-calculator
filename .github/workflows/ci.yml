@@ -36,6 +36,11 @@ jobs:
       - name: Install dependencies
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter pub get
+      - name: Verify pubspec.lock is committed
+        # Catches the "I bumped a dep but forgot to commit the lockfile"
+        # class of drift before it reaches reviewers.
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: git diff --exit-code pubspec.lock
       - name: Analyze
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter analyze

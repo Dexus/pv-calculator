@@ -9,9 +9,9 @@ import '_field.dart';
 class ProjectSection extends StatelessWidget {
   const ProjectSection({super.key, this.geocoder});
 
-  /// Injected for tests. In production this is constructed lazily by the
-  /// address-search row so we don't open an `http.Client` until the user
-  /// actually triggers a lookup.
+  /// Injected for tests. When `null`, the address-search row creates a
+  /// real [NominatimGeocoder] lazily — on first search press — so we
+  /// don't open an `http.Client` while the editor is just rendering.
   final GeocodingService? geocoder;
 
   @override
@@ -111,7 +111,7 @@ class _AddressSearchRow extends StatefulWidget {
 
 class _AddressSearchRowState extends State<_AddressSearchRow> {
   late final TextEditingController _queryController;
-  late GeocodingService _geocoder;
+  GeocodingService? _geocoder;
   bool _ownsGeocoder = false;
   bool _busy = false;
   String? _error;
@@ -121,19 +121,29 @@ class _AddressSearchRowState extends State<_AddressSearchRow> {
   void initState() {
     super.initState();
     _queryController = TextEditingController();
+    // Injected geocoder is attached eagerly; the production default
+    // is created on first search to avoid opening an http.Client when
+    // the user never uses address search.
     if (widget.geocoder != null) {
-      _geocoder = widget.geocoder!;
-    } else {
-      _geocoder = NominatimGeocoder();
-      _ownsGeocoder = true;
+      _geocoder = widget.geocoder;
     }
+  }
+
+  GeocodingService _ensureGeocoder() {
+    final existing = _geocoder;
+    if (existing != null) return existing;
+    final fresh = NominatimGeocoder();
+    _geocoder = fresh;
+    _ownsGeocoder = true;
+    return fresh;
   }
 
   @override
   void dispose() {
     _queryController.dispose();
-    if (_ownsGeocoder && _geocoder is NominatimGeocoder) {
-      (_geocoder as NominatimGeocoder).dispose();
+    final g = _geocoder;
+    if (_ownsGeocoder && g is NominatimGeocoder) {
+      g.dispose();
     }
     super.dispose();
   }
@@ -147,7 +157,7 @@ class _AddressSearchRowState extends State<_AddressSearchRow> {
       _results = const [];
     });
     try {
-      final results = await _geocoder.search(query);
+      final results = await _ensureGeocoder().search(query);
       if (!mounted) return;
       setState(() {
         _results = results;

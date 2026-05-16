@@ -411,7 +411,9 @@ class SimulationStep {
     required this.batterySocsKwh,
     required this.gridImportKwh,
     required this.gridExportKwh,
-    required this.curtailedKwh,
+    required this.curtailedDcKwh,
+    required this.curtailedAcKwh,
+    required this.curtailedExportKwh,
   });
 
   final int dayIndex;
@@ -430,7 +432,21 @@ class SimulationStep {
   final List<double> batterySocsKwh;
   final double gridImportKwh;
   final double gridExportKwh;
-  final double curtailedKwh;
+
+  /// DC-side energy lost at the inverter's MPPT/DC input cap, in
+  /// **DC kWh**. Modules generated this energy but the inverter could
+  /// not ingest it.
+  final double curtailedDcKwh;
+
+  /// AC-side energy lost at the inverter's AC output cap, in
+  /// **AC kWh**. The inverter could have produced this but the AC
+  /// rating (or 800 W micro-inverter cap) refused it.
+  final double curtailedAcKwh;
+
+  /// AC-side energy refused by the configured grid export limit, in
+  /// **AC kWh**. Energy was successfully converted to AC but exceeded
+  /// the export ceiling.
+  final double curtailedExportKwh;
 }
 
 class SimulationSummary {
@@ -443,7 +459,9 @@ class SimulationSummary {
     required this.batteryDischargeKwh,
     required this.gridImportKwh,
     required this.gridExportKwh,
-    required this.curtailedKwh,
+    required this.curtailedDcKwh,
+    required this.curtailedAcKwh,
+    required this.curtailedExportKwh,
     required this.finalBatterySocKwh,
     required this.finalBatterySocsKwh,
   });
@@ -456,7 +474,16 @@ class SimulationSummary {
   final double batteryDischargeKwh;
   final double gridImportKwh;
   final double gridExportKwh;
-  final double curtailedKwh;
+
+  /// DC-side curtailment from MPPT clipping, in **DC kWh**.
+  final double curtailedDcKwh;
+
+  /// AC-side curtailment from the inverter AC cap, in **AC kWh**.
+  final double curtailedAcKwh;
+
+  /// AC-side curtailment from the grid export limit, in **AC kWh**.
+  final double curtailedExportKwh;
+
   final double finalBatterySocKwh;
   final List<double> finalBatterySocsKwh;
 
@@ -475,6 +502,11 @@ class PvSimulator {
 
   SimulationResult run(SimulationConfig config) {
     config.validate();
+    // Pre-flight the weather source against the array roster so a
+    // typo in an array id surfaces immediately instead of producing
+    // a quiet zero-yield column in the summary.
+    config.effectiveWeatherSource
+        .validateForArrays(config.arrays.map((a) => a.id));
     final steps = <SimulationStep>[];
     final socs = [for (final b in config.batteries) b.effectiveInitialSocKwh];
 
@@ -512,24 +544,27 @@ class PvSimulator {
     }
 
     var pvAcKwh = 0.0;
-    var curtailedKwh = 0.0;
+    var curtailedDcKwh = 0.0;
+    var curtailedAcKwh = 0.0;
     for (final entry in dcByInverter.entries) {
       final inverter = inverterById[entry.key]!;
       var dcKwh = entry.value;
       // DC-side clipping: oversized arrays driving the inverter past
-      // its MPPT/DC rating lose the surplus before AC conversion.
+      // its MPPT/DC rating lose the surplus before AC conversion. The
+      // loss is reported in DC kWh — converting to "what AC would
+      // have been delivered" would hide the upstream geometry.
       final dcLimit = inverter.maxDcInputKw;
       if (dcLimit != null) {
         final dcCapKwh = dcLimit * stepHours;
         if (dcKwh > dcCapKwh) {
-          curtailedKwh += dcKwh - dcCapKwh;
+          curtailedDcKwh += dcKwh - dcCapKwh;
           dcKwh = dcCapKwh;
         }
       }
       final rawAc = dcKwh * inverter.efficiency;
       final limitedAc = math.min(rawAc, inverter.effectiveMaxAcKw * stepHours);
       pvAcKwh += limitedAc;
-      curtailedKwh += math.max(0.0, rawAc - limitedAc);
+      curtailedAcKwh += math.max(0.0, rawAc - limitedAc);
     }
 
     final loadKwh = config.loadProfile.energyKwhForStep(hourOfDay: hourOfDay, timeStep: config.timeStep);
@@ -575,11 +610,12 @@ class PvSimulator {
     }
 
     var gridExportKwh = surplusKwh;
+    var curtailedExportKwh = 0.0;
     final exportLimitKw = config.gridExportLimitKw;
     if (exportLimitKw != null) {
       final maxExport = exportLimitKw * stepHours;
       if (gridExportKwh > maxExport) {
-        curtailedKwh += gridExportKwh - maxExport;
+        curtailedExportKwh = gridExportKwh - maxExport;
         gridExportKwh = maxExport;
       }
     }
@@ -603,7 +639,9 @@ class PvSimulator {
       batterySocsKwh: List<double>.unmodifiable(socs),
       gridImportKwh: remainingLoadKwh,
       gridExportKwh: gridExportKwh,
-      curtailedKwh: curtailedKwh,
+      curtailedDcKwh: curtailedDcKwh,
+      curtailedAcKwh: curtailedAcKwh,
+      curtailedExportKwh: curtailedExportKwh,
     );
   }
 
@@ -629,7 +667,9 @@ class PvSimulator {
       batteryDischargeKwh: sum((s) => s.batteryDischargeKwh),
       gridImportKwh: sum((s) => s.gridImportKwh),
       gridExportKwh: sum((s) => s.gridExportKwh),
-      curtailedKwh: sum((s) => s.curtailedKwh),
+      curtailedDcKwh: sum((s) => s.curtailedDcKwh),
+      curtailedAcKwh: sum((s) => s.curtailedAcKwh),
+      curtailedExportKwh: sum((s) => s.curtailedExportKwh),
       finalBatterySocKwh: finalSocs.fold<double>(0.0, (a, b) => a + b),
       finalBatterySocsKwh: List<double>.unmodifiable(finalSocs),
     );

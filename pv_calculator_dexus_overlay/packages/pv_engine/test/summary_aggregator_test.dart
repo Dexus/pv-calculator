@@ -36,7 +36,9 @@ void main() {
       expect(sumOf((b) => b.batteryDischargeKwh), closeTo(result.summary.batteryDischargeKwh, 1e-9));
       expect(sumOf((b) => b.gridImportKwh), closeTo(result.summary.gridImportKwh, 1e-9));
       expect(sumOf((b) => b.gridExportKwh), closeTo(result.summary.gridExportKwh, 1e-9));
-      expect(sumOf((b) => b.curtailedKwh), closeTo(result.summary.curtailedKwh, 1e-9));
+      expect(sumOf((b) => b.curtailedDcKwh), closeTo(result.summary.curtailedDcKwh, 1e-9));
+      expect(sumOf((b) => b.curtailedAcKwh), closeTo(result.summary.curtailedAcKwh, 1e-9));
+      expect(sumOf((b) => b.curtailedExportKwh), closeTo(result.summary.curtailedExportKwh, 1e-9));
     });
 
     test('one-day run lands in the expected month bucket', () {

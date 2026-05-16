@@ -51,6 +51,14 @@ class WeatherQuery {
 abstract class IrradianceSource {
   const IrradianceSource();
   WeatherSample sampleFor(WeatherQuery query);
+
+  /// Called once by [PvSimulator.run] before any step is simulated.
+  /// Sources that are keyed by array id (e.g. [HourlyWeatherSeries])
+  /// can use this to fail loudly when an array has no associated
+  /// data, instead of silently returning zero production. Default
+  /// implementation is a no-op for sources that work for every array
+  /// (e.g. [SyntheticIrradianceSource]).
+  void validateForArrays(Iterable<String> arrayIds) {}
 }
 
 /// Synthetic fallback model. Reproduces the engine's original
@@ -113,16 +121,27 @@ class SyntheticIrradianceSource extends IrradianceSource {
 
 /// Per-array hourly weather index built from real data (e.g. PVGIS).
 ///
-/// Stores 365×24 samples per array id. Lookups outside the indexed
-/// set fall back to [WeatherSample.empty]. The engine never extrapolates.
+/// Stores 365×24 samples per array id. By default this source is
+/// **strict**: looking up an array id that has no series raises a
+/// [StateError] so a typo or a missing import doesn't silently turn
+/// into zero production for a whole array. Pass `allowMissing: true`
+/// only when you deliberately want unknown ids to fall back to
+/// [WeatherSample.empty].
 class HourlyWeatherSeries extends IrradianceSource {
-  HourlyWeatherSeries(Map<String, List<WeatherSample>> samplesByArrayId)
-      : _samplesByArrayId = {
+  HourlyWeatherSeries(
+    Map<String, List<WeatherSample>> samplesByArrayId, {
+    this.allowMissing = false,
+  }) : _samplesByArrayId = {
           for (final entry in samplesByArrayId.entries)
             entry.key: _validateLength(entry.key, entry.value),
         };
 
   final Map<String, List<WeatherSample>> _samplesByArrayId;
+
+  /// When `true`, unknown array ids resolve to [WeatherSample.empty]
+  /// instead of throwing. Off by default — silent zeros are the kind
+  /// of bug that's hard to spot in summary metrics.
+  final bool allowMissing;
 
   static List<WeatherSample> _validateLength(String arrayId, List<WeatherSample> samples) {
     if (samples.length != 365 * 24) {
@@ -135,10 +154,41 @@ class HourlyWeatherSeries extends IrradianceSource {
 
   Iterable<String> get arrayIds => _samplesByArrayId.keys;
 
+  /// Returns the set of array ids in [requiredArrayIds] that have no
+  /// series here. Useful for callers that want to surface missing
+  /// data to the user without triggering a thrown `StateError`.
+  Set<String> missingArrayIds(Iterable<String> requiredArrayIds) {
+    return {
+      for (final id in requiredArrayIds)
+        if (!_samplesByArrayId.containsKey(id)) id,
+    };
+  }
+
+  @override
+  void validateForArrays(Iterable<String> arrayIds) {
+    if (allowMissing) return;
+    final missing = missingArrayIds(arrayIds);
+    if (missing.isNotEmpty) {
+      throw ArgumentError(
+        'HourlyWeatherSeries is missing data for arrays: '
+        '${(missing.toList()..sort()).join(", ")}. '
+        'Provide a series for each array, or pass `allowMissing: true` '
+        'if zero production is intentional.',
+      );
+    }
+  }
+
   @override
   WeatherSample sampleFor(WeatherQuery query) {
     final series = _samplesByArrayId[query.arrayId];
-    if (series == null) return WeatherSample.empty;
+    if (series == null) {
+      if (allowMissing) return WeatherSample.empty;
+      throw StateError(
+        'HourlyWeatherSeries has no data for array "${query.arrayId}". '
+        'Provide a series for it or construct the source with '
+        '`allowMissing: true` if zero production is intentional.',
+      );
+    }
     // `num.clamp` is statically typed `num`, so cast back to `int`
     // before computing the list index.
     final day = (query.dayOfYear - 1).clamp(0, 364).toInt();
