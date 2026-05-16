@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '../../config.dart';
 import '../../persistence/file_io.dart';
 import '../../services/pvgis_api.dart';
 import '../../state/config_draft.dart';
@@ -35,7 +36,7 @@ class _ArraysSectionState extends State<ArraysSection> {
   PvgisApiService _apiService() {
     final injected = widget.pvgisApi;
     if (injected != null) return injected;
-    return _ownedApi ??= PvgisApiService();
+    return _ownedApi ??= PvgisApiService(endpoint: pvgisProxyEndpoint);
   }
 
   @override

@@ -65,6 +65,8 @@ class _NumberFieldState extends State<NumberField> {
       if (widget.allowNull) return null;
       return 'Pflichtfeld';
     }
+    // Intermediate states while typing a negative or decimal number.
+    if (value == '-' || value.endsWith('.') || value.endsWith(',')) return null;
     final parsed = double.tryParse(value.replaceAll(',', '.'));
     if (parsed == null) return 'Bitte eine Zahl eingeben';
     if (widget.min != null && parsed < widget.min!) return 'Mindestens ${widget.min}';
