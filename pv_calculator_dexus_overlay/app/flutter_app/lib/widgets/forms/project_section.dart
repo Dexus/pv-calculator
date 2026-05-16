@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
 import '../../services/geocoding.dart';
+import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
 import '_field.dart';
 
@@ -91,6 +92,69 @@ class ProjectSection extends StatelessWidget {
               ],
               onChanged: (v) {
                 if (v != null) { draft.timeStep = v; controller.touch(); }
+              },
+            )),
+          ]),
+          const SizedBox(height: 16),
+          Text('PVGIS-API', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            'Zeitfenster und Strahlungsdatenbank für „Von PVGIS-API laden“. '
+            'PVGIS-SARAH3 deckt typischerweise 2005–2023 ab; je breiter das '
+            'Fenster, desto stabiler werden TMY-Mittelwerte.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          Wrap(spacing: 12, runSpacing: 12, children: [
+            SizedBox(width: 160, child: IntField(
+              key: const Key('pvgis-start-year-field'),
+              label: 'PVGIS Startjahr',
+              initialValue: draft.pvgisStartYear,
+              min: 2005, max: 2100,
+              onChanged: (v) { draft.pvgisStartYear = v; controller.touch(); },
+            )),
+            SizedBox(width: 160, child: IntField(
+              key: const Key('pvgis-end-year-field'),
+              label: 'PVGIS Endjahr',
+              initialValue: draft.pvgisEndYear,
+              min: 2005, max: 2100,
+              onChanged: (v) { draft.pvgisEndYear = v; controller.touch(); },
+            )),
+            SizedBox(width: 220, child: DropdownButtonFormField<String?>(
+              key: const Key('pvgis-raddatabase-field'),
+              isExpanded: true,
+              initialValue: pvgisRadDatabaseOptions.contains(draft.pvgisRadDatabase)
+                  ? draft.pvgisRadDatabase
+                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Strahlungsdatenbank',
+                isDense: true,
+              ),
+              items: const [
+                DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('PVGIS Auto', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem<String?>(
+                  value: 'PVGIS-SARAH3',
+                  child: Text('PVGIS-SARAH3', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem<String?>(
+                  value: 'PVGIS-SARAH2',
+                  child: Text('PVGIS-SARAH2', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem<String?>(
+                  value: 'PVGIS-ERA5',
+                  child: Text('PVGIS-ERA5', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem<String?>(
+                  value: 'PVGIS-NSRDB',
+                  child: Text('PVGIS-NSRDB', overflow: TextOverflow.ellipsis),
+                ),
+              ],
+              onChanged: (v) {
+                draft.pvgisRadDatabase = v;
+                controller.touch();
               },
             )),
           ]),

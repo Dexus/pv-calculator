@@ -1,5 +1,24 @@
 import 'package:pv_engine/pv_engine.dart';
 
+/// Default year window for in-app PVGIS API requests. SARAH3 currently
+/// covers 2005-01-01 through ~end-2023; we default to the last four
+/// full years to average out short-term weather variation. Users can
+/// move or widen the window from the editor's PVGIS-API section.
+const int defaultPvgisStartYear = 2020;
+const int defaultPvgisEndYear = 2023;
+
+/// PVGIS radiation databases the editor offers in the dropdown. The
+/// first entry (`null`) lets PVGIS pick its own default for the
+/// requested location, which is the safe fallback when a database
+/// does not cover a region.
+const List<String?> pvgisRadDatabaseOptions = [
+  null,
+  'PVGIS-SARAH3',
+  'PVGIS-SARAH2',
+  'PVGIS-ERA5',
+  'PVGIS-NSRDB',
+];
+
 /// Metadata about an imported PVGIS series. Held alongside the samples
 /// so the UI can show the user which file/year-range fed each array
 /// without retaining the raw JSON.
@@ -54,6 +73,9 @@ class ConfigDraft {
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
     this.longitudeDeg = 10.0,
+    this.pvgisStartYear = defaultPvgisStartYear,
+    this.pvgisEndYear = defaultPvgisEndYear,
+    this.pvgisRadDatabase,
     List<PvArrayDraft>? arrays,
     List<InverterDraft>? inverters,
     List<BatteryDraft>? batteries,
@@ -70,6 +92,19 @@ class ConfigDraft {
   double? gridExportLimitKw;
   double latitudeDeg;
   double longitudeDeg;
+
+  /// First calendar year requested from the PVGIS API. Defaults to
+  /// [defaultPvgisStartYear]; users can widen or move the window from
+  /// the editor.
+  int pvgisStartYear;
+
+  /// Last calendar year requested from the PVGIS API (inclusive).
+  int pvgisEndYear;
+
+  /// Optional PVGIS `raddatabase` parameter (e.g. `PVGIS-SARAH3`).
+  /// `null` lets PVGIS choose the default database for the location.
+  String? pvgisRadDatabase;
+
   final List<PvArrayDraft> arrays;
   final List<InverterDraft> inverters;
   final List<BatteryDraft> batteries;

@@ -1,23 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:pv_engine/pv_engine.dart';
 
 import '../../persistence/file_io.dart';
+import '../../services/pvgis_api.dart';
 import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
 import '_field.dart';
 
-class ArraysSection extends StatelessWidget {
-  const ArraysSection({super.key, this.fileIo});
+class ArraysSection extends StatefulWidget {
+  const ArraysSection({super.key, this.fileIo, this.pvgisApi});
 
   /// Injected for tests. Defaults to the production [FileIo] when null.
   final FileIo? fileIo;
+
+  /// Injected for tests. Defaults to a section-wide production
+  /// [PvgisApiService] created lazily on first API click. Sharing one
+  /// service across array rows is what makes [PvgisApiService]'s
+  /// minimum-interval rate limit actually apply across arrays — a
+  /// per-row service would silently fire concurrent requests.
+  final PvgisApiService? pvgisApi;
+
+  @override
+  State<ArraysSection> createState() => _ArraysSectionState();
+}
+
+class _ArraysSectionState extends State<ArraysSection> {
+  PvgisApiService? _ownedApi;
+
+  /// Returns the API service this section should hand down to its
+  /// rows. When the caller injected one, use it as-is. Otherwise
+  /// create a single shared default on first access so the rate
+  /// limiter inside [PvgisApiService] serializes requests across rows.
+  PvgisApiService _apiService() {
+    final injected = widget.pvgisApi;
+    if (injected != null) return injected;
+    return _ownedApi ??= PvgisApiService();
+  }
+
+  @override
+  void dispose() {
+    _ownedApi?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final draft = controller.draft;
     final inverterIds = draft.inverters.map((i) => i.id).where((id) => id.isNotEmpty).toList();
-    final io = fileIo ?? const FileIo();
+    final io = widget.fileIo ?? const FileIo();
 
     return Card(
       child: Padding(
@@ -52,6 +84,7 @@ class ArraysSection extends StatelessWidget {
               array: draft.arrays[i],
               inverterIds: inverterIds,
               fileIo: io,
+              pvgisApiBuilder: _apiService,
               onChanged: controller.touch,
               onRemove: () {
                 draft.clearArrayWeather(draft.arrays[i].id);
@@ -73,6 +106,7 @@ class _ArrayEditor extends StatelessWidget {
     required this.array,
     required this.inverterIds,
     required this.fileIo,
+    required this.pvgisApiBuilder,
     required this.onChanged,
     required this.onRemove,
   });
@@ -81,6 +115,7 @@ class _ArrayEditor extends StatelessWidget {
   final PvArrayDraft array;
   final List<String> inverterIds;
   final FileIo fileIo;
+  final PvgisApiService Function() pvgisApiBuilder;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
 
@@ -159,6 +194,7 @@ class _ArrayEditor extends StatelessWidget {
         key: Key('pvgis-row-${array.id}'),
         arrayId: array.id,
         fileIo: fileIo,
+        pvgisApiBuilder: pvgisApiBuilder,
         onChanged: onChanged,
       ),
     ]);
@@ -166,10 +202,23 @@ class _ArrayEditor extends StatelessWidget {
 }
 
 class _PvgisRow extends StatefulWidget {
-  const _PvgisRow({super.key, required this.arrayId, required this.fileIo, required this.onChanged});
+  const _PvgisRow({
+    super.key,
+    required this.arrayId,
+    required this.fileIo,
+    required this.pvgisApiBuilder,
+    required this.onChanged,
+  });
 
   final String arrayId;
   final FileIo fileIo;
+
+  /// Resolves to the section-wide [PvgisApiService] on demand. Going
+  /// through a builder (instead of a value) keeps rows from forcing a
+  /// production service to spin up before any user actually taps
+  /// fetch.
+  final PvgisApiService Function() pvgisApiBuilder;
+
   final VoidCallback onChanged;
 
   @override
@@ -199,20 +248,10 @@ class _PvgisRowState extends State<_PvgisRow> {
       // before they finished choosing a file.
       if (!mounted) return;
       if (imported == null) return;
-      final samples = imported.data.toAveragedYear();
-      final years = (imported.data.entries.map((e) => e.timestampUtc.year).toSet().toList()..sort());
-      controller.draft.setArrayWeather(
-        widget.arrayId,
-        samples,
-        PvgisImportInfo(
-          sourceLabel: imported.sourceLabel,
-          entryCount: imported.data.entries.length,
-          coveredYears: List<int>.unmodifiable(years),
-          latitudeDeg: imported.data.latitudeDeg,
-          longitudeDeg: imported.data.longitudeDeg,
-          slopeDeg: imported.data.slopeDeg,
-          appAzimuthDeg: imported.data.appAzimuthDeg,
-        ),
+      _applyImport(
+        controller: controller,
+        sourceLabel: imported.sourceLabel,
+        data: imported.data,
       );
       widget.onChanged();
       messenger.showSnackBar(SnackBar(
@@ -224,6 +263,85 @@ class _PvgisRowState extends State<_PvgisRow> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _fetchFromApi() async {
+    if (_busy) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final controller = context.read<ProjectController>();
+    final draft = controller.draft;
+    if (widget.arrayId.trim().isEmpty) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Bitte zuerst eine Modulfeld-ID vergeben.'),
+      ));
+      return;
+    }
+    final array = _findArray(draft, widget.arrayId);
+    if (array == null) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Modulfeld nicht gefunden.'),
+      ));
+      return;
+    }
+    final PvgisRequest request;
+    try {
+      request = _buildRequestFor(draft, array);
+    } on ArgumentError catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('PVGIS-Abfrage ungültig: ${e.message ?? e.toString()}'),
+      ));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final data = await widget.pvgisApiBuilder().fetch(request);
+      if (!mounted) return;
+      _applyImport(
+        controller: controller,
+        sourceLabel:
+            'PVGIS-API ${request.startYear}–${request.endYear}',
+        data: data,
+      );
+      widget.onChanged();
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          'PVGIS-API-Daten für "${widget.arrayId}" geladen (${data.entries.length} Werte).',
+        ),
+      ));
+    } on PvgisApiException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('PVGIS-API-Abfrage fehlgeschlagen: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _applyImport({
+    required ProjectController controller,
+    required String sourceLabel,
+    required PvgisHourlyData data,
+  }) {
+    final samples = data.toAveragedYear();
+    final years = (data.entries.map((e) => e.timestampUtc.year).toSet().toList()
+      ..sort());
+    controller.draft.setArrayWeather(
+      widget.arrayId,
+      samples,
+      PvgisImportInfo(
+        sourceLabel: sourceLabel,
+        entryCount: data.entries.length,
+        coveredYears: List<int>.unmodifiable(years),
+        latitudeDeg: data.latitudeDeg,
+        longitudeDeg: data.longitudeDeg,
+        slopeDeg: data.slopeDeg,
+        appAzimuthDeg: data.appAzimuthDeg,
+      ),
+    );
   }
 
   void _remove() {
@@ -309,7 +427,7 @@ class _PvgisRowState extends State<_PvgisRow> {
         alignment: WrapAlignment.spaceBetween,
         children: [
           status,
-          Row(mainAxisSize: MainAxisSize.min, children: [
+          Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
             if (hasData)
               TextButton.icon(
                 key: Key('pvgis-remove-${widget.arrayId}'),
@@ -317,14 +435,21 @@ class _PvgisRowState extends State<_PvgisRow> {
                 icon: const Icon(Icons.delete_outline, size: 18),
                 label: const Text('Entfernen'),
               ),
-            const SizedBox(width: 4),
+            FilledButton.icon(
+              key: Key('pvgis-fetch-api-${widget.arrayId}'),
+              onPressed: _busy ? null : _fetchFromApi,
+              icon: _busy
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.cloud_download_outlined, size: 18),
+              label: Text(hasData ? 'API neu laden' : 'Von PVGIS-API laden'),
+            ),
             FilledButton.tonalIcon(
               key: Key('pvgis-import-${widget.arrayId}'),
               onPressed: _busy ? null : _import,
               icon: _busy
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.file_upload_outlined, size: 18),
-              label: Text(hasData ? 'Ersetzen' : 'PVGIS-JSON importieren'),
+              label: const Text('JSON importieren'),
             ),
           ]),
         ],
@@ -373,6 +498,23 @@ PvArrayDraft? _findArray(ConfigDraft draft, String id) {
     if (a.id == id) return a;
   }
   return null;
+}
+
+/// Builds a [PvgisRequest] for one array using the draft's site
+/// coordinates and PVGIS-window settings plus the array's own
+/// orientation/loss/peak fields.
+PvgisRequest _buildRequestFor(ConfigDraft draft, PvArrayDraft array) {
+  return PvgisRequest(
+    latitudeDeg: draft.latitudeDeg,
+    longitudeDeg: draft.longitudeDeg,
+    peakKw: array.peakKw,
+    tiltDeg: array.tiltDeg,
+    appAzimuthDeg: array.azimuthDeg,
+    lossFactor: array.lossFactor,
+    startYear: draft.pvgisStartYear,
+    endYear: draft.pvgisEndYear,
+    radDatabase: draft.pvgisRadDatabase,
+  );
 }
 
 /// Shortest absolute distance between two azimuths on the 0–360° circle.
