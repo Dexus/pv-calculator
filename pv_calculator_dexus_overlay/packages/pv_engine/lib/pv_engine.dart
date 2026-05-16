@@ -1,5 +1,3 @@
-library pv_engine;
-
 import 'dart:math' as math;
 
 enum InverterRole { grid, microInverter800W, batteryCoupled }
@@ -373,8 +371,12 @@ class PvSimulator {
 
   int _wrapDay(int day) {
     var normalized = day;
-    while (normalized < 1) normalized += 365;
-    while (normalized > 365) normalized -= 365;
+    while (normalized < 1) {
+      normalized += 365;
+    }
+    while (normalized > 365) {
+      normalized -= 365;
+    }
     return normalized;
   }
 }
