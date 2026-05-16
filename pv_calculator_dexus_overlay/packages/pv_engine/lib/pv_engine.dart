@@ -40,6 +40,28 @@ class PvArray {
     _require(lossFactor >= 0 && lossFactor < 1, 'PV array $id lossFactor must be in [0, 1).');
     _require(shadingFactor >= 0 && shadingFactor < 1, 'PV array $id shadingFactor must be in [0, 1).');
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'peakKw': peakKw,
+        'azimuthDeg': azimuthDeg,
+        'tiltDeg': tiltDeg,
+        'inverterId': inverterId,
+        'lossFactor': lossFactor,
+        'shadingFactor': shadingFactor,
+      };
+
+  static PvArray fromJson(Map<String, dynamic> json) => PvArray(
+        id: json['id'] as String,
+        label: json['label'] as String,
+        peakKw: _toDouble(json['peakKw']),
+        azimuthDeg: _toDouble(json['azimuthDeg']),
+        tiltDeg: _toDouble(json['tiltDeg']),
+        inverterId: json['inverterId'] as String,
+        lossFactor: _toDouble(json['lossFactor'] ?? 0.14),
+        shadingFactor: _toDouble(json['shadingFactor'] ?? 0.0),
+      );
 }
 
 class Inverter {
@@ -64,6 +86,22 @@ class Inverter {
     _require(maxAcKw > 0, 'Inverter $id maxAcKw must be positive.');
     _require(efficiency > 0 && efficiency <= 1, 'Inverter $id efficiency must be in (0, 1].');
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'maxAcKw': maxAcKw,
+        'role': role.name,
+        'efficiency': efficiency,
+      };
+
+  static Inverter fromJson(Map<String, dynamic> json) => Inverter(
+        id: json['id'] as String,
+        label: json['label'] as String,
+        maxAcKw: _toDouble(json['maxAcKw']),
+        role: _inverterRoleFromName(json['role'] as String? ?? 'grid'),
+        efficiency: _toDouble(json['efficiency'] ?? 0.965),
+      );
 }
 
 class BatteryConfig {
@@ -99,6 +137,28 @@ class BatteryConfig {
     _require(roundTripEfficiency > 0 && roundTripEfficiency <= 1, 'Battery $id roundTripEfficiency must be in (0, 1].');
     _require(minSocKwh >= 0 && minSocKwh <= capacityKwh, 'Battery $id minSocKwh must be between 0 and capacityKwh.');
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'capacityKwh': capacityKwh,
+        'maxChargeKw': maxChargeKw,
+        'maxDischargeKw': maxDischargeKw,
+        'roundTripEfficiency': roundTripEfficiency,
+        'minSocKwh': minSocKwh,
+        'initialSocKwh': initialSocKwh,
+      };
+
+  static BatteryConfig fromJson(Map<String, dynamic> json, {String fallbackId = 'battery-1'}) => BatteryConfig(
+        id: (json['id'] as String?)?.trim().isNotEmpty == true ? json['id'] as String : fallbackId,
+        label: json['label'] as String? ?? '',
+        capacityKwh: _toDouble(json['capacityKwh']),
+        maxChargeKw: _toDouble(json['maxChargeKw']),
+        maxDischargeKw: _toDouble(json['maxDischargeKw']),
+        roundTripEfficiency: _toDouble(json['roundTripEfficiency'] ?? 0.9),
+        minSocKwh: _toDouble(json['minSocKwh'] ?? 0),
+        initialSocKwh: json['initialSocKwh'] == null ? null : _toDouble(json['initialSocKwh']),
+      );
 }
 
 class LoadProfile {
@@ -127,6 +187,21 @@ class LoadProfile {
     _require(hourlyShape.length == 24, 'Load hourlyShape must have 24 values.');
     _require(hourlyShape.every((value) => value >= 0), 'Load hourlyShape must not contain negative values.');
     _require(hourlyShape.fold<double>(0.0, (sum, value) => sum + value) > 0, 'Load hourlyShape sum must be positive.');
+  }
+
+  Map<String, dynamic> toJson() => {
+        'dailyKwh': dailyKwh,
+        'hourlyShape': hourlyShape,
+      };
+
+  static LoadProfile fromJson(Map<String, dynamic> json) {
+    final shape = json['hourlyShape'];
+    return LoadProfile(
+      dailyKwh: _toDouble(json['dailyKwh']),
+      hourlyShape: shape == null
+          ? const LoadProfile(dailyKwh: 0).hourlyShape
+          : (shape as List).map((e) => _toDouble(e)).toList(growable: false),
+    );
   }
 }
 
@@ -176,6 +251,60 @@ class SimulationConfig {
       _require(batteryIds.add(battery.id), 'Duplicate battery id: ${battery.id}.');
     }
     loadProfile.validate();
+  }
+
+  Map<String, dynamic> toJson() => {
+        'schemaVersion': 1,
+        'arrays': arrays.map((a) => a.toJson()).toList(),
+        'inverters': inverters.map((i) => i.toJson()).toList(),
+        'batteries': batteries.map((b) => b.toJson()).toList(),
+        'loadProfile': loadProfile.toJson(),
+        'startDayOfYear': startDayOfYear,
+        'days': days,
+        'timeStep': timeStep.name,
+        'preRunDays': preRunDays,
+        'gridExportLimitKw': gridExportLimitKw,
+        'latitudeDeg': latitudeDeg,
+      };
+
+  static SimulationConfig fromJson(Map<String, dynamic> json) {
+    final version = json['schemaVersion'] as int? ?? 1;
+    if (version != 1) {
+      throw ArgumentError('Unknown SimulationConfig schemaVersion: $version');
+    }
+    final batteries = <BatteryConfig>[];
+    final rawBatteries = json['batteries'];
+    if (rawBatteries is List) {
+      for (var i = 0; i < rawBatteries.length; i++) {
+        batteries.add(BatteryConfig.fromJson(
+          (rawBatteries[i] as Map).cast<String, dynamic>(),
+          fallbackId: 'battery-${i + 1}',
+        ));
+      }
+    } else if (json['battery'] is Map) {
+      // Legacy single-battery shape.
+      batteries.add(BatteryConfig.fromJson(
+        (json['battery'] as Map).cast<String, dynamic>(),
+        fallbackId: 'battery-1',
+      ));
+    }
+
+    return SimulationConfig(
+      arrays: (json['arrays'] as List)
+          .map((e) => PvArray.fromJson((e as Map).cast<String, dynamic>()))
+          .toList(growable: false),
+      inverters: (json['inverters'] as List)
+          .map((e) => Inverter.fromJson((e as Map).cast<String, dynamic>()))
+          .toList(growable: false),
+      batteries: batteries,
+      loadProfile: LoadProfile.fromJson((json['loadProfile'] as Map).cast<String, dynamic>()),
+      startDayOfYear: (json['startDayOfYear'] as num?)?.toInt() ?? 1,
+      days: (json['days'] as num?)?.toInt() ?? 365,
+      timeStep: _timeStepFromName(json['timeStep'] as String? ?? 'hourly'),
+      preRunDays: (json['preRunDays'] as num?)?.toInt() ?? 0,
+      gridExportLimitKw: json['gridExportLimitKw'] == null ? null : _toDouble(json['gridExportLimitKw']),
+      latitudeDeg: _toDouble(json['latitudeDeg'] ?? 50.0),
+    );
   }
 }
 
@@ -418,4 +547,23 @@ class PvSimulator {
 
 void _require(bool condition, String message) {
   if (!condition) throw ArgumentError(message);
+}
+
+double _toDouble(Object? value) {
+  if (value is num) return value.toDouble();
+  throw ArgumentError('Expected num, got ${value.runtimeType}');
+}
+
+InverterRole _inverterRoleFromName(String name) {
+  for (final role in InverterRole.values) {
+    if (role.name == name) return role;
+  }
+  throw ArgumentError('Unknown InverterRole: $name');
+}
+
+TimeStep _timeStepFromName(String name) {
+  for (final step in TimeStep.values) {
+    if (step.name == name) return step;
+  }
+  throw ArgumentError('Unknown TimeStep: $name');
 }
