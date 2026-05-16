@@ -23,9 +23,37 @@ class ResultsPage extends StatelessWidget {
       appBar: AppBar(
         title: Text('Ergebnis — ${controller.projectName}'),
       ),
-      body: result == null
-          ? const Center(child: Text('Keine Simulation ausgeführt.'))
-          : _ResultsBody(result: result, projectName: controller.projectName, onExportCsv: onExportCsv),
+      // Run failures are surfaced on the editor (the only screen the
+      // run button stays on after a failed run), so this page only has
+      // to handle the happy and the never-ran states.
+      body: result != null
+          ? _ResultsBody(result: result, projectName: controller.projectName, onExportCsv: onExportCsv)
+          : const _EmptyResultsBody(),
+    );
+  }
+}
+
+class _EmptyResultsBody extends StatelessWidget {
+  const _EmptyResultsBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.bolt_outlined, size: 64, color: scheme.outline),
+          const SizedBox(height: 12),
+          const Text('Keine Simulation ausgeführt.'),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Zurück zur Konfiguration'),
+          ),
+        ]),
+      ),
     );
   }
 }

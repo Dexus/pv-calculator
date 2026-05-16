@@ -113,8 +113,11 @@ class _BatteryEditorState extends State<_BatteryEditor> {
           label: 'Max. Entladeleistung', suffix: 'kW', initialValue: battery.maxDischargeKw, min: 0,
           onChanged: (v) { if (v != null) { battery.maxDischargeKw = v; widget.onChanged(); } },
         )),
-        SizedBox(width: 160, child: NumberField(
-          label: 'Roundtrip-Wirkungsgrad', suffix: '0..1', initialValue: battery.roundTripEfficiency, min: 0.01, max: 1.0,
+        SizedBox(width: 200, child: NumberField(
+          label: 'Roundtrip-Wirkungsgrad', suffix: '0..1',
+          initialValue: battery.roundTripEfficiency, min: 0.01, max: 1.0,
+          helpText: 'Lade- × Entladewirkungsgrad. Typisch 0,9 für Lithium-Speicher, '
+              '≈ 0,75 für Blei-Speicher.',
           onChanged: (v) { if (v != null) { battery.roundTripEfficiency = v; widget.onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(

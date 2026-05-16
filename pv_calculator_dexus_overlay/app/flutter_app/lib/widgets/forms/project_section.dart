@@ -68,10 +68,12 @@ class ProjectSection extends StatelessWidget {
               min: 1, max: 365,
               onChanged: (v) { draft.days = v; controller.touch(); },
             )),
-            SizedBox(width: 160, child: IntField(
+            SizedBox(width: 200, child: IntField(
               label: 'Vorlauf-Tage',
               initialValue: draft.preRunDays,
               min: 0, max: 365,
+              helpText: 'Vorlauftage stabilisieren den Batterie-Startladestand vor '
+                  'der eigentlichen Simulation. Schritte mit Vorlauf erscheinen nicht in den Ergebnissen.',
               onChanged: (v) { draft.preRunDays = v; controller.touch(); },
             )),
             SizedBox(width: 200, child: NumberField(

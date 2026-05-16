@@ -96,23 +96,67 @@ class _InverterEditor extends StatelessWidget {
           label: 'Wirkungsgrad', suffix: '0..1', initialValue: inverter.efficiency, min: 0.01, max: 1.0,
           onChanged: (v) { if (v != null) { inverter.efficiency = v; onChanged(); } },
         )),
-        SizedBox(width: 200, child: NumberField(
-          label: 'Max. DC-Eingang', suffix: 'kW (optional)',
+        SizedBox(width: 220, child: NumberField(
+          label: 'Max. DC-Eingang', suffix: 'kW',
           initialValue: inverter.maxDcInputKw, min: 0.001, allowNull: true,
+          helpText: 'Optionale DC-Eingangsgrenze (MPPT). DC-Leistung darüber '
+              'wird vor dem Wechselrichter geclippt und als Abregelung erfasst. '
+              'Leer lassen, wenn der Wechselrichter nicht überdimensioniert ist.',
           onChanged: (v) { inverter.maxDcInputKw = v; onChanged(); },
         )),
-        SizedBox(width: 240, child: DropdownButtonFormField<InverterRole>(
+        SizedBox(width: 260, child: _RoleDropdown(
+          role: inverter.role,
+          onChanged: (v) { inverter.role = v; onChanged(); },
+        )),
+      ]),
+    ]);
+  }
+}
+
+class _RoleDropdown extends StatelessWidget {
+  const _RoleDropdown({required this.role, required this.onChanged});
+
+  final InverterRole role;
+  final ValueChanged<InverterRole> onChanged;
+
+  String get _helpText {
+    switch (role) {
+      case InverterRole.microInverter800W:
+        return '800-W-Stecker-Solar: AC-Ausgang wird hart auf 0,8 kW gekappt, '
+            'unabhängig von der eingestellten Max. AC-Leistung.';
+      case InverterRole.batteryCoupled:
+        return 'Wechselrichter ist DC-seitig mit einer Batterie gekoppelt; '
+            'Erfassung wie ein Netz-Wechselrichter, aber semantisch markiert.';
+      case InverterRole.grid:
+        return 'Standard-Netz-Wechselrichter ohne harte AC-Hürde.';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Expanded(
+        child: DropdownButtonFormField<InverterRole>(
           isExpanded: true,
-          initialValue: inverter.role,
+          initialValue: role,
           decoration: const InputDecoration(labelText: 'Rolle', isDense: true),
           items: const [
             DropdownMenuItem(value: InverterRole.grid, child: Text('Netz', overflow: TextOverflow.ellipsis)),
             DropdownMenuItem(value: InverterRole.microInverter800W, child: Text('800-W-Micro', overflow: TextOverflow.ellipsis)),
             DropdownMenuItem(value: InverterRole.batteryCoupled, child: Text('Batteriegekoppelt', overflow: TextOverflow.ellipsis)),
           ],
-          onChanged: (v) { if (v != null) { inverter.role = v; onChanged(); } },
-        )),
-      ]),
+          onChanged: (v) { if (v != null) onChanged(v); },
+        ),
+      ),
+      Tooltip(
+        message: _helpText,
+        triggerMode: TooltipTriggerMode.tap,
+        showDuration: const Duration(seconds: 6),
+        child: const Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Icon(Icons.help_outline, size: 18),
+        ),
+      ),
     ]);
   }
 }

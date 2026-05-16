@@ -49,4 +49,18 @@ void main() {
     expect(find.byKey(const Key('export-steps-csv')), findsOneWidget);
     expect(find.byKey(const Key('export-monthly-csv')), findsOneWidget);
   });
+
+  testWidgets('ResultsPage empty state offers a back button', (tester) async {
+    final controller = ProjectController();
+    await tester.pumpWidget(MaterialApp(
+      home: ChangeNotifierProvider<ProjectController>.value(
+        value: controller,
+        child: const ResultsPage(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keine Simulation ausgeführt.'), findsOneWidget);
+    expect(find.text('Zurück zur Konfiguration'), findsOneWidget);
+  });
 }
