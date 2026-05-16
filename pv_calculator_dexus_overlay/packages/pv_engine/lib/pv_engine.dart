@@ -271,6 +271,7 @@ class SimulationConfig {
     this.preRunDays = 0,
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
+    this.longitudeDeg = 10.0,
     this.weatherSource,
     this.temperatureModel = const NoctTemperatureModel(),
   });
@@ -285,6 +286,12 @@ class SimulationConfig {
   final int preRunDays;
   final double? gridExportLimitKw;
   final double latitudeDeg;
+
+  /// Longitude in degrees, positive east. Not used by the synthetic
+  /// model but persisted so PVGIS fetchers / geocoders can address the
+  /// site. JSON-loaded projects without this field default to 10° E
+  /// (central Germany), matching the latitude default.
+  final double longitudeDeg;
 
   /// Source for plane-of-array irradiance + ambient conditions per
   /// (array, time). `null` means the engine falls back to the
@@ -310,6 +317,7 @@ class SimulationConfig {
     _require(preRunDays >= 0 && preRunDays <= 365, 'preRunDays must be in [0, 365].');
     _require(startDayOfYear >= 1 && startDayOfYear <= 365, 'startDayOfYear must be in [1, 365].');
     _require(latitudeDeg >= -90 && latitudeDeg <= 90, 'latitudeDeg must be in [-90, 90].');
+    _require(longitudeDeg >= -180 && longitudeDeg <= 180, 'longitudeDeg must be in [-180, 180].');
     _require(gridExportLimitKw == null || gridExportLimitKw! >= 0, 'gridExportLimitKw must not be negative.');
     final inverterIds = <String>{};
     for (final inverter in inverters) {
@@ -340,6 +348,7 @@ class SimulationConfig {
         'preRunDays': preRunDays,
         'gridExportLimitKw': gridExportLimitKw,
         'latitudeDeg': latitudeDeg,
+        'longitudeDeg': longitudeDeg,
       };
 
   static SimulationConfig fromJson(Map<String, dynamic> json) {
@@ -379,6 +388,7 @@ class SimulationConfig {
       preRunDays: (json['preRunDays'] as num?)?.toInt() ?? 0,
       gridExportLimitKw: json['gridExportLimitKw'] == null ? null : _toDouble(json['gridExportLimitKw']),
       latitudeDeg: _toDouble(json['latitudeDeg'] ?? 50.0),
+      longitudeDeg: _toDouble(json['longitudeDeg'] ?? 10.0),
     );
   }
 }
