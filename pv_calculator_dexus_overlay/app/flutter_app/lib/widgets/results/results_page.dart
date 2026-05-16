@@ -18,14 +18,90 @@ class ResultsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final result = controller.result;
+    final error = controller.lastError;
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Ergebnis — ${controller.projectName}'),
       ),
-      body: result == null
-          ? const Center(child: Text('Keine Simulation ausgeführt.'))
-          : _ResultsBody(result: result, projectName: controller.projectName, onExportCsv: onExportCsv),
+      body: result != null
+          ? _ResultsBody(result: result, projectName: controller.projectName, onExportCsv: onExportCsv)
+          : error != null
+              ? _RunErrorBody(message: error)
+              : const _EmptyResultsBody(),
+    );
+  }
+}
+
+class _EmptyResultsBody extends StatelessWidget {
+  const _EmptyResultsBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.bolt_outlined, size: 64, color: scheme.outline),
+          const SizedBox(height: 12),
+          const Text('Keine Simulation ausgeführt.'),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Zurück zur Konfiguration'),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _RunErrorBody extends StatelessWidget {
+  const _RunErrorBody({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Card(
+            key: const Key('results-run-error-card'),
+            color: scheme.errorContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.error_outline, size: 48, color: scheme.onErrorContainer),
+                const SizedBox(height: 12),
+                Text(
+                  'Simulation fehlgeschlagen',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: scheme.onErrorContainer,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: scheme.onErrorContainer),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.tonalIcon(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Zurück zur Konfiguration'),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

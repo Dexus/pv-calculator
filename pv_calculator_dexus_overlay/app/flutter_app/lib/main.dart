@@ -15,9 +15,26 @@ class PvCalculatorApp extends StatelessWidget {
       create: (_) => ProjectController(),
       child: MaterialApp(
         title: 'PV Calculator',
-        theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.amber),
+        themeMode: ThemeMode.system,
+        theme: _buildTheme(Brightness.light),
+        darkTheme: _buildTheme(Brightness.dark),
         home: const ProjectListPage(),
       ),
     );
   }
+}
+
+ThemeData _buildTheme(Brightness brightness) {
+  final colorScheme = ColorScheme.fromSeed(
+    seedColor: Colors.amber,
+    brightness: brightness,
+  );
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: colorScheme,
+    inputDecorationTheme: const InputDecorationTheme(
+      isDense: true,
+      border: OutlineInputBorder(),
+    ),
+  );
 }

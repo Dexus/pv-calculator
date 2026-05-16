@@ -168,14 +168,18 @@ class _ArrayEditor extends StatelessWidget {
           label: 'Verschattung', suffix: '0..1', initialValue: array.shadingFactor, min: 0, max: 0.999,
           onChanged: (v) { if (v != null) { array.shadingFactor = v; onChanged(); } },
         )),
-        SizedBox(width: 200, child: NumberField(
+        SizedBox(width: 220, child: NumberField(
           label: 'Temperaturkoeff.', suffix: '%/°C',
           initialValue: array.temperatureCoefficientPctPerC, min: -2, max: 0,
+          helpText: 'Leistungsverlust pro °C Zelltemperatur über 25 °C. '
+              'Kristallines Silizium ≈ −0,4 %/°C; 0 deaktiviert die Temperatur-Derating.',
           onChanged: (v) { if (v != null) { array.temperatureCoefficientPctPerC = v; onChanged(); } },
         )),
-        SizedBox(width: 160, child: NumberField(
+        SizedBox(width: 180, child: NumberField(
           label: 'NOCT', suffix: '°C',
           initialValue: array.nominalOperatingCellTempC, min: 20, max: 70,
+          helpText: 'Nominal Operating Cell Temperature: Zelltemperatur bei '
+              '800 W/m², 20 °C Luft, 1 m/s Wind. Typisch 45 °C.',
           onChanged: (v) { if (v != null) { array.nominalOperatingCellTempC = v; onChanged(); } },
         )),
         SizedBox(width: 220, child: DropdownButtonFormField<String>(

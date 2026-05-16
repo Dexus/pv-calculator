@@ -13,6 +13,7 @@ class NumberField extends StatefulWidget {
     this.min,
     this.max,
     this.allowDecimal = true,
+    this.helpText,
   });
 
   final String label;
@@ -23,6 +24,12 @@ class NumberField extends StatefulWidget {
   final double? min;
   final double? max;
   final bool allowDecimal;
+
+  /// Optional in-context explanation rendered behind a help icon. When
+  /// non-null a tooltip is attached to the field's suffix icon — used
+  /// on technical fields whose label alone (e.g. "NOCT") isn't
+  /// self-explanatory.
+  final String? helpText;
 
   @override
   State<NumberField> createState() => _NumberFieldState();
@@ -104,6 +111,7 @@ class _NumberFieldState extends State<NumberField> {
         ? TextInputType.text
         : TextInputType.numberWithOptions(
             decimal: widget.allowDecimal, signed: false);
+    final help = widget.helpText;
     return TextFormField(
       controller: _controller,
       focusNode: _focusNode,
@@ -113,6 +121,14 @@ class _NumberFieldState extends State<NumberField> {
         labelText: widget.label,
         suffixText: widget.suffix,
         isDense: true,
+        suffixIcon: help == null
+            ? null
+            : Tooltip(
+                message: help,
+                triggerMode: TooltipTriggerMode.tap,
+                showDuration: const Duration(seconds: 6),
+                child: const Icon(Icons.help_outline, size: 18),
+              ),
       ),
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: _validate,
@@ -143,6 +159,7 @@ class IntField extends StatelessWidget {
     required this.onChanged,
     this.min,
     this.max,
+    this.helpText,
   });
 
   final String label;
@@ -150,6 +167,7 @@ class IntField extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final int? min;
   final int? max;
+  final String? helpText;
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +177,7 @@ class IntField extends StatelessWidget {
       min: min?.toDouble(),
       max: max?.toDouble(),
       allowDecimal: false,
+      helpText: helpText,
       onChanged: (v) {
         if (v != null) onChanged(v.toInt());
       },
@@ -173,12 +192,14 @@ class StringField extends StatefulWidget {
     required this.initialValue,
     required this.onChanged,
     this.required = false,
+    this.helpText,
   });
 
   final String label;
   final String initialValue;
   final ValueChanged<String> onChanged;
   final bool required;
+  final String? helpText;
 
   @override
   State<StringField> createState() => _StringFieldState();
@@ -209,9 +230,22 @@ class _StringFieldState extends State<StringField> {
 
   @override
   Widget build(BuildContext context) {
+    final help = widget.helpText;
+    final label = widget.required ? '${widget.label} *' : widget.label;
     return TextFormField(
       controller: _controller,
-      decoration: InputDecoration(labelText: widget.label, isDense: true),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        suffixIcon: help == null
+            ? null
+            : Tooltip(
+                message: help,
+                triggerMode: TooltipTriggerMode.tap,
+                showDuration: const Duration(seconds: 6),
+                child: const Icon(Icons.help_outline, size: 18),
+              ),
+      ),
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (v) {
         if (widget.required && (v == null || v.trim().isEmpty)) return 'Pflichtfeld';

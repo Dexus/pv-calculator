@@ -228,16 +228,31 @@ class _ProjectListPageState extends State<ProjectListPage> {
           }
           final names = snapshot.data ?? const [];
           if (names.isEmpty) {
+            final scheme = Theme.of(context).colorScheme;
             return Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text('Noch keine Projekte gespeichert.'),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _newProject,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Neues Projekt erstellen'),
-                ),
-              ]),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.solar_power, size: 72, color: scheme.outline),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Noch keine Projekte gespeichert.',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lege ein neues Projekt an oder importiere ein gespeichertes JSON.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _newProject,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Neues Projekt erstellen'),
+                  ),
+                ]),
+              ),
             );
           }
           return ListView.separated(

@@ -1,5 +1,65 @@
 import 'package:pv_engine/pv_engine.dart';
 
+/// Which form section a [ValidationIssue] belongs to. The editor uses
+/// this to render the engine's free-form error message inside the
+/// matching section card instead of in a single top-of-page banner.
+enum ConfigSection { project, arrays, inverters, batteries, load, unknown }
+
+/// A classified engine-validation failure. Routed to a section so the
+/// user sees the message next to the field they need to fix.
+class ValidationIssue {
+  const ValidationIssue({required this.section, required this.message});
+  final ConfigSection section;
+  final String message;
+}
+
+/// Maps an engine [ArgumentError.message] string to the form section
+/// that owns the field that triggered it. Keyword-based so the engine
+/// stays in plain text without needing structured error types.
+ConfigSection classifyValidationMessage(String message) {
+  final m = message.toLowerCase();
+  // Order matters: more specific keywords come first.
+  if (m.contains('pv array') ||
+      m.contains('shading') ||
+      m.contains('losses') ||
+      m.contains('lossfactor') ||
+      m.contains('tiltdeg') ||
+      m.contains('peakkw') ||
+      m.contains('temperaturecoefficient') ||
+      m.contains('nominaloperatingcelltemp') ||
+      m.contains('references missing inverter')) {
+    return ConfigSection.arrays;
+  }
+  if (m.contains('inverter') ||
+      m.contains('maxackw') ||
+      m.contains('maxdcinputkw') ||
+      m.contains('efficiency') && !m.contains('roundtrip')) {
+    return ConfigSection.inverters;
+  }
+  if (m.contains('battery') ||
+      m.contains('socKwh'.toLowerCase()) ||
+      m.contains('capacitykwh') ||
+      m.contains('maxchargekw') ||
+      m.contains('maxdischargekw') ||
+      m.contains('roundtripefficiency')) {
+    return ConfigSection.batteries;
+  }
+  if (m.contains('load ') ||
+      m.contains('dailykwh') ||
+      m.contains('hourlyshape')) {
+    return ConfigSection.load;
+  }
+  if (m.contains('latitudedeg') ||
+      m.contains('longitudedeg') ||
+      m.contains('startdayofyear') ||
+      m.contains('preRunDays'.toLowerCase()) ||
+      m.contains('gridexportlimit') ||
+      m.contains('days must')) {
+    return ConfigSection.project;
+  }
+  return ConfigSection.unknown;
+}
+
 /// Default year window for in-app PVGIS API requests. SARAH3 currently
 /// covers 2005-01-01 through ~end-2023; we default to the last four
 /// full years to average out short-term weather variation. Users can
@@ -202,12 +262,17 @@ class ConfigDraft {
         weatherSource: buildWeatherSource(),
       );
 
-  String? validationError() {
+  /// Returns the first engine-validation failure as a [ValidationIssue]
+  /// (classified to its owning [ConfigSection]) or `null` when the
+  /// draft builds a valid [SimulationConfig]. Engine `validate()`
+  /// throws on the first failure, so at most one issue can be returned.
+  ValidationIssue? validationIssue() {
     try {
       build().validate();
       return null;
     } on ArgumentError catch (e) {
-      return e.message?.toString() ?? e.toString();
+      final msg = e.message?.toString() ?? e.toString();
+      return ValidationIssue(section: classifyValidationMessage(msg), message: msg);
     }
   }
 
