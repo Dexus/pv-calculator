@@ -35,7 +35,8 @@ void main() {
       final unlimited = const PvSimulator().run(_config(batteries: const [], gridExportLimitKw: null));
       final limited = const PvSimulator().run(_config(batteries: const [], gridExportLimitKw: 0.1));
       expect(limited.summary.gridExportKwh, lessThan(unlimited.summary.gridExportKwh));
-      expect(limited.summary.curtailedKwh, greaterThan(unlimited.summary.curtailedKwh));
+      // Loss specifically lands in the export-side curtailment bucket.
+      expect(limited.summary.curtailedExportKwh, greaterThan(unlimited.summary.curtailedExportKwh));
     });
   });
 }

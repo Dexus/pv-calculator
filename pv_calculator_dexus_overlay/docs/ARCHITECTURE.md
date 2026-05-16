@@ -22,7 +22,7 @@ Data Adapters / Persistence / APIs
 ## Module
 
 - `packages/pv_engine`: PV-Arrays, Wechselrichter, **Liste von Batterien**, Lastprofil, `SimulationConfig`, `PvSimulator`, Ergebniszusammenfassung, `SummaryAggregator` (Monatsbuckets), `stepsCsv`/`monthlyCsv` (CSV-Export). JSON-Serialisierung (`toJson`/`fromJson`) auf allen Domain-Typen — keine externen Runtime-Abhängigkeiten.
-- `app/flutter_app`: `ProjectController` (ChangeNotifier) + `ConfigDraft` als mutierbare Arbeitskopie der unveränderlichen Engine-Typen. Eingabeformulare (`widgets/forms/`), Ergebnisansicht mit KPI-Karten und Monats-Tabelle (`widgets/results/`), Projekt-Listing (`widgets/project_list_page.dart`).
+- `app/flutter_app`: `ProjectController` (ChangeNotifier) + `ConfigDraft` als mutierbare Arbeitskopie der unveränderlichen Engine-Typen. Eingabeformulare (`widgets/forms/`), Ergebnisansicht mit KPI-Karten und Monats-Tabelle (`widgets/results/`), Projekt-Listing (`widgets/project_list_page.dart`). Geocoding-Adapter (`services/geocoding.dart`) bindet OpenStreetMap Nominatim explizit hinter einem `GeocodingService`-Interface ein — keine Auto-Suche bei Tastendruck, fester `User-Agent`, 1 s Mindestabstand zwischen Anfragen (Usage-Policy).
 - `docs`: Anforderungen, Architektur, Roadmap, technische Entscheidungen.
 
 ## Persistenz
@@ -36,7 +36,17 @@ Legacy-Migration: `SimulationConfig.fromJson` akzeptiert auch die alte 0.1-Form 
 
 ## Externe Datenquellen
 
-PVGIS, Wetterdaten, reale Gerätekennlinien und Lastprofilimporte sollen später als Adapter ergänzt werden. Die Engine darf nicht direkt von UI oder API-Implementierungen abhängen.
+Die Engine definiert eine `IrradianceSource`-Abstraktion (`packages/pv_engine/lib/src/weather.dart`):
+
+- `SyntheticIrradianceSource` — Demo-Fallback (sin/Jahreszeit/Orientierung), liefert konstant 25 °C Ambient — keine reale Vorhersage.
+- `HourlyWeatherSeries` — 365×24 Stunden pro Array-ID, vorgehalten im Speicher.
+- `parsePvgisHourlyJson` — reiner Dart-Parser für PVGIS-`seriescalc`-JSON. `PvgisHourlyData.toAveragedYear()` faltet mehrjährige Daten auf ein 8760-TMY zusammen.
+
+HTTP-Aufrufe gegen PVGIS gehören NICHT in die Engine (keine Runtime-Deps). Die Flutter-App oder ein Kommandozeilen-Tool kann PVGIS abfragen und das JSON via `parsePvgisHourlyJson` einspeisen.
+
+Temperaturmodell: `NoctTemperatureModel` (Default) oder `FaimanTemperatureModel`, beide als pure Strategien ohne State.
+
+MPPT-/String-Clipping: `Inverter.maxDcInputKw` cappt die aggregierte DC-Energie pro Wechselrichter vor der AC-Konversion. Reale Gerätekennlinien bleiben Folgearbeit.
 
 ## Teststrategie
 

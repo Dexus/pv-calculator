@@ -16,12 +16,13 @@
 - [x] Projekt als JSON speichern/laden (lokale Liste über `shared_preferences`, plus Datei-Import/Export über `file_selector`).
 - [x] Engine-API erweitert: `SimulationConfig.batteries` als Liste, schemaversionierte JSON-Serialisierung mit Legacy-Migration des einzelnen `battery`-Feldes.
 
-## Phase 3 – Fachliche Genauigkeit
+## Phase 3 – Fachliche Genauigkeit ✓ (Engine-Schicht)
 
-- PVGIS-/Wetterdaten-Adapter.
-- Temperatur- und Verlustmodelle.
-- MPPT-/String-nahe Wechselrichtermodellierung.
-- Referenzvergleiche gegen bekannte Tools oder Messdaten.
+- [x] PVGIS-/Wetterdaten-Adapter: `IrradianceSource`-Abstraktion, `SyntheticIrradianceSource` (Demo-Fallback), `HourlyWeatherSeries` (8760-Slots pro Array), `parsePvgisHourlyJson` für PVGIS-`seriescalc`-Dokumente, `PvgisHourlyData.toAveragedYear()` als TMY-Mittelwertbildung.
+- [x] Temperatur-/Verlustmodelle: `NoctTemperatureModel` (Standard) und `FaimanTemperatureModel`. `PvArray.temperatureCoefficientPctPerC` (Default 0 für Rückwärtskompatibilität, z.B. -0.4 für kristallines Silizium) und `nominalOperatingCellTempC` (Default 45 °C).
+- [x] MPPT-/String-nahe Wechselrichtermodellierung: `Inverter.maxDcInputKw` clippt DC-Energie vor der Wechselrichter-Effizienz und schreibt den Überschuss in `curtailedKwh`.
+- [x] Referenzvergleiche: `reference_yield_test.dart` prüft 1-kWp-Süddach am 21.06. gegen einen 4–7 kWh-Korridor, plus 800-W-Microclipping- und Overcast-Tests. (Vollständige PVGIS-Live-Vergleiche bleiben Folgearbeit, weil CI keinen Netzzugriff hat.)
+- [ ] Folgearbeit: Anbindung der UI an PVGIS-JSON-Import pro Array.
 
 ## Phase 4 – Produktqualität
 

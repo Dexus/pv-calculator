@@ -8,6 +8,9 @@ void main() {
   print('Self consumption: ${s.selfConsumptionKwh.toStringAsFixed(0)} kWh');
   print('Grid import: ${s.gridImportKwh.toStringAsFixed(0)} kWh');
   print('Grid export: ${s.gridExportKwh.toStringAsFixed(0)} kWh');
+  print('Curtailed DC (MPPT): ${s.curtailedDcKwh.toStringAsFixed(0)} kWh');
+  print('Curtailed AC (inverter cap): ${s.curtailedAcKwh.toStringAsFixed(0)} kWh');
+  print('Curtailed export: ${s.curtailedExportKwh.toStringAsFixed(0)} kWh');
   print('Autarky: ${(s.autarkyRate * 100).toStringAsFixed(1)}%');
   print('Final battery SOC per pack: ${s.finalBatterySocsKwh.map((v) => v.toStringAsFixed(2)).join(', ')}');
 }
@@ -15,11 +18,22 @@ void main() {
 SimulationConfig _demoConfig() {
   return SimulationConfig(
     arrays: const [
-      PvArray(id: 'south-roof', label: 'Süddach', peakKw: 4.8, azimuthDeg: 180, tiltDeg: 35, inverterId: 'main'),
-      PvArray(id: 'balcony', label: 'Balkon', peakKw: 1.2, azimuthDeg: 180, tiltDeg: 30, inverterId: 'micro'),
+      // Phase 3: temperature coefficient + NOCT now drive cell-temperature derating.
+      PvArray(
+        id: 'south-roof', label: 'Süddach', peakKw: 4.8,
+        azimuthDeg: 180, tiltDeg: 35, inverterId: 'main',
+        temperatureCoefficientPctPerC: -0.4,
+        nominalOperatingCellTempC: 45,
+      ),
+      PvArray(
+        id: 'balcony', label: 'Balkon', peakKw: 1.2,
+        azimuthDeg: 180, tiltDeg: 30, inverterId: 'micro',
+        temperatureCoefficientPctPerC: -0.4,
+      ),
     ],
     inverters: const [
-      Inverter(id: 'main', label: 'Hauptwechselrichter', maxAcKw: 5.0),
+      // Phase 3: optional DC input cap models MPPT/string clipping.
+      Inverter(id: 'main', label: 'Hauptwechselrichter', maxAcKw: 5.0, maxDcInputKw: 6.0),
       Inverter(id: 'micro', label: '800-W-Micro-Inverter', maxAcKw: 0.8, role: InverterRole.microInverter800W),
     ],
     batteries: const [
@@ -31,5 +45,8 @@ SimulationConfig _demoConfig() {
     preRunDays: 365,
     gridExportLimitKw: 6.0,
     latitudeDeg: 50.1,
+    // weatherSource: null → engine falls back to the SyntheticIrradianceSource
+    // demo model. Plug an HourlyWeatherSeries built from PVGIS data here for
+    // a measurement-driven run.
   );
 }

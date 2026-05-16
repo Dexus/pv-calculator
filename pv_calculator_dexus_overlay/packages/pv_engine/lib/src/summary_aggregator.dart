@@ -10,7 +10,9 @@ class MonthlyBucket {
     required this.batteryDischargeKwh,
     required this.gridImportKwh,
     required this.gridExportKwh,
-    required this.curtailedKwh,
+    required this.curtailedDcKwh,
+    required this.curtailedAcKwh,
+    required this.curtailedExportKwh,
   });
 
   final int month;
@@ -21,7 +23,15 @@ class MonthlyBucket {
   final double batteryDischargeKwh;
   final double gridImportKwh;
   final double gridExportKwh;
-  final double curtailedKwh;
+
+  /// DC-side MPPT curtailment in **DC kWh**.
+  final double curtailedDcKwh;
+
+  /// AC-side inverter-cap curtailment in **AC kWh**.
+  final double curtailedAcKwh;
+
+  /// AC-side grid-export-limit curtailment in **AC kWh**.
+  final double curtailedExportKwh;
 }
 
 class SummaryAggregator {
@@ -49,7 +59,9 @@ class SummaryAggregator {
     final discharge = List<double>.filled(12, 0);
     final import = List<double>.filled(12, 0);
     final export = List<double>.filled(12, 0);
-    final curtailed = List<double>.filled(12, 0);
+    final curtailedDc = List<double>.filled(12, 0);
+    final curtailedAc = List<double>.filled(12, 0);
+    final curtailedExport = List<double>.filled(12, 0);
 
     for (final step in steps) {
       final m = monthOfDayOfYear(step.dayOfYear) - 1;
@@ -60,7 +72,9 @@ class SummaryAggregator {
       discharge[m] += step.batteryDischargeKwh;
       import[m] += step.gridImportKwh;
       export[m] += step.gridExportKwh;
-      curtailed[m] += step.curtailedKwh;
+      curtailedDc[m] += step.curtailedDcKwh;
+      curtailedAc[m] += step.curtailedAcKwh;
+      curtailedExport[m] += step.curtailedExportKwh;
     }
 
     return List<MonthlyBucket>.generate(
@@ -74,7 +88,9 @@ class SummaryAggregator {
         batteryDischargeKwh: discharge[i],
         gridImportKwh: import[i],
         gridExportKwh: export[i],
-        curtailedKwh: curtailed[i],
+        curtailedDcKwh: curtailedDc[i],
+        curtailedAcKwh: curtailedAc[i],
+        curtailedExportKwh: curtailedExport[i],
       ),
     );
   }

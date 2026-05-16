@@ -13,6 +13,7 @@ class ConfigDraft {
     this.preRunDays = 0,
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
+    this.longitudeDeg = 10.0,
     List<PvArrayDraft>? arrays,
     List<InverterDraft>? inverters,
     List<BatteryDraft>? batteries,
@@ -28,6 +29,7 @@ class ConfigDraft {
   int preRunDays;
   double? gridExportLimitKw;
   double latitudeDeg;
+  double longitudeDeg;
   final List<PvArrayDraft> arrays;
   final List<InverterDraft> inverters;
   final List<BatteryDraft> batteries;
@@ -44,6 +46,7 @@ class ConfigDraft {
         preRunDays: preRunDays,
         gridExportLimitKw: gridExportLimitKw,
         latitudeDeg: latitudeDeg,
+        longitudeDeg: longitudeDeg,
       );
 
   String? validationError() {
@@ -62,6 +65,7 @@ class ConfigDraft {
         preRunDays: config.preRunDays,
         gridExportLimitKw: config.gridExportLimitKw,
         latitudeDeg: config.latitudeDeg,
+        longitudeDeg: config.longitudeDeg,
         arrays: config.arrays.map(PvArrayDraft.fromArray).toList(),
         inverters: config.inverters.map(InverterDraft.fromInverter).toList(),
         batteries: config.batteries.map(BatteryDraft.fromBattery).toList(),
@@ -83,6 +87,7 @@ class ConfigDraft {
         preRunDays: 365,
         gridExportLimitKw: 6.0,
         latitudeDeg: 50.1,
+        longitudeDeg: 8.6,
       );
 }
 
@@ -96,6 +101,8 @@ class PvArrayDraft {
     this.inverterId = '',
     this.lossFactor = 0.14,
     this.shadingFactor = 0.0,
+    this.temperatureCoefficientPctPerC = 0.0,
+    this.nominalOperatingCellTempC = 45.0,
   });
 
   String id;
@@ -106,6 +113,8 @@ class PvArrayDraft {
   String inverterId;
   double lossFactor;
   double shadingFactor;
+  double temperatureCoefficientPctPerC;
+  double nominalOperatingCellTempC;
 
   PvArray build() => PvArray(
         id: id,
@@ -116,6 +125,8 @@ class PvArrayDraft {
         inverterId: inverterId,
         lossFactor: lossFactor,
         shadingFactor: shadingFactor,
+        temperatureCoefficientPctPerC: temperatureCoefficientPctPerC,
+        nominalOperatingCellTempC: nominalOperatingCellTempC,
       );
 
   static PvArrayDraft fromArray(PvArray a) => PvArrayDraft(
@@ -127,6 +138,8 @@ class PvArrayDraft {
         inverterId: a.inverterId,
         lossFactor: a.lossFactor,
         shadingFactor: a.shadingFactor,
+        temperatureCoefficientPctPerC: a.temperatureCoefficientPctPerC,
+        nominalOperatingCellTempC: a.nominalOperatingCellTempC,
       );
 }
 
@@ -137,6 +150,7 @@ class InverterDraft {
     this.maxAcKw = 5.0,
     this.role = InverterRole.grid,
     this.efficiency = 0.965,
+    this.maxDcInputKw,
   });
 
   String id;
@@ -144,11 +158,17 @@ class InverterDraft {
   double maxAcKw;
   InverterRole role;
   double efficiency;
+  double? maxDcInputKw;
 
-  Inverter build() => Inverter(id: id, label: label, maxAcKw: maxAcKw, role: role, efficiency: efficiency);
+  Inverter build() => Inverter(
+        id: id, label: label, maxAcKw: maxAcKw, role: role, efficiency: efficiency,
+        maxDcInputKw: maxDcInputKw,
+      );
 
-  static InverterDraft fromInverter(Inverter i) =>
-      InverterDraft(id: i.id, label: i.label, maxAcKw: i.maxAcKw, role: i.role, efficiency: i.efficiency);
+  static InverterDraft fromInverter(Inverter i) => InverterDraft(
+        id: i.id, label: i.label, maxAcKw: i.maxAcKw, role: i.role, efficiency: i.efficiency,
+        maxDcInputKw: i.maxDcInputKw,
+      );
 }
 
 class BatteryDraft {
