@@ -64,6 +64,15 @@ void main() {
     final store = ProjectStore(prefs: prefs);
     expect(await store.listProjects(), isEmpty);
   });
+
+  test('loadConfig returns null for a corrupt entry instead of throwing', () async {
+    SharedPreferences.setMockInitialValues({
+      '${ProjectStore.entryPrefix}Broken': 'not json',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final store = ProjectStore(prefs: prefs);
+    expect(await store.loadConfig('Broken'), isNull);
+  });
 }
 
 SimulationConfig _minimalConfig() => const SimulationConfig(

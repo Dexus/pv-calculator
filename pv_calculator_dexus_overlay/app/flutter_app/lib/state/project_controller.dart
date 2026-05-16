@@ -40,8 +40,8 @@ class ProjectController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void newProject() {
-    _projectName = 'Neues Projekt';
+  void newProject({String name = 'Neues Projekt'}) {
+    _projectName = name;
     _draft = ConfigDraft.demo();
     _result = null;
     _lastError = null;

@@ -118,7 +118,8 @@ class _BatteryEditorState extends State<_BatteryEditor> {
           onChanged: (v) { if (v != null) { battery.roundTripEfficiency = v; widget.onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Min. SOC', suffix: 'kWh', initialValue: battery.minSocKwh, min: 0,
+          label: 'Min. SOC', suffix: 'kWh', initialValue: battery.minSocKwh,
+          min: 0, max: battery.capacityKwh,
           onChanged: (v) { if (v != null) { battery.minSocKwh = v; widget.onChanged(); } },
         )),
       ]),
@@ -140,7 +141,9 @@ class _BatteryEditorState extends State<_BatteryEditor> {
         const SizedBox(width: 12),
         if (_customInitial)
           SizedBox(width: 160, child: NumberField(
-            label: 'Start-SOC', suffix: 'kWh', initialValue: battery.initialSocKwh, allowNull: true, min: 0,
+            label: 'Start-SOC', suffix: 'kWh', initialValue: battery.initialSocKwh,
+            allowNull: true,
+            min: battery.minSocKwh, max: battery.capacityKwh,
             onChanged: (v) { battery.initialSocKwh = v; widget.onChanged(); },
           )),
       ]),

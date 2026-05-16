@@ -8,7 +8,7 @@ import 'package:pv_calculator_app/widgets/results/results_page.dart';
 void main() {
   testWidgets('Run button navigates to results page with non-zero KPIs', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 4000));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
 
     final controller = ProjectController();
 

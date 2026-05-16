@@ -37,11 +37,18 @@ class ProjectStore {
     return const [];
   }
 
+  /// Returns null for missing entries OR entries that fail to decode (corrupt
+  /// JSON / unsupported schema). Callers should treat null as "unable to load"
+  /// rather than crashing the project list with an unhandled async error.
   Future<SimulationConfig?> loadConfig(String name) async {
     final prefs = await _prefs();
     final raw = prefs.getString('$entryPrefix$name');
     if (raw == null) return null;
-    return SimulationConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    try {
+      return SimulationConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> saveConfig(String name, SimulationConfig config) async {

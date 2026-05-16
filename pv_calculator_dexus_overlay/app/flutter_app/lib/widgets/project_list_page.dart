@@ -39,14 +39,21 @@ class _ProjectListPageState extends State<ProjectListPage> {
 
   Future<void> _openProject(String name) async {
     final controller = context.read<ProjectController>();
+    final messenger = ScaffoldMessenger.of(context);
     final config = await _store.loadConfig(name);
-    if (config == null || !mounted) return;
+    if (!mounted) return;
+    if (config == null) {
+      messenger.showSnackBar(SnackBar(content: Text('Projekt "$name" konnte nicht geladen werden.')));
+      return;
+    }
     controller.loadDraft(name, ConfigDraft.fromConfig(config));
     _pushEditor();
   }
 
-  void _newProject() {
-    context.read<ProjectController>().newProject();
+  Future<void> _newProject() async {
+    final names = (await _store.listProjects()).toSet();
+    if (!mounted) return;
+    context.read<ProjectController>().newProject(name: _uniqueName('Neues Projekt', names));
     _pushEditor();
   }
 
@@ -55,27 +62,72 @@ class _ProjectListPageState extends State<ProjectListPage> {
     try {
       final imported = await _fileIo.importConfig();
       if (imported == null || !mounted) return;
-      await _store.saveConfig(imported.suggestedName, imported.config);
+      final existing = (await _store.listProjects()).toSet();
+      if (!mounted) return;
+      var targetName = imported.suggestedName;
+      if (existing.contains(targetName)) {
+        final action = await _askImportConflict(targetName);
+        if (!mounted || action == _ImportConflictAction.cancel) return;
+        if (action == _ImportConflictAction.rename) {
+          targetName = _uniqueName(targetName, existing);
+        }
+      }
+      await _store.saveConfig(targetName, imported.config);
       if (!mounted) return;
       _refresh();
-      messenger.showSnackBar(SnackBar(content: Text('Importiert: ${imported.suggestedName}')));
+      messenger.showSnackBar(SnackBar(content: Text('Importiert: $targetName')));
     } catch (e) {
+      if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text('Import fehlgeschlagen: $e')));
     }
   }
 
+  Future<_ImportConflictAction> _askImportConflict(String name) async {
+    final action = await showDialog<_ImportConflictAction>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Projekt existiert bereits'),
+        content: Text(
+          '"$name" ist bereits gespeichert. Soll der Import diese Version überschreiben '
+          'oder unter einem neuen Namen abgelegt werden?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _ImportConflictAction.cancel),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _ImportConflictAction.rename),
+            child: const Text('Umbenennen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, _ImportConflictAction.overwrite),
+            child: const Text('Überschreiben'),
+          ),
+        ],
+      ),
+    );
+    return action ?? _ImportConflictAction.cancel;
+  }
+
   Future<void> _export(String name) async {
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final config = await _store.loadConfig(name);
-      if (config == null) return;
-      final ok = await _fileIo.exportConfig('$name.json', config);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(ok ? (kIsWeb ? 'Heruntergeladen: $name.json' : 'Exportiert: $name.json') : 'Export abgebrochen'),
+      if (config == null) {
+        messenger.showSnackBar(SnackBar(content: Text('Projekt "$name" konnte nicht geladen werden.')));
+        return;
+      }
+      final filename = '${_safeFilename(name)}.json';
+      final ok = await _fileIo.exportConfig(filename, config);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(ok ? (kIsWeb ? 'Heruntergeladen: $filename' : 'Exportiert: $filename') : 'Export abgebrochen'),
       ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export fehlgeschlagen: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Export fehlgeschlagen: $e')));
     }
   }
 
@@ -93,6 +145,7 @@ class _ProjectListPageState extends State<ProjectListPage> {
     );
     if (confirmed != true) return;
     await _store.deleteProject(name);
+    if (!mounted) return;
     _refresh();
   }
 
@@ -105,10 +158,18 @@ class _ProjectListPageState extends State<ProjectListPage> {
           child: Builder(
             builder: (editorContext) => EditorPage(
               onRunRequested: () async {
-                // Auto-save before showing results.
+                final editorMessenger = ScaffoldMessenger.of(editorContext);
+                var saved = false;
                 try {
                   await _store.saveConfig(controller.projectName, controller.draft.build());
-                } catch (_) {}
+                  saved = true;
+                } catch (e) {
+                  if (editorContext.mounted) {
+                    editorMessenger.showSnackBar(SnackBar(
+                      content: Text('Auto-Speichern fehlgeschlagen: $e'),
+                    ));
+                  }
+                }
                 if (!editorContext.mounted) return;
                 Navigator.of(editorContext).push(
                   MaterialPageRoute<void>(
@@ -116,12 +177,17 @@ class _ProjectListPageState extends State<ProjectListPage> {
                       value: controller,
                       child: ResultsPage(
                         onExportCsv: ({required String filename, required String content}) async {
-                          await _fileIo.exportCsv(filename: filename, content: content);
+                          await _fileIo.exportCsv(filename: _safeFilename(filename), content: content);
                         },
                       ),
                     ),
                   ),
                 );
+                if (!saved && editorContext.mounted) {
+                  editorMessenger.showSnackBar(const SnackBar(
+                    content: Text('Hinweis: Ergebnis wird angezeigt, das Projekt wurde aber nicht gespeichert.'),
+                  ));
+                }
               },
             ),
           ),
@@ -130,6 +196,20 @@ class _ProjectListPageState extends State<ProjectListPage> {
     ).then((_) {
       if (mounted) _refresh();
     });
+  }
+
+  String _uniqueName(String base, Set<String> existing) {
+    if (!existing.contains(base)) return base;
+    for (var i = 2; i < 1000; i++) {
+      final candidate = '$base $i';
+      if (!existing.contains(candidate)) return candidate;
+    }
+    return '$base ${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  String _safeFilename(String name) {
+    final cleaned = name.replaceAll(RegExp(r'[^A-Za-z0-9_\-\.]+'), '_');
+    return cleaned.isEmpty ? 'projekt' : cleaned;
   }
 
   @override
@@ -190,3 +270,5 @@ class _ProjectListPageState extends State<ProjectListPage> {
     );
   }
 }
+
+enum _ImportConflictAction { overwrite, rename, cancel }
