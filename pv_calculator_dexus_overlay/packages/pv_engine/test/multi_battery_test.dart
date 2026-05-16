@@ -119,5 +119,43 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('rejects whitespace-only battery id', () {
+      expect(
+        () => const BatteryConfig(id: '   ', capacityKwh: 1, maxChargeKw: 1, maxDischargeKw: 1).validate(),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects initialSocKwh outside [minSocKwh, capacityKwh]', () {
+      expect(
+        () => const BatteryConfig(
+          id: 'b', capacityKwh: 5, maxChargeKw: 1, maxDischargeKw: 1,
+          minSocKwh: 1.0, initialSocKwh: 0.5,
+        ).validate(),
+        throwsArgumentError,
+        reason: 'below minSocKwh',
+      );
+      expect(
+        () => const BatteryConfig(
+          id: 'b', capacityKwh: 5, maxChargeKw: 1, maxDischargeKw: 1, initialSocKwh: 6.0,
+        ).validate(),
+        throwsArgumentError,
+        reason: 'above capacityKwh',
+      );
+      // null and in-range values both pass.
+      const BatteryConfig(id: 'b', capacityKwh: 5, maxChargeKw: 1, maxDischargeKw: 1).validate();
+      const BatteryConfig(
+        id: 'b', capacityKwh: 5, maxChargeKw: 1, maxDischargeKw: 1, initialSocKwh: 2.0,
+      ).validate();
+    });
+
+    test('BatteryConfig.fromJson trims surrounding whitespace on the id', () {
+      final decoded = BatteryConfig.fromJson({
+        'id': '  primary  ',
+        'capacityKwh': 5.0, 'maxChargeKw': 2.0, 'maxDischargeKw': 2.0,
+      });
+      expect(decoded.id, 'primary');
+    });
   });
 }

@@ -133,12 +133,19 @@ class BatteryConfig {
   double get dischargeEfficiency => math.sqrt(roundTripEfficiency);
 
   void validate() {
-    _require(id.isNotEmpty, 'Battery id must not be empty.');
+    _require(id.trim().isNotEmpty, 'Battery id must not be empty.');
     _require(capacityKwh >= 0, 'Battery $id capacityKwh must not be negative.');
     _require(maxChargeKw >= 0, 'Battery $id maxChargeKw must not be negative.');
     _require(maxDischargeKw >= 0, 'Battery $id maxDischargeKw must not be negative.');
     _require(roundTripEfficiency > 0 && roundTripEfficiency <= 1, 'Battery $id roundTripEfficiency must be in (0, 1].');
     _require(minSocKwh >= 0 && minSocKwh <= capacityKwh, 'Battery $id minSocKwh must be between 0 and capacityKwh.');
+    final initial = initialSocKwh;
+    if (initial != null) {
+      _require(
+        initial >= minSocKwh && initial <= capacityKwh,
+        'Battery $id initialSocKwh must be between minSocKwh and capacityKwh.',
+      );
+    }
   }
 
   Map<String, dynamic> toJson() => {
@@ -152,16 +159,19 @@ class BatteryConfig {
         'initialSocKwh': initialSocKwh,
       };
 
-  static BatteryConfig fromJson(Map<String, dynamic> json, {String fallbackId = 'battery-1'}) => BatteryConfig(
-        id: (json['id'] as String?)?.trim().isNotEmpty == true ? json['id'] as String : fallbackId,
-        label: json['label'] as String? ?? '',
-        capacityKwh: _toDouble(json['capacityKwh']),
-        maxChargeKw: _toDouble(json['maxChargeKw']),
-        maxDischargeKw: _toDouble(json['maxDischargeKw']),
-        roundTripEfficiency: _toDouble(json['roundTripEfficiency'] ?? 0.9),
-        minSocKwh: _toDouble(json['minSocKwh'] ?? 0),
-        initialSocKwh: json['initialSocKwh'] == null ? null : _toDouble(json['initialSocKwh']),
-      );
+  static BatteryConfig fromJson(Map<String, dynamic> json, {String fallbackId = 'battery-1'}) {
+    final trimmedId = (json['id'] as String?)?.trim() ?? '';
+    return BatteryConfig(
+      id: trimmedId.isNotEmpty ? trimmedId : fallbackId,
+      label: json['label'] as String? ?? '',
+      capacityKwh: _toDouble(json['capacityKwh']),
+      maxChargeKw: _toDouble(json['maxChargeKw']),
+      maxDischargeKw: _toDouble(json['maxDischargeKw']),
+      roundTripEfficiency: _toDouble(json['roundTripEfficiency'] ?? 0.9),
+      minSocKwh: _toDouble(json['minSocKwh'] ?? 0),
+      initialSocKwh: json['initialSocKwh'] == null ? null : _toDouble(json['initialSocKwh']),
+    );
+  }
 }
 
 class LoadProfile {

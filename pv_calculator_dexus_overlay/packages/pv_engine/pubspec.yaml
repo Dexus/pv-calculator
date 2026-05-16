@@ -1,6 +1,6 @@
 name: pv_engine
 description: Pure Dart simulation engine for PV Calculator.
-version: 0.2.0
+version: 0.2.1
 publish_to: none
 
 environment:
