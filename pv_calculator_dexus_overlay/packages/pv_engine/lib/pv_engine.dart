@@ -5,6 +5,7 @@ import 'src/weather.dart';
 
 export 'src/csv_export.dart';
 export 'src/pvgis.dart';
+export 'src/pvgis_client.dart';
 export 'src/summary_aggregator.dart';
 export 'src/temperature_model.dart';
 export 'src/weather.dart';
