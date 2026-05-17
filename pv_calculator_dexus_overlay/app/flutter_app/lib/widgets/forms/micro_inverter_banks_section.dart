@@ -310,8 +310,15 @@ class _HourlyFactorGrid extends StatelessWidget {
           for (var h = 0; h < 24; h++)
             SizedBox(
               width: 96,
+              // Key must NOT encode the live value: every parsed keystroke
+              // mutates hourlyFactors[h] and triggers a rebuild. A
+              // value-dependent key would replace the NumberField on each
+              // change, disposing its FocusNode mid-input and dropping the
+              // user's caret. NumberField already syncs its internal
+              // controller from `initialValue` via didUpdateWidget, so
+              // "Reset to 1.0" still propagates visually with a stable key.
               child: NumberField(
-                key: ValueKey('bank-${bank.id}-hourly-$h-${bank.hourlyFactors[h]}'),
+                key: ValueKey('bank-${bank.id}-hourly-$h'),
                 label: l.microInverterBankHourlyHour(h),
                 initialValue: bank.hourlyFactors[h],
                 min: 0,

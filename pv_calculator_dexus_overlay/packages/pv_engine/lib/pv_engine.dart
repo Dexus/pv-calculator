@@ -754,20 +754,27 @@ class PvSimulator {
 
     final plan = policy.plan(ctx);
 
-    // Per-battery AC envelope (Architektur §5.3 `inverterLimitW`). When
-    // a battery's topology coupling names an `inverterId`, use that
-    // inverter's effective AC cap (already 800-W-clamped for the
-    // `microInverter800W` role); otherwise fall back to the legacy
-    // `maxDischargeKw` cap so pre-Phase-4 projects keep their numbers.
+    // Per-battery AC envelope per Architektur §5.3:
+    //   `allowedPowerW = min(targetPowerW, battery.maxDischargeW, inverterLimitW)`.
+    // When a battery's topology coupling names an AC-side `inverterId`,
+    // take the **minimum** of the battery's own discharge rating and that
+    // inverter's effective AC cap (already 800-W-clamped for
+    // `InverterRole.microInverter800W`). Without an inverter — or for a
+    // DC-coupled battery, where `inverterId` describes a non-AC path —
+    // fall back to the legacy `maxDischargeKw` cap, preserving pre-Phase-4
+    // behaviour.
     final acCapKwh = <double>[
       for (var i = 0; i < config.batteries.length; i++)
         () {
+          final batteryAcCap = maxDischarge[i] * stepHours;
           final coupling = topology.couplingFor(config.batteries[i].id);
+          if (coupling.coupling != BatteryCoupling.ac) return batteryAcCap;
           final invId = coupling.inverterId;
-          if (invId == null) return maxDischarge[i] * stepHours;
+          if (invId == null) return batteryAcCap;
           final inv = inverterById[invId];
-          if (inv == null) return maxDischarge[i] * stepHours;
-          return inv.effectiveMaxAcKw * stepHours;
+          if (inv == null) return batteryAcCap;
+          final inverterAcCap = inv.effectiveMaxAcKw * stepHours;
+          return inverterAcCap < batteryAcCap ? inverterAcCap : batteryAcCap;
         }(),
     ];
 

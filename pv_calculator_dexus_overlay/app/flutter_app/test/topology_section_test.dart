@@ -102,4 +102,49 @@ void main() {
     expect(reloaded.topology.enabled, isTrue);
     expect(reloaded.topology.couplings.first.inverterId, invId);
   });
+
+  testWidgets('switching coupling AC→DC clears the stale inverterId', (tester) async {
+    final controller = ProjectController();
+    final batteryId = controller.draft.batteries.first.id;
+    final invId = controller.draft.inverters.first.id;
+    final topo = controller.draft.topology
+      ..enabled = true
+      ..seedFromConfig(controller.draft);
+    topo.couplings.first.inverterId = invId;
+    // Provide a DC bus so the segmented switch can land on DC without
+    // immediately failing validation.
+    topo.dcBuses.add(DcBusDraft(id: 'dc-main'));
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: germanMaterialApp(
+          home: const Scaffold(
+            body: SingleChildScrollView(child: TopologySection()),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(ExpansionTile));
+    await tester.pumpAndSettle();
+
+    // Pre-condition: AC + inverterId set.
+    final coupling = topo.couplings.firstWhere((c) => c.batteryId == batteryId);
+    expect(coupling.acCoupled, isTrue);
+    expect(coupling.inverterId, invId);
+
+    // Tap the DC segment for this battery. ensureVisible scrolls it
+    // into view first; the seeded topology section is long enough to
+    // push the coupling row off the bottom of the test viewport.
+    final dcButton = find.text('DC').first;
+    await tester.ensureVisible(dcButton);
+    await tester.pumpAndSettle();
+    await tester.tap(dcButton);
+    await tester.pumpAndSettle();
+
+    expect(coupling.acCoupled, isFalse);
+    expect(coupling.inverterId, isNull,
+        reason: 'AC→DC switch must clear the now-hidden inverterId so it '
+            "doesn't silently feed the engine's AC cap path");
+  });
 }
