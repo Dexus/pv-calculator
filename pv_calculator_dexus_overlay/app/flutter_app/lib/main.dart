@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'state/project_controller.dart';
+import 'state/settings_controller.dart';
 import 'widgets/project_list_page.dart';
 
 void main() => runApp(const PvCalculatorApp());
@@ -11,14 +12,19 @@ class PvCalculatorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ProjectController(),
-      child: MaterialApp(
-        title: 'PV Calculator',
-        themeMode: ThemeMode.system,
-        theme: _buildTheme(Brightness.light),
-        darkTheme: _buildTheme(Brightness.dark),
-        home: const ProjectListPage(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SettingsController()..load()),
+        ChangeNotifierProvider(create: (_) => ProjectController()),
+      ],
+      child: Consumer<SettingsController>(
+        builder: (context, settings, _) => MaterialApp(
+          title: 'PV Calculator',
+          themeMode: settings.themeMode,
+          theme: _buildTheme(Brightness.light),
+          darkTheme: _buildTheme(Brightness.dark),
+          home: const ProjectListPage(),
+        ),
       ),
     );
   }
