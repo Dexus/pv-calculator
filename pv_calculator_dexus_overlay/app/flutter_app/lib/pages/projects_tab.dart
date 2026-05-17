@@ -7,22 +7,24 @@ import '../persistence/file_io.dart';
 import '../persistence/project_store.dart';
 import '../state/config_draft.dart';
 import '../state/project_controller.dart';
-import 'app_drawer.dart';
-import 'forms/editor_page.dart';
-import 'results/results_page.dart';
 
-class ProjectListPage extends StatefulWidget {
-  const ProjectListPage({super.key, this.store, this.fileIo});
+/// Projects tab: list / create / import / export / delete. Replaces the
+/// stack-based `ProjectListPage` from the previous flow; selecting a
+/// project mutates the [ProjectController] in place and the user
+/// switches to another tab (Einstrahlung / PV-Arrays / Auswertung) to
+/// keep working on it.
+class ProjectsTab extends StatefulWidget {
+  const ProjectsTab({super.key, this.store, this.fileIo});
 
   /// Injection points for tests; production uses defaults.
   final ProjectStore? store;
   final FileIo? fileIo;
 
   @override
-  State<ProjectListPage> createState() => _ProjectListPageState();
+  State<ProjectsTab> createState() => _ProjectsTabState();
 }
 
-class _ProjectListPageState extends State<ProjectListPage> {
+class _ProjectsTabState extends State<ProjectsTab> {
   late final ProjectStore _store = widget.store ?? ProjectStore();
   late final FileIo _fileIo = widget.fileIo ?? const FileIo();
   Future<List<String>>? _names;
@@ -50,7 +52,9 @@ class _ProjectListPageState extends State<ProjectListPage> {
       return;
     }
     controller.loadDraft(name, ConfigDraft.fromConfig(config));
-    _pushEditor();
+    // Hop to the Einstrahlung tab so the user immediately sees the
+    // location + Lade Daten controls for the freshly-opened project.
+    DefaultTabController.of(context).animateTo(1);
   }
 
   Future<void> _newProject() async {
@@ -58,12 +62,12 @@ class _ProjectListPageState extends State<ProjectListPage> {
     final names = (await _store.listProjects()).toSet();
     if (!mounted) return;
     context.read<ProjectController>().newProject(
-      name: _uniqueName(l.projectListNewDefaultName, names),
-      defaultArrayLabel: l.demoArrayLabel,
-      defaultInverterLabel: l.demoInverterLabel,
-      defaultBatteryLabel: l.demoBatteryLabel,
-    );
-    _pushEditor();
+          name: _uniqueName(l.projectListNewDefaultName, names),
+          defaultArrayLabel: l.demoArrayLabel,
+          defaultInverterLabel: l.demoInverterLabel,
+          defaultBatteryLabel: l.demoBatteryLabel,
+        );
+    DefaultTabController.of(context).animateTo(1);
   }
 
   Future<void> _import() async {
@@ -169,52 +173,22 @@ class _ProjectListPageState extends State<ProjectListPage> {
     _refresh();
   }
 
-  void _pushEditor() {
+  Future<void> _saveCurrent() async {
     final controller = context.read<ProjectController>();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (innerContext) => ChangeNotifierProvider<ProjectController>.value(
-          value: controller,
-          child: Builder(
-            builder: (editorContext) => EditorPage(
-              onRunRequested: () async {
-                final editorMessenger = ScaffoldMessenger.of(editorContext);
-                final l = AppLocalizations.of(editorContext);
-                try {
-                  await _store.saveConfig(
-                    controller.projectName.trim(),
-                    controller.draft.build(),
-                  );
-                } catch (e) {
-                  if (!editorContext.mounted) return;
-                  editorMessenger.showSnackBar(SnackBar(
-                    content: Text(l.projectListSaveFailed(e.toString())),
-                  ));
-                  // Block navigation so the user can fix the project name /
-                  // storage condition before losing their results.
-                  return;
-                }
-                if (!editorContext.mounted) return;
-                Navigator.of(editorContext).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ChangeNotifierProvider<ProjectController>.value(
-                      value: controller,
-                      child: ResultsPage(
-                        onExportCsv: ({required String filename, required String content}) async {
-                          await _fileIo.exportCsv(filename: _safeFilename(filename), content: content);
-                        },
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    ).then((_) {
-      if (mounted) _refresh();
-    });
+    final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
+    try {
+      await _store.saveConfig(
+        controller.projectName.trim(),
+        controller.draft.build(),
+      );
+      if (!mounted) return;
+      _refresh();
+      messenger.showSnackBar(SnackBar(content: Text(l.projectListExported(controller.projectName))));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(l.projectListSaveFailed(e.toString()))));
+    }
   }
 
   String _uniqueName(String base, Set<String> existing) {
@@ -234,74 +208,92 @@ class _ProjectListPageState extends State<ProjectListPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return Scaffold(
-      drawer: const AppDrawer(),
-      appBar: AppBar(
-        title: Text(l.projectListTitle),
-        actions: [
-          IconButton(onPressed: _import, icon: const Icon(Icons.file_upload), tooltip: l.projectListImportTooltip),
-          IconButton(onPressed: _newProject, icon: const Icon(Icons.add), tooltip: l.projectListNewTooltip),
-        ],
-      ),
-      body: FutureBuilder<List<String>>(
-        future: _names,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final names = snapshot.data ?? const [];
-          if (names.isEmpty) {
-            final scheme = Theme.of(context).colorScheme;
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.solar_power, size: 72, color: scheme.outline),
-                  const SizedBox(height: 12),
-                  Text(
-                    l.projectListEmpty,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l.projectListEmptyHint,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: _newProject,
-                    icon: const Icon(Icons.add),
-                    label: Text(l.projectListCreateButton),
-                  ),
-                ]),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: _newProject,
+                icon: const Icon(Icons.add),
+                label: Text(l.projectListCreateButton),
               ),
-            );
-          }
-          return ListView.separated(
-            itemCount: names.length,
-            separatorBuilder: (_, _) => const Divider(height: 0),
-            itemBuilder: (context, i) {
-              final name = names[i];
-              return ListTile(
-                title: Text(name),
-                onTap: () => _openProject(name),
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(
-                    icon: const Icon(Icons.file_download),
-                    tooltip: l.projectListExportTooltip,
-                    onPressed: () => _export(name),
+              OutlinedButton.icon(
+                onPressed: _import,
+                icon: const Icon(Icons.file_upload),
+                label: Text(l.projectListImportTooltip),
+              ),
+              OutlinedButton.icon(
+                onPressed: _saveCurrent,
+                icon: const Icon(Icons.save),
+                label: Text(l.projectListExportTooltip),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: FutureBuilder<List<String>>(
+              future: _names,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final names = snapshot.data ?? const [];
+                if (names.isEmpty) {
+                  final scheme = Theme.of(context).colorScheme;
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.solar_power, size: 72, color: scheme.outline),
+                        const SizedBox(height: 12),
+                        Text(
+                          l.projectListEmpty,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l.projectListEmptyHint,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ]),
+                    ),
+                  );
+                }
+                return Card(
+                  child: ListView.separated(
+                    itemCount: names.length,
+                    separatorBuilder: (_, _) => const Divider(height: 0),
+                    itemBuilder: (context, i) {
+                      final name = names[i];
+                      return ListTile(
+                        title: Text(name),
+                        onTap: () => _openProject(name),
+                        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                          IconButton(
+                            icon: const Icon(Icons.file_download),
+                            tooltip: l.projectListExportTooltip,
+                            onPressed: () => _export(name),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            tooltip: l.projectListDeleteTooltip,
+                            onPressed: () => _delete(name),
+                          ),
+                        ]),
+                      );
+                    },
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: l.projectListDeleteTooltip,
-                    onPressed: () => _delete(name),
-                  ),
-                ]),
-              );
-            },
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

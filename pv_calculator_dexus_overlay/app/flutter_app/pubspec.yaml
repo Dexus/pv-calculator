@@ -19,6 +19,13 @@ dependencies:
   file_selector: ^1.0.3
   http: ^1.2.0
   intl: any
+  # Map widget for the Einstrahlung tab. OpenStreetMap tiles, no API key,
+  # AGPL-compatible. Tile usage policy requires an identifying User-Agent
+  # via `TileLayer.userAgentPackageName`.
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  # Stacked daily bar chart on the Einstrahlung tab. MIT.
+  fl_chart: ^0.69.0
 
 dev_dependencies:
   flutter_test:

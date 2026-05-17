@@ -724,4 +724,94 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get demoBatteryLabel => 'Main battery';
+
+  @override
+  String get tabProjects => 'Projects';
+
+  @override
+  String get tabIrradiance => 'Irradiance';
+
+  @override
+  String get tabArrays => 'PV arrays';
+
+  @override
+  String get tabResults => 'Results';
+
+  @override
+  String get irradianceTitle => 'Site & irradiance';
+
+  @override
+  String get irradianceMapHint =>
+      'Pan the map to set the site. The pin marks the current project coordinates.';
+
+  @override
+  String get irradianceYearLabel => 'Year';
+
+  @override
+  String get irradianceLoadButton => 'Load data';
+
+  @override
+  String get irradianceLoadingHint => 'Loading PVGIS irradiance …';
+
+  @override
+  String get irradianceEmpty =>
+      'Pick a location and press “Load data” to fetch the annual horizontal irradiance.';
+
+  @override
+  String get irradianceErrorTitle => 'PVGIS request failed';
+
+  @override
+  String get irradianceChartTitle => 'Global horizontal irradiance [ kW/m² ]';
+
+  @override
+  String get irradianceSeriesTotal => 'Total';
+
+  @override
+  String get irradianceSeriesDiffuse => 'Diffuse';
+
+  @override
+  String irradianceAnnualSum(String value) {
+    return 'Sum $value kWh/m²';
+  }
+
+  @override
+  String irradianceAverage(String value) {
+    return 'Avg $value W/m²';
+  }
+
+  @override
+  String get irradianceCacheHit => 'from cache';
+
+  @override
+  String get irradianceCacheMiss => 'fresh from PVGIS';
+
+  @override
+  String get azimuthCompassTitle => 'Pick azimuth';
+
+  @override
+  String get azimuthCompassHint =>
+      'Tap to set the azimuth on the selected PV array.';
+
+  @override
+  String get azimuthApply => 'Apply';
+
+  @override
+  String get azimuthCancel => 'Cancel';
+
+  @override
+  String get resultsRun => 'Run simulation';
+
+  @override
+  String get resultsRunMissingData =>
+      'Load irradiance data and add at least one PV array first.';
+
+  @override
+  String get resultsErrorTitle => 'Simulation failed';
+
+  @override
+  String get arraysTabHint =>
+      'No per-array PVGIS call — every module derives POA from the site-level horizontal data loaded on the Irradiance tab.';
+
+  @override
+  String get arraysSelectForCompass => 'Selected for compass picker';
 }

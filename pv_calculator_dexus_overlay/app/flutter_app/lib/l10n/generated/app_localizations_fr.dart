@@ -727,4 +727,94 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get demoBatteryLabel => 'Batterie principale';
+
+  @override
+  String get tabProjects => 'Projets';
+
+  @override
+  String get tabIrradiance => 'Irradiance';
+
+  @override
+  String get tabArrays => 'Champs PV';
+
+  @override
+  String get tabResults => 'Résultats';
+
+  @override
+  String get irradianceTitle => 'Site & irradiance';
+
+  @override
+  String get irradianceMapHint =>
+      'Déplacez la carte pour définir le site. L’épingle marque les coordonnées actuelles du projet.';
+
+  @override
+  String get irradianceYearLabel => 'Période';
+
+  @override
+  String get irradianceLoadButton => 'Charger les données';
+
+  @override
+  String get irradianceLoadingHint => 'Chargement de l’irradiance PVGIS …';
+
+  @override
+  String get irradianceEmpty =>
+      'Choisissez un emplacement puis appuyez sur « Charger les données » pour récupérer l’irradiance annuelle.';
+
+  @override
+  String get irradianceErrorTitle => 'Requête PVGIS échouée';
+
+  @override
+  String get irradianceChartTitle => 'Irradiance globale horizontale [ kW/m² ]';
+
+  @override
+  String get irradianceSeriesTotal => 'Total';
+
+  @override
+  String get irradianceSeriesDiffuse => 'Diffuse';
+
+  @override
+  String irradianceAnnualSum(String value) {
+    return 'Somme $value kWh/m²';
+  }
+
+  @override
+  String irradianceAverage(String value) {
+    return 'Moy. $value W/m²';
+  }
+
+  @override
+  String get irradianceCacheHit => 'depuis le cache';
+
+  @override
+  String get irradianceCacheMiss => 'frais depuis PVGIS';
+
+  @override
+  String get azimuthCompassTitle => 'Choisir l’azimut';
+
+  @override
+  String get azimuthCompassHint =>
+      'Touchez pour définir l’azimut du champ PV sélectionné.';
+
+  @override
+  String get azimuthApply => 'Appliquer';
+
+  @override
+  String get azimuthCancel => 'Annuler';
+
+  @override
+  String get resultsRun => 'Lancer la simulation';
+
+  @override
+  String get resultsRunMissingData =>
+      'Chargez d’abord les données d’irradiance et ajoutez au moins un champ PV.';
+
+  @override
+  String get resultsErrorTitle => 'Simulation échouée';
+
+  @override
+  String get arraysTabHint =>
+      'Aucun appel PVGIS par champ — tous les modules dérivent leur POA des données horizontales du site, chargées dans l’onglet « Irradiance ».';
+
+  @override
+  String get arraysSelectForCompass => 'Sélectionné pour la boussole';
 }

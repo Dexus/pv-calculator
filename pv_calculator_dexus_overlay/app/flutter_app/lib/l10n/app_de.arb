@@ -262,5 +262,39 @@
 
   "demoArrayLabel": "Süddach",
   "demoInverterLabel": "Hauptwechselrichter",
-  "demoBatteryLabel": "Hauptspeicher"
+  "demoBatteryLabel": "Hauptspeicher",
+
+  "tabProjects": "Projekte",
+  "tabIrradiance": "Einstrahlung",
+  "tabArrays": "PV-Arrays",
+  "tabResults": "Auswertung",
+
+  "irradianceTitle": "Standort & Einstrahlung",
+  "irradianceMapHint": "Karte verschieben, um den Standort zu setzen. Pin = Projektkoordinaten.",
+  "irradianceYearLabel": "Zeitraum",
+  "irradianceLoadButton": "Lade Daten",
+  "irradianceLoadingHint": "Strahlungsdaten werden geladen …",
+  "irradianceEmpty": "Standort wählen und „Lade Daten“ drücken, um die jährliche Globalstrahlung zu laden.",
+  "irradianceErrorTitle": "PVGIS-Abfrage fehlgeschlagen",
+  "irradianceChartTitle": "Globalstrahlung [ kW/m² ]",
+  "irradianceSeriesTotal": "Gesamte",
+  "irradianceSeriesDiffuse": "Diffuse",
+  "irradianceAnnualSum": "Abs {value} kWh/m²",
+  "@irradianceAnnualSum": {"placeholders": {"value": {"type": "String"}}},
+  "irradianceAverage": "Ø {value} W/m²",
+  "@irradianceAverage": {"placeholders": {"value": {"type": "String"}}},
+  "irradianceCacheHit": "aus Cache geladen",
+  "irradianceCacheMiss": "frisch von PVGIS",
+
+  "azimuthCompassTitle": "Azimut auswählen",
+  "azimuthCompassHint": "Tippen, um den Azimut für das ausgewählte PV-Array zu setzen.",
+  "azimuthApply": "Übernehmen",
+  "azimuthCancel": "Abbrechen",
+
+  "resultsRun": "Simulation starten",
+  "resultsRunMissingData": "Bitte zuerst Strahlungsdaten und mindestens ein PV-Array eintragen.",
+  "resultsErrorTitle": "Simulation fehlgeschlagen",
+
+  "arraysTabHint": "Kein PVGIS-Aufruf pro Array — alle Module beziehen ihre POA-Werte aus den im Tab „Einstrahlung“ geladenen Standortdaten.",
+  "arraysSelectForCompass": "Für Kompass-Auswahl markiert"
 }

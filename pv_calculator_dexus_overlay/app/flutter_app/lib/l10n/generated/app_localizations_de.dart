@@ -726,4 +726,94 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get demoBatteryLabel => 'Hauptspeicher';
+
+  @override
+  String get tabProjects => 'Projekte';
+
+  @override
+  String get tabIrradiance => 'Einstrahlung';
+
+  @override
+  String get tabArrays => 'PV-Arrays';
+
+  @override
+  String get tabResults => 'Auswertung';
+
+  @override
+  String get irradianceTitle => 'Standort & Einstrahlung';
+
+  @override
+  String get irradianceMapHint =>
+      'Karte verschieben, um den Standort zu setzen. Pin = Projektkoordinaten.';
+
+  @override
+  String get irradianceYearLabel => 'Zeitraum';
+
+  @override
+  String get irradianceLoadButton => 'Lade Daten';
+
+  @override
+  String get irradianceLoadingHint => 'Strahlungsdaten werden geladen …';
+
+  @override
+  String get irradianceEmpty =>
+      'Standort wählen und „Lade Daten“ drücken, um die jährliche Globalstrahlung zu laden.';
+
+  @override
+  String get irradianceErrorTitle => 'PVGIS-Abfrage fehlgeschlagen';
+
+  @override
+  String get irradianceChartTitle => 'Globalstrahlung [ kW/m² ]';
+
+  @override
+  String get irradianceSeriesTotal => 'Gesamte';
+
+  @override
+  String get irradianceSeriesDiffuse => 'Diffuse';
+
+  @override
+  String irradianceAnnualSum(String value) {
+    return 'Abs $value kWh/m²';
+  }
+
+  @override
+  String irradianceAverage(String value) {
+    return 'Ø $value W/m²';
+  }
+
+  @override
+  String get irradianceCacheHit => 'aus Cache geladen';
+
+  @override
+  String get irradianceCacheMiss => 'frisch von PVGIS';
+
+  @override
+  String get azimuthCompassTitle => 'Azimut auswählen';
+
+  @override
+  String get azimuthCompassHint =>
+      'Tippen, um den Azimut für das ausgewählte PV-Array zu setzen.';
+
+  @override
+  String get azimuthApply => 'Übernehmen';
+
+  @override
+  String get azimuthCancel => 'Abbrechen';
+
+  @override
+  String get resultsRun => 'Simulation starten';
+
+  @override
+  String get resultsRunMissingData =>
+      'Bitte zuerst Strahlungsdaten und mindestens ein PV-Array eintragen.';
+
+  @override
+  String get resultsErrorTitle => 'Simulation fehlgeschlagen';
+
+  @override
+  String get arraysTabHint =>
+      'Kein PVGIS-Aufruf pro Array — alle Module beziehen ihre POA-Werte aus den im Tab „Einstrahlung“ geladenen Standortdaten.';
+
+  @override
+  String get arraysSelectForCompass => 'Für Kompass-Auswahl markiert';
 }

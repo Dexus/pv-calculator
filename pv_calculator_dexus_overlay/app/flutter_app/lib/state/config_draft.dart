@@ -1,8 +1,9 @@
 import 'package:pv_engine/pv_engine.dart';
 
-/// Which form section a [ValidationIssue] belongs to. The editor uses
-/// this to render the engine's free-form error message inside the
-/// matching section card instead of in a single top-of-page banner.
+/// Which form section a [ValidationIssue] belongs to. The Auswertung
+/// tab and friends use this to render the engine's free-form error
+/// message inside the matching section card instead of in a single
+/// top-of-page banner.
 enum ConfigSection { project, arrays, inverters, batteries, load, unknown }
 
 /// A classified engine-validation failure. Routed to a section so the
@@ -60,17 +61,10 @@ ConfigSection classifyValidationMessage(String message) {
   return ConfigSection.unknown;
 }
 
-/// Default year window for in-app PVGIS API requests. SARAH3 currently
-/// covers 2005-01-01 through ~end-2023; we default to the last four
-/// full years to average out short-term weather variation. Users can
-/// move or widen the window from the editor's PVGIS-API section.
-const int defaultPvgisStartYear = 2020;
-const int defaultPvgisEndYear = 2023;
-
-/// PVGIS radiation databases the editor offers in the dropdown. The
-/// first entry (`null`) lets PVGIS pick its own default for the
-/// requested location, which is the safe fallback when a database
-/// does not cover a region.
+/// PVGIS radiation databases the Einstrahlung tab offers in the dropdown.
+/// `null` lets PVGIS pick its own default for the requested location,
+/// which is the safe fallback when a specific database does not cover a
+/// region.
 const List<String?> pvgisRadDatabaseOptions = [
   null,
   'PVGIS-SARAH3',
@@ -79,44 +73,44 @@ const List<String?> pvgisRadDatabaseOptions = [
   'PVGIS-NSRDB',
 ];
 
-/// Metadata about an imported PVGIS series. Held alongside the samples
-/// so the UI can show the user which file/year-range fed each array
-/// without retaining the raw JSON.
-class PvgisImportInfo {
-  const PvgisImportInfo({
-    required this.sourceLabel,
-    required this.entryCount,
-    required this.coveredYears,
-    required this.latitudeDeg,
-    required this.longitudeDeg,
-    this.slopeDeg,
-    this.appAzimuthDeg,
+/// Year picker default. SARAH3 currently covers 2005-01-01 through
+/// ~end-2023; we centre on 2022 so a fresh project has a known-good
+/// year preselected without the user having to think.
+const int defaultIrradianceYear = 2022;
+
+/// Site-level horizontal-irradiance request + cached samples for the
+/// Einstrahlung tab.
+///
+/// One per project. Samples are populated by [ProjectController.loadSiteIrradiance]
+/// from the PVGIS `seriescalc&components=1` endpoint and re-used by every
+/// PV array via [HorizontalToPoaSource] on the engine side.
+///
+/// Session-only by default — `samples` is not persisted with the project
+/// JSON so the file stays small. The user reloads on open via Lade Daten.
+class SiteIrradianceDraft {
+  SiteIrradianceDraft({
+    this.year = defaultIrradianceYear,
+    this.radDatabase,
+    this.samples,
+    this.loadedFromCache,
   });
 
-  /// Free-text label, usually the source filename or `URL`.
-  final String sourceLabel;
+  int year;
 
-  /// Number of hourly entries in the original PVGIS document.
-  final int entryCount;
+  /// Optional PVGIS `raddatabase` (e.g. `PVGIS-SARAH3`). `null` lets
+  /// PVGIS pick.
+  String? radDatabase;
 
-  /// Sorted, distinct calendar years covered by the original entries.
-  final List<int> coveredYears;
+  /// 365×24 cached samples for `year`/[radDatabase] at the project's
+  /// current lat/lon. `null` until Lade Daten has run successfully.
+  HorizontalIrradianceSeries? samples;
 
-  /// Latitude reported in the PVGIS `inputs.location` block (degrees).
-  final double latitudeDeg;
-
-  /// Longitude reported in the PVGIS `inputs.location` block (degrees).
-  final double longitudeDeg;
-
-  /// Module tilt (slope) the PVGIS request was generated for, in
-  /// degrees from horizontal. `null` when the document didn't carry
-  /// mounting metadata.
-  final double? slopeDeg;
-
-  /// PVGIS module azimuth translated into the engine's 0–360°
-  /// convention (180° = south). `null` when the document didn't carry
-  /// mounting metadata.
-  final double? appAzimuthDeg;
+  /// `true` when the most recent load came from the proxy's R2 cache
+  /// (`X-Cache: HIT`), `false` when fetched fresh from PVGIS, `null`
+  /// when no load has happened yet or the cache header was missing.
+  /// Surfaced in the UI as a small badge so users can tell repeat
+  /// queries are fast because of caching.
+  bool? loadedFromCache;
 }
 
 /// Mutable working copy of [SimulationConfig] for UI editing.
@@ -133,14 +127,13 @@ class ConfigDraft {
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
     this.longitudeDeg = 10.0,
-    this.pvgisStartYear = defaultPvgisStartYear,
-    this.pvgisEndYear = defaultPvgisEndYear,
-    this.pvgisRadDatabase,
+    SiteIrradianceDraft? siteIrradiance,
     List<PvArrayDraft>? arrays,
     List<InverterDraft>? inverters,
     List<BatteryDraft>? batteries,
     LoadProfileDraft? loadProfile,
-  })  : arrays = arrays ?? <PvArrayDraft>[],
+  })  : siteIrradiance = siteIrradiance ?? SiteIrradianceDraft(),
+        arrays = arrays ?? <PvArrayDraft>[],
         inverters = inverters ?? <InverterDraft>[],
         batteries = batteries ?? <BatteryDraft>[],
         loadProfile = loadProfile ?? LoadProfileDraft();
@@ -153,98 +146,23 @@ class ConfigDraft {
   double latitudeDeg;
   double longitudeDeg;
 
-  /// First calendar year requested from the PVGIS API. Defaults to
-  /// [defaultPvgisStartYear]; users can widen or move the window from
-  /// the editor.
-  int pvgisStartYear;
-
-  /// Last calendar year requested from the PVGIS API (inclusive).
-  int pvgisEndYear;
-
-  /// Optional PVGIS `raddatabase` parameter (e.g. `PVGIS-SARAH3`).
-  /// `null` lets PVGIS choose the default database for the location.
-  String? pvgisRadDatabase;
+  /// Site-level PVGIS settings + cached horizontal irradiance.
+  SiteIrradianceDraft siteIrradiance;
 
   final List<PvArrayDraft> arrays;
   final List<InverterDraft> inverters;
   final List<BatteryDraft> batteries;
   LoadProfileDraft loadProfile;
 
-  /// Per-array imported PVGIS series (8760 samples each).
-  ///
-  /// Session-only: not persisted with the project JSON. Arrays not in
-  /// this map are simulated with the synthetic fallback model via the
-  /// engine's [HourlyWeatherSeries.fallback] hook.
-  final Map<String, List<WeatherSample>> _arrayWeather = {};
-
-  /// Display metadata for each imported series. Keyed by array id.
-  final Map<String, PvgisImportInfo> _arrayWeatherInfo = {};
-
-  /// Whether [arrayId] has an imported PVGIS series attached.
-  bool hasWeatherFor(String arrayId) => _arrayWeather.containsKey(arrayId);
-
-  /// Metadata for [arrayId], or `null` if no series is imported.
-  PvgisImportInfo? weatherInfoFor(String arrayId) => _arrayWeatherInfo[arrayId];
-
-  /// Number of arrays in the current draft that have an imported
-  /// series. Orphaned imports (whose array was renamed or deleted) are
-  /// excluded so the editor's hint reflects what the simulator will
-  /// actually use.
-  int get arraysWithWeatherCount =>
-      arrays.where((a) => _arrayWeather.containsKey(a.id)).length;
-
-  /// Attaches an imported PVGIS series for [arrayId]. Replaces any
-  /// previously stored series for the same id.
-  void setArrayWeather(String arrayId, List<WeatherSample> samples, PvgisImportInfo info) {
-    if (samples.length != 365 * 24) {
-      throw ArgumentError('PVGIS series for "$arrayId" must have ${365 * 24} samples, got ${samples.length}.');
-    }
-    _arrayWeather[arrayId] = List<WeatherSample>.unmodifiable(samples);
-    _arrayWeatherInfo[arrayId] = info;
-  }
-
-  /// Drops the imported series for [arrayId] (no-op if none).
-  void clearArrayWeather(String arrayId) {
-    _arrayWeather.remove(arrayId);
-    _arrayWeatherInfo.remove(arrayId);
-  }
-
-  /// Moves an imported series from [oldId] to [newId] without re-parsing.
-  /// Returns `true` if a series existed under [oldId] and was rekeyed.
-  /// No-op (returns `false`) when [oldId] has no series, when the ids
-  /// are equal, or when a series already exists under [newId].
-  bool renameArrayWeather(String oldId, String newId) {
-    if (oldId == newId) return false;
-    final samples = _arrayWeather[oldId];
-    final info = _arrayWeatherInfo[oldId];
-    if (samples == null || info == null) return false;
-    if (_arrayWeather.containsKey(newId)) return false;
-    _arrayWeather.remove(oldId);
-    _arrayWeatherInfo.remove(oldId);
-    _arrayWeather[newId] = samples;
-    _arrayWeatherInfo[newId] = info;
-    return true;
-  }
-
-  /// Returns ids that have imported series but no matching array left
-  /// in the draft — useful for the UI to surface orphaned imports
-  /// after the user renamed or deleted an array.
-  Iterable<String> orphanedWeatherArrayIds() {
-    final ids = arrays.map((a) => a.id).toSet();
-    return _arrayWeather.keys.where((id) => !ids.contains(id)).toList();
-  }
-
-  /// Builds the [IrradianceSource] used by the engine, or `null` to
-  /// fall back to the engine default (synthetic). Returns an
-  /// [HourlyWeatherSeries] with synthetic fallback when at least one
-  /// array has imported data, so missing arrays keep producing yield
-  /// instead of zero.
+  /// Builds the [IrradianceSource] used by the engine, or `null` to fall
+  /// back to the synthetic default. Returns a [HorizontalToPoaSource] over
+  /// the cached site samples — every array on the project derives its POA
+  /// from the same horizontal series via on-the-fly transposition, so no
+  /// per-array weather state is needed.
   IrradianceSource? buildWeatherSource() {
-    if (_arrayWeather.isEmpty) return null;
-    return HourlyWeatherSeries(
-      _arrayWeather,
-      fallback: const SyntheticIrradianceSource(),
-    );
+    final samples = siteIrradiance.samples;
+    if (samples == null) return null;
+    return HorizontalToPoaSource(samples);
   }
 
   SimulationConfig build() => SimulationConfig(

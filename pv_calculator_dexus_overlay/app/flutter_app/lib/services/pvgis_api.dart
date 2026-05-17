@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:pv_engine/pv_engine.dart';
 
+import '../config.dart';
 import '../l10n/generated/app_localizations.dart';
 
 /// Classifies a PVGIS-API failure so the UI can render a localized
@@ -63,48 +64,77 @@ String formatPvgisApiException(AppLocalizations l, PvgisApiException e) {
   }
 }
 
-/// Thin HTTP wrapper around the PVGIS `seriescalc` endpoint.
+/// Result of a successful horizontal-series fetch: the parsed series
+/// plus whether the proxy answered from cache (when the proxy is in use).
+class PvgisHorizontalFetchResult {
+  const PvgisHorizontalFetchResult({required this.series, required this.fromCache});
+
+  final HorizontalIrradianceSeries series;
+
+  /// `true` if the upstream Cloudflare worker returned `X-Cache: HIT`,
+  /// `false` if it was `MISS`, `null` if no cache header was present
+  /// (direct PVGIS call, or proxy not in use).
+  final bool? fromCache;
+}
+
+/// Thin HTTP wrapper around the PVGIS `seriescalc` endpoint, configured
+/// for the redesigned app's **site-level horizontal** workflow.
 ///
 /// Notes:
+/// * **Endpoint** — defaults to the value of `--dart-define=PVGIS_PROXY`
+///   (see `lib/config.dart`) when set, so the Cloudflare R2 cache fronts
+///   the public host. Without the define, talks to PVGIS directly.
 /// * **CORS** — the public PVGIS host serves
-///   `Access-Control-Allow-Origin: *`, so this works from Flutter web
-///   in most browsers. If CORS does fail in a managed environment,
-///   point [endpoint] at a self-hosted reverse proxy.
-/// * **Rate limit** — PVGIS publishes no hard rate limit, but each
-///   `seriescalc` call processes a multi-year hourly file. We enforce
-///   a small per-instance minimum delay so accidental double-taps
-///   don't open two simultaneous requests.
-/// * **Caching** — none here. The caller (Flutter app) stores the
-///   parsed series on the [ConfigDraft] so re-running the simulation
-///   doesn't re-fetch.
+///   `Access-Control-Allow-Origin: *`, so Flutter web works without the
+///   proxy too. Use the proxy to avoid per-user rate hits and to bring
+///   repeat lookups down to ~50 ms.
+/// * **Rate limit** — PVGIS publishes no hard rate limit; this class
+///   enforces a small per-instance minimum delay so accidental
+///   double-taps don't open two simultaneous requests.
+/// * **Caching** — none in-process. The proxy/R2 handles repeat queries;
+///   the [ProjectController] caches the parsed series for the lifetime
+///   of the working draft.
 class PvgisApiService {
   PvgisApiService({
     http.Client? client,
-    this.endpoint,
+    String? endpoint,
     this.minimumInterval = const Duration(milliseconds: 500),
     this.requestTimeout = const Duration(seconds: 60),
-  }) : _client = client ?? http.Client();
+  })  : _client = client ?? http.Client(),
+        endpoint = endpoint ?? pvgisProxyEndpoint;
 
   final http.Client _client;
 
-  /// Override the PVGIS endpoint URL. `null` uses the public host from
-  /// [pvgisSeriesCalcEndpoint].
+  /// PVGIS endpoint (proxy or direct). `null` falls back to the engine's
+  /// public default.
   final String? endpoint;
 
   final Duration minimumInterval;
 
-  /// Per-request timeout. PVGIS multi-year hourly requests can take
-  /// 10–30 s under load, so we default to a minute.
+  /// Per-request timeout. Cold PVGIS responses can take 10–30 s under
+  /// load, so default to a minute.
   final Duration requestTimeout;
 
   DateTime _nextAllowedAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// Issues a `seriescalc` request and returns the parsed hourly
-  /// series. Throws [PvgisApiException] on any failure.
-  Future<PvgisHourlyData> fetch(PvgisRequest request) async {
+  /// Fetches one year of horizontal global + diffuse irradiance for the
+  /// given site. Returns the parsed [HorizontalIrradianceSeries] plus
+  /// the cache-hit flag from the proxy (when applicable).
+  Future<PvgisHorizontalFetchResult> fetchHorizontalSeries({
+    required double latitudeDeg,
+    required double longitudeDeg,
+    required int year,
+    String? radDatabase,
+  }) async {
     final Uri url;
     try {
-      url = buildPvgisSeriesCalcUrl(request, endpoint: endpoint);
+      url = pvgisHorizontalSeriesUrl(
+        latitudeDeg: latitudeDeg,
+        longitudeDeg: longitudeDeg,
+        year: year,
+        radDatabase: radDatabase,
+        endpoint: endpoint,
+      );
     } on ArgumentError catch (e) {
       throw PvgisApiException(
         PvgisApiFailureKind.invalidRequest,
@@ -126,9 +156,6 @@ class PvgisApiService {
     }
 
     if (response.statusCode != 200) {
-      // PVGIS returns a JSON `message` field on errors; surface it
-      // verbatim so the user sees the actual cause (e.g. coordinates
-      // outside the radiation-database coverage).
       throw PvgisApiException(
         PvgisApiFailureKind.badStatus,
         statusCode: response.statusCode,
@@ -136,14 +163,25 @@ class PvgisApiService {
       );
     }
 
+    final HorizontalIrradianceSeries series;
     try {
-      return parsePvgisHourlyJson(response.body);
+      series = parsePvgisHorizontalSeries(response.body, year: year);
     } on FormatException catch (e) {
       throw PvgisApiException(
         PvgisApiFailureKind.parseFailed,
         detail: e.message,
       );
     }
+
+    // The Cloudflare worker sets `X-Cache: HIT|MISS`. Lowercase the key
+    // before lookup because http.Headers normalises to lower-case keys.
+    final cacheHeader = response.headers['x-cache']?.toUpperCase();
+    final bool? fromCache = switch (cacheHeader) {
+      'HIT' => true,
+      'MISS' => false,
+      _ => null,
+    };
+    return PvgisHorizontalFetchResult(series: series, fromCache: fromCache);
   }
 
   Future<void> _respectRateLimit() async {
@@ -154,15 +192,10 @@ class PvgisApiService {
     _nextAllowedAt = DateTime.now().add(minimumInterval);
   }
 
-  /// Best-effort excerpt from a PVGIS error response.
-  ///
-  /// PVGIS documents JSON error payloads of the shape
-  /// `{"message": "...", ...}` (sometimes `error` or nested `errors`
-  /// arrays). When the body parses as JSON, prefer the first such
-  /// human-readable field so users see "outside coverage" instead of
-  /// `{"message":"outside coverage","status":400}`. Falls back to a
-  /// 200-char excerpt of the raw body when JSON parsing fails or no
-  /// known message field is present.
+  /// Best-effort excerpt from a PVGIS error response. PVGIS documents
+  /// JSON error payloads of the shape `{"message": "...", ...}`;
+  /// surface that verbatim so users see e.g. "outside coverage" instead
+  /// of the raw envelope.
   static String _extractErrorMessage(String body) {
     if (body.isEmpty) return '';
     final trimmed = body.trim();

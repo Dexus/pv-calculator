@@ -221,5 +221,37 @@
 
   "demoArrayLabel": "Toit sud",
   "demoInverterLabel": "Onduleur principal",
-  "demoBatteryLabel": "Batterie principale"
+  "demoBatteryLabel": "Batterie principale",
+
+  "tabProjects": "Projets",
+  "tabIrradiance": "Irradiance",
+  "tabArrays": "Champs PV",
+  "tabResults": "Résultats",
+
+  "irradianceTitle": "Site & irradiance",
+  "irradianceMapHint": "Déplacez la carte pour définir le site. L’épingle marque les coordonnées actuelles du projet.",
+  "irradianceYearLabel": "Période",
+  "irradianceLoadButton": "Charger les données",
+  "irradianceLoadingHint": "Chargement de l’irradiance PVGIS …",
+  "irradianceEmpty": "Choisissez un emplacement puis appuyez sur « Charger les données » pour récupérer l’irradiance annuelle.",
+  "irradianceErrorTitle": "Requête PVGIS échouée",
+  "irradianceChartTitle": "Irradiance globale horizontale [ kW/m² ]",
+  "irradianceSeriesTotal": "Total",
+  "irradianceSeriesDiffuse": "Diffuse",
+  "irradianceAnnualSum": "Somme {value} kWh/m²",
+  "irradianceAverage": "Moy. {value} W/m²",
+  "irradianceCacheHit": "depuis le cache",
+  "irradianceCacheMiss": "frais depuis PVGIS",
+
+  "azimuthCompassTitle": "Choisir l’azimut",
+  "azimuthCompassHint": "Touchez pour définir l’azimut du champ PV sélectionné.",
+  "azimuthApply": "Appliquer",
+  "azimuthCancel": "Annuler",
+
+  "resultsRun": "Lancer la simulation",
+  "resultsRunMissingData": "Chargez d’abord les données d’irradiance et ajoutez au moins un champ PV.",
+  "resultsErrorTitle": "Simulation échouée",
+
+  "arraysTabHint": "Aucun appel PVGIS par champ — tous les modules dérivent leur POA des données horizontales du site, chargées dans l’onglet « Irradiance ».",
+  "arraysSelectForCompass": "Sélectionné pour la boussole"
 }

@@ -1,27 +1,45 @@
 import 'package:flutter/foundation.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '../services/pvgis_api.dart';
 import 'config_draft.dart';
 
 /// Holds the editor's working draft plus the latest simulation result.
 ///
 /// Kept UI-side only: dispatch logic remains in `pv_engine`.
 class ProjectController extends ChangeNotifier {
-  ProjectController({String? projectName, ConfigDraft? draft})
-      : _projectName = projectName ?? 'Neues Projekt',
-        _draft = draft ?? ConfigDraft.demo();
+  ProjectController({
+    String? projectName,
+    ConfigDraft? draft,
+    PvgisApiService? pvgisApi,
+  })  : _projectName = projectName ?? 'Neues Projekt',
+        _draft = draft ?? ConfigDraft.demo(),
+        _ownsPvgisApi = pvgisApi == null,
+        _pvgisApi = pvgisApi ?? PvgisApiService();
 
   String _projectName;
   ConfigDraft _draft;
   SimulationResult? _result;
   String? _lastError;
   bool _running = false;
+  bool _loadingIrradiance = false;
+  String? _lastIrradianceError;
+
+  /// Index of the PV array the azimuth-compass overlay currently writes to.
+  /// `null` = no active selection (compass overlay is hidden).
+  int? _selectedArrayIndex;
+
+  final PvgisApiService _pvgisApi;
+  final bool _ownsPvgisApi;
 
   String get projectName => _projectName;
   ConfigDraft get draft => _draft;
   SimulationResult? get result => _result;
   String? get lastError => _lastError;
   bool get running => _running;
+  bool get loadingIrradiance => _loadingIrradiance;
+  String? get lastIrradianceError => _lastIrradianceError;
+  int? get selectedArrayIndex => _selectedArrayIndex;
 
   set projectName(String value) {
     if (_projectName == value) return;
@@ -44,6 +62,8 @@ class ProjectController extends ChangeNotifier {
     _draft = draft;
     _result = null;
     _lastError = null;
+    _lastIrradianceError = null;
+    _selectedArrayIndex = null;
     notifyListeners();
   }
 
@@ -69,7 +89,67 @@ class ProjectController extends ChangeNotifier {
     }
     _result = null;
     _lastError = null;
+    _lastIrradianceError = null;
+    _selectedArrayIndex = null;
     notifyListeners();
+  }
+
+  /// Selects [index] as the array the Einstrahlung tab's compass writes
+  /// to. Pass `null` to clear the selection. Triggers a notify so the
+  /// overlay can show/hide itself and the arrays list can highlight the
+  /// active row.
+  void selectArrayForCompass(int? index) {
+    if (_selectedArrayIndex == index) return;
+    if (index != null && (index < 0 || index >= _draft.arrays.length)) return;
+    _selectedArrayIndex = index;
+    notifyListeners();
+  }
+
+  /// Writes [azimuthDeg] to the currently-selected array (if any). Used
+  /// by the [AzimuthCompass] overlay on the Einstrahlung tab. No-op when
+  /// no array is selected — the caller is expected to gate the UI on
+  /// [selectedArrayIndex].
+  void setSelectedArrayAzimuth(double azimuthDeg) {
+    final i = _selectedArrayIndex;
+    if (i == null) return;
+    if (i < 0 || i >= _draft.arrays.length) return;
+    _draft.arrays[i].azimuthDeg = azimuthDeg;
+    _lastError = null;
+    notifyListeners();
+  }
+
+  /// Fetches a year of horizontal global + diffuse irradiance from PVGIS
+  /// (via the optional proxy) and caches the parsed series on the draft.
+  /// Subsequent arrays consume that cache via [HorizontalToPoaSource] —
+  /// no per-array network call.
+  ///
+  /// Errors surface via [lastIrradianceError]; the UI reads that to show
+  /// the inline banner on the Einstrahlung tab.
+  Future<void> loadSiteIrradiance() async {
+    if (_loadingIrradiance) return;
+    _loadingIrradiance = true;
+    _lastIrradianceError = null;
+    notifyListeners();
+    try {
+      final result = await _pvgisApi.fetchHorizontalSeries(
+        latitudeDeg: _draft.latitudeDeg,
+        longitudeDeg: _draft.longitudeDeg,
+        year: _draft.siteIrradiance.year,
+        radDatabase: _draft.siteIrradiance.radDatabase,
+      );
+      _draft.siteIrradiance.samples = result.series;
+      _draft.siteIrradiance.loadedFromCache = result.fromCache;
+      // Invalidate any previous simulation: the site weather just
+      // changed under it.
+      _result = null;
+    } on PvgisApiException catch (e) {
+      _lastIrradianceError = e.message;
+    } catch (e) {
+      _lastIrradianceError = e.toString();
+    } finally {
+      _loadingIrradiance = false;
+      notifyListeners();
+    }
   }
 
   /// Validates and runs the simulation. Returns `true` on success.
@@ -90,5 +170,11 @@ class ProjectController extends ChangeNotifier {
       _running = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    if (_ownsPvgisApi) _pvgisApi.dispose();
+    super.dispose();
   }
 }

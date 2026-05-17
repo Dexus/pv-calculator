@@ -221,5 +221,37 @@
 
   "demoArrayLabel": "South roof",
   "demoInverterLabel": "Main inverter",
-  "demoBatteryLabel": "Main battery"
+  "demoBatteryLabel": "Main battery",
+
+  "tabProjects": "Projects",
+  "tabIrradiance": "Irradiance",
+  "tabArrays": "PV arrays",
+  "tabResults": "Results",
+
+  "irradianceTitle": "Site & irradiance",
+  "irradianceMapHint": "Pan the map to set the site. The pin marks the current project coordinates.",
+  "irradianceYearLabel": "Year",
+  "irradianceLoadButton": "Load data",
+  "irradianceLoadingHint": "Loading PVGIS irradiance …",
+  "irradianceEmpty": "Pick a location and press “Load data” to fetch the annual horizontal irradiance.",
+  "irradianceErrorTitle": "PVGIS request failed",
+  "irradianceChartTitle": "Global horizontal irradiance [ kW/m² ]",
+  "irradianceSeriesTotal": "Total",
+  "irradianceSeriesDiffuse": "Diffuse",
+  "irradianceAnnualSum": "Sum {value} kWh/m²",
+  "irradianceAverage": "Avg {value} W/m²",
+  "irradianceCacheHit": "from cache",
+  "irradianceCacheMiss": "fresh from PVGIS",
+
+  "azimuthCompassTitle": "Pick azimuth",
+  "azimuthCompassHint": "Tap to set the azimuth on the selected PV array.",
+  "azimuthApply": "Apply",
+  "azimuthCancel": "Cancel",
+
+  "resultsRun": "Run simulation",
+  "resultsRunMissingData": "Load irradiance data and add at least one PV array first.",
+  "resultsErrorTitle": "Simulation failed",
+
+  "arraysTabHint": "No per-array PVGIS call — every module derives POA from the site-level horizontal data loaded on the Irradiance tab.",
+  "arraysSelectForCompass": "Selected for compass picker"
 }

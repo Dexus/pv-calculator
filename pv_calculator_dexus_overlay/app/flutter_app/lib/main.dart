@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'l10n/generated/app_localizations.dart';
+import 'pages/main_scaffold.dart';
 import 'state/project_controller.dart';
 import 'state/settings_controller.dart';
-import 'widgets/project_list_page.dart';
 
 void main() => runApp(const PvCalculatorApp());
 
@@ -27,7 +27,7 @@ class PvCalculatorApp extends StatelessWidget {
           supportedLocales: AppLocalizations.supportedLocales,
           theme: _buildTheme(Brightness.light),
           darkTheme: _buildTheme(Brightness.dark),
-          home: const ProjectListPage(),
+          home: const MainScaffold(),
         ),
       ),
     );

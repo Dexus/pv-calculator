@@ -221,5 +221,37 @@
 
   "demoArrayLabel": "Tejado sur",
   "demoInverterLabel": "Inversor principal",
-  "demoBatteryLabel": "Batería principal"
+  "demoBatteryLabel": "Batería principal",
+
+  "tabProjects": "Proyectos",
+  "tabIrradiance": "Irradiancia",
+  "tabArrays": "Campos PV",
+  "tabResults": "Resultados",
+
+  "irradianceTitle": "Sitio e irradiancia",
+  "irradianceMapHint": "Desplaza el mapa para fijar la ubicación. El pin marca las coordenadas actuales del proyecto.",
+  "irradianceYearLabel": "Periodo",
+  "irradianceLoadButton": "Cargar datos",
+  "irradianceLoadingHint": "Cargando irradiancia PVGIS …",
+  "irradianceEmpty": "Selecciona una ubicación y pulsa «Cargar datos» para obtener la irradiancia anual.",
+  "irradianceErrorTitle": "La solicitud PVGIS falló",
+  "irradianceChartTitle": "Irradiancia global horizontal [ kW/m² ]",
+  "irradianceSeriesTotal": "Total",
+  "irradianceSeriesDiffuse": "Difusa",
+  "irradianceAnnualSum": "Suma {value} kWh/m²",
+  "irradianceAverage": "Med. {value} W/m²",
+  "irradianceCacheHit": "desde caché",
+  "irradianceCacheMiss": "fresco desde PVGIS",
+
+  "azimuthCompassTitle": "Elegir azimut",
+  "azimuthCompassHint": "Toca para fijar el azimut del campo PV seleccionado.",
+  "azimuthApply": "Aplicar",
+  "azimuthCancel": "Cancelar",
+
+  "resultsRun": "Iniciar simulación",
+  "resultsRunMissingData": "Carga primero los datos de irradiancia y añade al menos un campo PV.",
+  "resultsErrorTitle": "La simulación falló",
+
+  "arraysTabHint": "Sin llamadas PVGIS por campo: todos los módulos derivan su POA de los datos horizontales del sitio cargados en la pestaña «Irradiancia».",
+  "arraysSelectForCompass": "Seleccionado para la brújula"
 }
