@@ -8,6 +8,7 @@ export 'src/pvgis.dart';
 export 'src/pvgis_client.dart';
 export 'src/summary_aggregator.dart';
 export 'src/temperature_model.dart';
+export 'src/transposition.dart';
 export 'src/weather.dart';
 
 enum InverterRole { grid, microInverter800W, batteryCoupled }
@@ -343,7 +344,12 @@ class SimulationConfig {
   }
 
   Map<String, dynamic> toJson() => {
-        'schemaVersion': 1,
+        // v2 introduces site-level horizontal-irradiance loading; the
+        // SimulationConfig payload itself didn't change shape, but the
+        // surrounding ConfigDraft did, so the bump lets older project
+        // files load cleanly into the new draft without re-fetching
+        // weather.
+        'schemaVersion': 2,
         'arrays': arrays.map((a) => a.toJson()).toList(),
         'inverters': inverters.map((i) => i.toJson()).toList(),
         'batteries': batteries.map((b) => b.toJson()).toList(),
@@ -359,7 +365,7 @@ class SimulationConfig {
 
   static SimulationConfig fromJson(Map<String, dynamic> json) {
     final version = json['schemaVersion'] as int? ?? 1;
-    if (version != 1) {
+    if (version != 1 && version != 2) {
       throw ArgumentError('Unknown SimulationConfig schemaVersion: $version');
     }
     final batteries = <BatteryConfig>[];
