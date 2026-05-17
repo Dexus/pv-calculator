@@ -1,0 +1,41 @@
+{
+  "search_date": "2026-05-17",
+  "api_status": {
+    "semantic_scholar": "BLOCKED_429 — rate-limited on initial test, retry also blocked. No S2 results retrieved.",
+    "arxiv": "PARTIAL — query 1 succeeded (2 results), query 2 returned 503, queries 3-4 returned 0 results. Rate-limited on retries."
+  },
+  "arxiv_results": [
+    {
+      "arxiv_id": "2012.11955",
+      "title": "An Approach to Implement Photovoltaic Self-Consumption and Ramp-Rate Control Algorithm with a Vanadium Redox Flow Battery Day-to-Day Forecast Charging",
+      "authors": ["Ana Foles", "Luis Fialho", "Manuel Collares-Pereira", "Pedro Horta"],
+      "year": 2022,
+      "published": "2020-12-22",
+      "journal": "Sustainable Energy, Grids and Networks 100626 (2022)",
+      "doi": "10.1016/j.segan.2022.100626",
+      "url": "https://arxiv.org/abs/2012.11955",
+      "pdf_url": "https://arxiv.org/pdf/2012.11955v4",
+      "abstract": "The variability of the solar resource is mainly caused by cloud passing, causing rapid power fluctuations on the output of photovoltaic (PV) systems. This work uses a VRFB to control the power output of the PV installation, maintaining the ramp rate within a non-violation limit and within a battery state of charge (SOC) range. Three EMSs are simulated: self-consumption maximization (SCM), SCM with ramp rate control (SCM+RR), and SCM+RR with weather forecast (SCM+RR+WF). Results show SCM+RR+WF is robust for managing PV+VRFB systems. Over the studied week the strategy successfully controlled 100% of violating power ramps, obtaining a self-consumption ratio (SCR) of 59% and a grid-relief factor (GRF) of 61%.",
+      "query": "photovoltaic self-consumption",
+      "relevant": true,
+      "relevance_note": "PV self-consumption + battery dispatch + SCR/SSR metrics"
+    },
+    {
+      "arxiv_id": "2603.26249",
+      "title": "Knowledge Distillation for Efficient Transformer-Based Reinforcement Learning in Hardware-Constrained Energy Management Systems",
+      "authors": ["Pascal Henrich", "Jonas Sievers", "Maximilian Beichter", "Thomas Blank", "Ralf Mikut", "Veit Hagenmeyer"],
+      "year": 2026,
+      "published": "2026-03-27",
+      "journal": null,
+      "doi": null,
+      "url": "https://arxiv.org/abs/2603.26249",
+      "pdf_url": "https://arxiv.org/pdf/2603.26249v1",
+      "abstract": "Transformer-based reinforcement learning for sequential control in residential energy management. Decision Transformer learns effective battery dispatch policies from historical data, thereby increasing photovoltaic self-consumption and reducing electricity costs. Knowledge distillation transfers high-capacity Decision Transformer policies to compact models for embedded deployment. Using the Ausgrid dataset, results show distillation largely preserves control performance while reducing parameter count by up to 96%, inference memory by up to 90%, and inference time by up to 63%.",
+      "query": "photovoltaic self-consumption",
+      "relevant": true,
+      "relevance_note": "Battery dispatch optimization for PV self-consumption using ML — relevant to dispatch strategy comparison"
+    }
+  ],
+  "semantic_scholar_results": [],
+  "notes": "Both APIs hit rate limits aggressively from this IP. Semantic Scholar 429 on first attempt and retry. arXiv 503 then 'Rate exceeded' on all subsequent calls after query 1. Only 2 arXiv papers retrieved from query 1. Recommend running with S2 API key for future searches."
+}

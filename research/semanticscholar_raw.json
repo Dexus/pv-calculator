@@ -1,0 +1,537 @@
+[
+  {
+    "title": "Impact of Bifacial Modules on the Inverter Clipping in Distributed Generation Photovoltaic Systems in Brazil",
+    "authors": [
+      "J. L. de Souza Silva",
+      "Karen De Melo",
+      "T. Costa",
+      "Gilson Mario Vieira Machado",
+      "H. S. Moreira",
+      "M. Villalva"
+    ],
+    "year": 2021,
+    "arxiv_id": null,
+    "doi": "10.1109/COBEP53665.2021.9684055",
+    "abstract": "Distributed generation (DG) solar photovoltaic (PV) power plants in Brazil are limited to 5 MW, considering the inverter output power, according to the normative resolution 687/2015. This limitation creates the challenge of trying to work at maximum power for as long as possible to maximize the profit and reduce the payback time. One of the solutions for this is to increase the plant DC/AC ratio (PV array oversizing). Nevertheless, increasing the DC/AC ratio also generates losses on power production when the total power of the PV modules cannot be handled by the inverters. Power clipping by the PV inverter limiting the power of PV modules is a cause of losses in oversized PV arrays, and this fact can have a higher impact when bifacial modules are used. This paper analyzes the level of clipping and the benefits of PV array oversizing in distributed generation PV power plants with different DC/AC ratios with monofacial and bifacial modules. The System Advisor Model (SAM) is used for simulations with a scenario in Minas Gerais-Brazil. The results show that bifacial modules have a higher influence on clipping losses in comparison with monofacial ones. However, bifacial modules provide more energy production. Therefore, this analysis is important for finding the best DC/AC ratio for bifacial PV arrays.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/704ec6059ffbaead430afdb0ee8cd32518dc411f",
+    "fieldsOfStudy": null,
+    "citationCount": 4,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Seasonal Dependence of Bifacial Photovoltaic Array Gain due to Inverter Clipping",
+    "authors": [
+      "Thunchanok Kaewnukultorn",
+      "S. Hegedus"
+    ],
+    "year": 2022,
+    "arxiv_id": null,
+    "doi": "10.1109/pvsc48317.2022.9938469",
+    "abstract": "This paper studies the effect of inverter clipping in bi-facial photovoltaic (PV) array under different ground cover reflectivity. The 5 kW bi-facial array was installed at the University of Delaware, USA and was connected to 3.8 kW grid tied inverter. Two parameters, expected PV power and DC energy efficiency, were developed in this research to compare the inverter clipping loss with actual data collected from on-site sensors. The results show that the clipping potentially occurs in summer from 10:30 to 14:30 due to high solar irradiance. The daily generation with the white ground cover experienced higher clipping loss than the gravel and consequently resulted in negligible bi-facial gain. In winter, the bi-facial gain is higher as the clipping loss is absent.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/7bca6c5c0957f7313dc9a133d543314c78789ccc",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "A CC/VC\u2010based power tracking method for photovoltaic inverter operated in voltage control mode",
+    "authors": [
+      "Zhenxiong Wang",
+      "Yingjie Peng",
+      "Hao Yi",
+      "Wei Zhang",
+      "Jingting Wu",
+      "Qiru Li"
+    ],
+    "year": 2024,
+    "arxiv_id": null,
+    "doi": "10.1049/pel2.12745",
+    "abstract": "The active power control of photovoltaic (PV) inverters without energy storage can flatten the fluctuating power and support the voltage amplitude and frequency of the grid. When operated in grid\u2010forming voltage\u2010control mode, because the PV power can change rapidly and widely, the PV inverter needs to track the power commands quickly and precisely. Traditionally, this goal is achieved with the estimation of PV power curve or PI\u2010based multiple\u2010loop feedback control, where flexibility, availability and accuracy are not satisfactory. Therefore, a CC/VC\u2010based power tracking (CVPT) method is proposed, which only uses single\u2010loop in control. The proposed method does not need to tune multiple loops and can respond faster, which is important for grid\u2010forming voltage control. Furthermore, the different operating modes due to the limitation of PV maximum power are analysed, and a mode switch method is proposed. Simulation and experimental results demonstrate that the PV inverter can cope with power disturbances from both the power and grid sides and maintain the quality of grid voltage.",
+    "pdf_url": "https://doi.org/10.1049/pel2.12745",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/e5803e459966d0d8b306001b4040a84d5203364c",
+    "fieldsOfStudy": null,
+    "citationCount": 1,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Investigation the Effect of Inverter Power Clipping Losses on the Efficiency of Photovoltaic Power Plants",
+    "authors": [
+      "Adnan Rajaeian",
+      "R. Z. Davarani",
+      "Erfan Rajaeian"
+    ],
+    "year": 2020,
+    "arxiv_id": null,
+    "doi": null,
+    "abstract": "N/A",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/6fb7ab2974d84ab30d6b97856bac7d521518c89b",
+    "fieldsOfStudy": [
+      "Environmental Science"
+    ],
+    "citationCount": 0,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Compensation of Second Harmonic Current Based on Bus Voltage Ripple Limitation in Single-Phase Photovoltaic Grid-Connected Inverter",
+    "authors": [
+      "Shiqi Kan",
+      "X. Ruan",
+      "Xinze Huang"
+    ],
+    "year": 2023,
+    "arxiv_id": null,
+    "doi": "10.1109/TIE.2022.3201349",
+    "abstract": "In the two-stage single-phase photovoltaic (PV) grid-connected inverter, the flying-capacitor-clamped boost three-level converter is adopted to achieve maximum power point tracking of the PV panel. To restrain the second harmonic current (SHC) in the PV panel and remove the undesired electrolytic capacitors, the flying capacitor is employed to compensate the SHC. To achieve this goal, the flying capacitor average voltage control incorporated bus voltage ripple limitation scheme is proposed in this letter. The closed-loop parameters design for the bus voltage ripple limitation loop is given. Finally, a prototype of 3-kVA PV grid-connected inverter is fabricated and tested in the lab, and the experimental results verify the validity of the proposed scheme.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/965900fab9234ab6da7fab58a7136433975a1c85",
+    "fieldsOfStudy": [
+      "Computer Science"
+    ],
+    "citationCount": 20,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Methodology to Estimate the Impact of the DC to AC Power Ratio, Azimuth, and Slope on Clipping Losses of Solar Photovoltaic Inverters: Application to a PV System Located in Valencia Spain",
+    "authors": [
+      "D\u00e1cil D\u00edaz-Bello",
+      "Carlos Vargas-Salgado",
+      "Jes\u00fas \u00c1guila-Le\u00f3n",
+      "F. Lara-Vargas"
+    ],
+    "year": 2023,
+    "arxiv_id": null,
+    "doi": "10.3390/su15032797",
+    "abstract": "Renewable power capacity sets records annually, driven by solar photovoltaic power, which accounts for more than half of all renewable power expansion in 2021. In this sense, photovoltaic system design must be correctly defined before system installation to generate the maximum quantity of energy at the lowest possible cost. The proposed study analyses the oversizing of the solar array vs. the capacity of the solar inverter, seeking low clipping losses in the inverter. A real 4.2 kWp residential PV installation was modelled and validated using the software SAM and input data from different sources, such as a weather station for weather conditions, ESIOS for electricity rates, and FusionSolar to obtain energy data from the PV installation. Once data were validated through SAM, the DC to AC ratio was varied between 0.9 and 2.1. The azimuth and slope sensitivity analyses were performed regarding clipping inverter losses. Results have been evaluated through the energy generated and the discounted payback period, showing that, depending on the weather conditions, slope, and azimuth, among others, it is advisable to increase the DC to AC ratio to values between 1.63 and 1.87, implying low discounted payback periods of about 8 to 9 years. In addition, it was observed that inverter clipping losses significantly vary depending on the defined azimuth and slope.",
+    "pdf_url": "https://www.mdpi.com/2071-1050/15/3/2797/pdf?version=1675436181",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/b0f82b944801d5cc2b802a6ffe86f8a0d1d01c2e",
+    "fieldsOfStudy": null,
+    "citationCount": 24,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Impact of Inverter-Based Resources on Inertia Provision and RoCoF Limitation",
+    "authors": [
+      "Matteo Fresia",
+      "Andrea Bonfiglio",
+      "Renato Procopio",
+      "G. Lisciandrello",
+      "L. Orr\u00f9",
+      "C. Pisani"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.1109/PowerTech59965.2025.11180735",
+    "abstract": "The ongoing replacement of traditional power plants with Photovoltaic (PV), Wind Turbine (WT) and Battery Energy Storage System (BESS) power plants will lead to problems of inertia shortage in future power systems. Thus, the provision of Synthetic Inertia (SI) by Inverter-Based Resources (IBRs) will be crucial in order to deliver effective Rate of Change of Frequency (RoCoF) mitigation actions. The present paper presents a methodology to assess the impact of IBRs on the available inertia in future power systems. The study, carried out in partnership with Terna, the Italian transmission system operator, focuses on a critical market zone in the 2030 Italian scenario. First, the availability of inertia by synchronous generators and already-installed Synchronous Compensators (SCs) is assessed, along with the need of inertia (i.e., the inertia necessary to limit the zonal RoCoF at the limit value following a reference contingency). If the need is larger than the availability, the intervention of IBRs is considered to limit the RoCoF. In particular, a sensitivity analysis is carried out varying both the limit value of RoCoF and the overloading capability of IBRs inverters, showing that the predominant SI contribution will be delivered by BESSs. Regarding RoCoF containment, if the limit value is set at 2 Hz/s IBRs are able to make the gap negative over the whole year. On the other hand, if a more stressful condition is considered (i.e., limit value set at 1 Hz/s), the installation of additional SCs may become necessary to make the inertia gap negative for the whole year under whatever IBRs overloading capability scenario.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/9f0aee107d384198e5b7ea4201ec2903033bc223",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Monte Carlo-Based Reliability Assessment for Power Systems with High Penetration of Photovoltaic Systems from Inverter-Based Resources",
+    "authors": [
+      "Esther Omoyiwola",
+      "Masoud Davari"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.1109/SoutheastCon56624.2025.10971628",
+    "abstract": "The rapid integration of inverter-based resources, particularly solar photovoltaic (PV) systems, into conventional power grids presents significant challenges for ensuring a stable power supply. This paper drills into the comprehensive reliability analysis of three different power generation system configurations, namely, 100% traditional generation systems (i.e., oil, hydro, coal, and nuclear), 100% solar systems, and a combination of both solar and battery storage systems. The study analyzes critical reliability metrics, including loss of load expectation, loss of energy expectation, loss of load frequency, and energy not supplied across the various power generation configurations by employing the Monte Carlo simulations over 10 years. Simulation results demonstrate the limitations of the solar system as the only generation source that can meet the load demand due to its intermittent nature. Nevertheless, integrating battery storage into the PV systems significantly enhances the overall system reliability, as demonstrated by the reliability metrics. This matter asserts the potential of PV and battery storage systems to serve as sustainable and dependable systems compared with traditional generation systems.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/f3dbb9e14ad985d02fb28dfa67528268cb0483f2",
+    "fieldsOfStudy": null,
+    "citationCount": 2,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Reduction of Auto-Power Procedure Influence on the Photovoltaic Inverter On-Board Bus System Caused by Pulsed Loads",
+    "authors": [
+      "T. Binkowski"
+    ],
+    "year": 2023,
+    "arxiv_id": null,
+    "doi": "10.3390/en16073058",
+    "abstract": "The article presents an on-board power system designed for ships, aviation, and space vehicles using energy from photovoltaic panels. The power structure includes both DC and high-frequency AC power buses. As a result of pulse loads, this system is exposed to disturbances that cause electronic systems to reboot. To reduce the effect of the appearance of secondary disturbances in the AC bus to which the photovoltaic converter is connected, a new control strategy has been proposed. This strategy improves the operation of the proportional resonant regulator that controls the AC bus current by making the reference values linearly dependent on the DC bus voltage. A prototype of such a system was designed in the laboratory. The FPGA control board was pulse-disturbed, leading to start the auto-power procedure, and additional disturbances were observed in the AC bus for the standard system. Reduction in the impact of these disturbances was achieved using the proposed control method by reaching a limitation of the bus current in dynamic states caused by the auto-power on process from 280% to less than 100% of the steady-state value. Experimental results verified the validity of the proposed method.",
+    "pdf_url": "https://www.mdpi.com/1996-1073/16/7/3058/pdf?version=1679981871",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/505cc6f794a3188503ac07d56840a64d68bc5386",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Enhanced energy yield in floating solar power plants through optimal inverter loading ratios",
+    "authors": [
+      "Atul Avasthi",
+      "Rachana Garg",
+      "P. Mahajan"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.1007/s00202-025-03462-4",
+    "abstract": "N/A",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/17dd63d6823eb065812cb09859513318422f22a5",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Determination of photovoltaic inverter ratio minimizing energy clipping for electric vehicle charging station under different solar radiations",
+    "authors": [
+      "Alpaslan Demirci",
+      "Z. Ozturk",
+      "Said Mirza Tercan",
+      "I. Nakir"
+    ],
+    "year": 2022,
+    "arxiv_id": null,
+    "doi": "10.1109/hora55278.2022.9799890",
+    "abstract": "The increasing integration of electric vehicle charging stations (EVCS) with hybrid power systems (HPS) is becoming more important due to the growing population of electric vehicles. In particular, the decrease in solar module prices from HPS components more than other components (inverter, etc.) has needed the re-evaluation of the inverter loading rates (DC/AC ratio) in optimum system sizing. This study proposes the optimization of DC/AC ratios for EVCS installed in three regions with different climatic characteristics by considering the technical, economic, and environmental effects. The results showed that in optimal scenarios, the DC/AC ratio rose above 1.51 and increased to 1.66, especially for Samsun province, which has low solar potential. On the other hand, the clipping energy (CE) losses were determined to be up to 14% of the total annual energy production when DC/AC ratio is two.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/c4f4528ad7c32e1412d55569ec50eac759648ff0",
+    "fieldsOfStudy": null,
+    "citationCount": 2,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "An asymmetrical multilevel inverter with minimum voltage stress and fewer components for photovoltaic renewable-energy system",
+    "authors": [
+      "Rabail Memon",
+      "M. A. Mahar",
+      "A. S. Larik",
+      "Syed Asif Ali shah"
+    ],
+    "year": 2024,
+    "arxiv_id": null,
+    "doi": "10.1093/ce/zkad073",
+    "abstract": "\n The enhanced power quality provided by multilevel inverters (MLIs) has made them more appropriate for medium- and high-power applications, including photovoltaic systems. Nevertheless, a prevalent limitation involves the necessity for numerous switches and increased voltage stress across these switches, consequently increasing the overall system cost. To address these challenges, a new 17-level asymmetrical MLI with fewer components and low voltage stress is proposed for the photovoltaic system. This innovative MLI configuration has four direct current (DC) sources and 10 switches. Based on the trinary sequence, the proposed topology uses photovoltaics with boost converters and fuzzy logic controllers as its DC sources. Mathematical equations are used to calculate crucial parameters for this proposed design, including total standing voltage per unit (TSVPU), cost function per level (CF/L), component count per level (CC/L) and voltage stress across the switches. The comparison is conducted by considering switches, DC sources, TSVPU, CF/L, gate driver circuits and CC/L with other existing MLI topologies. The analysis is carried out under various conditions, encompassing different levels of irradiance, variable loads and modulation indices. To reduce the total harmonic distortion of the suggested topology, the phase opposition disposition approach has been incorporated. The suggested framework is simulated in MATLAB\u00ae/Simulink\u00ae. The results indicate that the proposed topology achieves a well-distributed stress profile across the switches and has CC/L of 1.23, TSVPU of 5 and CF/L of 4.58 and 5.76 with weight coefficients of 0.5 and 1.5, respectively. These values are notably superior to those of existing MLI topologies. Simulation results demonstrate that the proposed topology maintains a consistent output at varying irradiance levels with FLCs and exhibits robust performance under variable loads and diverse modulation indices. Furthermore, the total harmonic distortion achieved with phase opposition disposition is 7.78%, outperforming alternative pulse width modulation techniques. In summary, it provides enhanced performance. Considering this, it is suitable for the photovoltaic system.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/263fbcfb0ecdca5aca555fa66d22e462be630df8",
+    "fieldsOfStudy": null,
+    "citationCount": 9,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Reactive Power Control of Photovoltaic Grid-Connected Inverters Based on Unfolding Inverter",
+    "authors": [
+      "Tao Fan",
+      "Jianhua Wang",
+      "Yang Huang"
+    ],
+    "year": 2024,
+    "arxiv_id": null,
+    "doi": "10.1109/EI264398.2024.10990557",
+    "abstract": "This paper presents a reactive power control technique for photovoltaic grid-connected inverters utilizing an unfolding inverter topology. Traditional grid-frequency unfolding inverters and certain DC/DC circuits with unidirectional energy transfer paths face challenges in effectively injecting reactive power into the grid. To overcome these limitations, this paper introduces a novel method that adjusts the output current waveform, enabling reactive power injection without requiring modifications to the inverter circuit structure. The proposed technique outperforms conventional methods by reducing total harmonic distortion and expanding the power factor adjustment range, making it suitable for a wide range of grid-connected inverters based on the unfolding inverter configuration. Additionally, the operating principles are thoroughly explained, accompanied by a comprehensive mathematical derivation of the grid current reference waveform. The effectiveness and feasibility of this approach are verified through theoretical analysis and detailed simulation results.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/3ff4631959f28fdd0515af70f4f01c24b81534e5",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Enhanced Grid Inertia Management: A PSO-Trained ANN Approach for Flexible Power Point Tracking in Photovoltaic Operation",
+    "authors": [
+      "Nandan Gopinathan",
+      "Jishu Mary Gomez",
+      "Prabhakar Karthikeyan Shanmugam",
+      "J. I"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.1109/i-PACT65952.2025.11307824",
+    "abstract": "The solar PV system traditionally operates in the full power extraction-generation mode for varying irradiance and temperature. As the penetration of RES is progressing, the grid regulators assert the importance of active power control in the inverter-based systems to regulate its intermittency. The Flexible Power Point Tracking (FPPT) operation mode of PV is utilized to create a power reserve that enables active power control during the system frequency deviation scenario. In the FPPT mode, the operating voltage of the PV varies, unlike the constant maximum voltage at MPPT. The operating point determination in FPPT mode is possible using several methods as researched in previous related works. One of the methods is the ANN-FPPT controller, which eliminates the disadvantages of the classical Perturb and Observation Method. However, pre-set initial weights are one limitation of the Artificial Neural Network (ANN) that reduces its target efficiency. In this paper, the weights of the ANN block chosen initially are optimized by the Particle Swarm Optimization (PSO) technique. The performance of the optimization technique is assessed by the minimization of the mean square error (MSE). The photovoltaic generation and the proposed controller are modelled and integrated into a modified IEEE-13 bus test system on the MATLAB Simulink platform. The system with a high PV penetration percentage is tested for frequency response during load-generation imbalance and irradiance changes. The simulation results show that the ANN-FPPT controller exhibits improved inertia response when optimized by PSO.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/765df53d2476fb08a95fc4bf1b938b4f4c8c40fd",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "PV Module Degradation Due to Frequent and Prolonged Inverter Clipping: A Preliminary Study",
+    "authors": [
+      "Manjunath Matam",
+      "Ryan M. Smith",
+      "H. Seigneur"
+    ],
+    "year": 2022,
+    "arxiv_id": null,
+    "doi": "10.1109/PVSC48317.2022.9938850",
+    "abstract": "Photovoltaic (PV) plant owners usually install PV arrays that are larger than the inverter's rated capacity. With a DC to AC ratio greater than unity, the PV array occasionally operates at a sub-optimal point imposed by the inverter. This is common practice in the USA, and is known as \u2018clipping.\u2019 Clipping may be implemented by operating the array at voltages below the maximum power point (MPP), or more commonly, above the MPP. Advantages of clipping operation are the utilization of an inverter's full capacity and improved financial break-even time. Regulatory requirements may also mandate reduced power output from an array in a forced clipping situation known as curtailment. However, the long-term impact on the PV array's life, array degradation, aging, hot spots, and module warranty has not been adequately investigated for prolonged off-MPP operation. This paper presents preliminary studies of the potential long-term impact of clipping on the PV array beyond energy production. For this study, the module and string level data, primarily through I-V curves and IR imaging, is investigated along with analysis of inverter electrical data. This preliminary work shows that the PV array exhibits significantly different temperature signatures if operated below the maximum power point as opposed to above, conditions which could be experienced when clipping. In addition, the initial data revealed unique IR imaging patterns: checkerboard patterns at voltages below the MPP and uniform elevated temperature patterns at voltages above the MPP.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/61945b1d58da93abb6e8b7fa70d938b390adb60a",
+    "fieldsOfStudy": null,
+    "citationCount": 2,
+    "query_found": "inverter clipping photovoltaic power limitation"
+  },
+  {
+    "title": "Multi-Objective Dynamic System Model for the Optimal Sizing and Real-World Simulation of Grid-Connected Hybrid Photovoltaic-Hydrogen (PV-H2) Energy Systems",
+    "authors": [
+      "Ayatte Ibrahim Atteya",
+      "Dallia Ali",
+      "N. Sellami"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.3390/en18030578",
+    "abstract": "Hybrid renewable-hydrogen energy systems offer a promising solution for meeting the globe\u2019s energy transition and carbon neutrality goals. This paper presents a new multi-objective dynamic system model for the optimal sizing and simulation of hybrid PV-H2 energy systems within grid-connected buildings. The model integrates a Particle Swarm Optimisation (PSO) algorithm that enables minimising both the levelised cost of energy (LCOE) and the building carbon footprint with a dynamic model that considers the real-world behaviour of the system components. Previous studies have often overlooked the electrochemical dynamics of electrolysers and fuel cells under transient conditions from intermittent renewables and varying loads, leading to the oversizing of components. The proposed model improves sizing accuracy, avoiding unnecessary costs and space. The multi-objective model is compared to a single-objective PSO-based model that minimises the LCOE solely to assess its effectiveness. Both models were applied to a case study within Robert Gordon University in Aberdeen, UK. Results showed that minimising only the LCOE leads to a system with a 1000 kW PV, 932 kW electrolyser, 22.7 kg H2 storage tank, and 242 kW fuel cell, with an LCOE of 0.366 \u00a3/kWh and 40% grid dependency. The multi-objective model, which minimises both the LCOE and the building carbon footprint, results in a system with a 3187.8 kW PV, 1000 kW electrolyser, 106.1 kg H2 storage tank, and 250 kW fuel cell, reducing grid dependency to 33.33% with an LCOE of 0.5188 \u00a3/kWh.",
+    "pdf_url": "https://doi.org/10.3390/en18030578",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/f0abbbb0a4d06a31638436f9ed6e1e4df04aeaeb",
+    "fieldsOfStudy": null,
+    "citationCount": 2,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Hybrid Genetic Algorithm-Based Optimal Sizing of a PV\u2013Wind\u2013Diesel\u2013Battery Microgrid: A Case Study for the ICT Center, Ethiopia",
+    "authors": [
+      "Adnan Kedir Jarso",
+      "G. Jin",
+      "Jongkap Ahn"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.3390/math13060985",
+    "abstract": "This study presents analysis and optimization of a standalone hybrid renewable energy system (HRES) for Adama Science and Technology University\u2019s ICT center in Ethiopia. The proposed hybrid system combines photovoltaic panels, wind turbines, a battery bank, and a diesel generator to ensure reliable and sustainable power. The objectives are to minimize the system\u2019s total annualized cost and loss of power supply probability, while energy reliability is maintained. To optimize the component sizing and energy management strategy of the HRES, we formulated a mathematical model that incorporates the variability of renewable energy and load demand. This optimization problem is solved using a hybrid genetic algorithm (HGA). Simulation results indicate that the HGA yielded the best solution, characterized by the levelized cost of energy of USD 0.2546/kWh, the loss of power supply probability of 0.58%, and a convergence time of 197.2889 s.",
+    "pdf_url": "https://doi.org/10.3390/math13060985",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/771438cafca37cde525dc8ce52461e3f45858fb7",
+    "fieldsOfStudy": null,
+    "citationCount": 14,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Impact of photovoltaic technologies on optimal sizing of PV system",
+    "authors": [
+      "N. Mars",
+      "Mahmoud Chaabani",
+      "L. Houcine",
+      "A. Zaafouri"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.1109/IC_ASET65966.2025.11232441",
+    "abstract": "This paper investigates the application of a new meta-heuristic technique named hippopotamus optimization to dedicate the optimal size of the off grid photovoltaic (PV) system with two PV panel technologies: polycrystalline and monocrystalline. The stand-alone generation system comprises PV panels and a battery storage system (BSS). The objective function for this optimization problem is to minimize the unavailability and cost of the proposed stand-alone system with different kinds of PV panels. However, the optimum sizing cannot be accomplished without considering and covering the system reliability and constraints. The effectiveness of HO algorithm is investigated, and its performance is compared with that of the Particle swarm optimization algorithm. The simulation results reveal the validity and superiority of $\\mathbf{H O}$ technique in determining the optimal sizing of a PV generation system with a higher convergence rate, lower annual cost and LPSP than the PSO technique and it show that polycrystallinePV solar/battery systems are more suitable for the proposed location than monocrystalline-PV solar/battery systems, due to economic, technical, and environmental conditions.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/d13b2eddfcfd3477b7b49ccb6b32f077c32a4f7e",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Sizing of a stand-alone PV\u2013wind\u2013battery\u2013diesel hybrid energy system and optimal combination using a particle swarm optimization algorithm",
+    "authors": [
+      "Latifa El Boujdaini",
+      "A. Mezrhab",
+      "M. Moussaoui",
+      "F. Jurado",
+      "D. Vera"
+    ],
+    "year": 2022,
+    "arxiv_id": null,
+    "doi": "10.1007/s00202-022-01529-0",
+    "abstract": "In this paper, the main objective is the simulation of the electric supply for homes in remote areas located in Morocco (Oujda and Ouarzazate), Spain (Granada), and Algeria (Bechar). This simulation study is divided into two ideas, the first one is to optimize the hybrid system under a varied number of houses and the second part is to fix it in chosen values. This work relied on the particle swarm optimization (PSO) method to optimize and analyze the proposed stand-alone photovoltaic/wind/diesel/battery hybrid system. MATLAB software is used to run the simulations and to carry out the optimal solutions of the optimized system using a developed PSO algorithm. The PSO approach contains five principal operator axes, which are problem definition, PSO initial parameters, initialization, PSO main loop, and then run of the algorithm. Optimizing the system component sizes and reaching the minimum cost of energy (COE) were the function objectives of this optimization study. Moreover, calculation of the hydrogen production from the generated energy by PV and wind systems is performed.",
+    "pdf_url": "https://link.springer.com/content/pdf/10.1007/s00202-022-01529-0.pdf",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/822b671b6168ca8b0be6a30be80f35988e4f5edf",
+    "fieldsOfStudy": null,
+    "citationCount": 72,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Optimal Sizing and Location of PV/BESS for Microgrid System in Remote Area using Multi-Objective based Genetic Algorithm",
+    "authors": [
+      "Saksit Deeum",
+      "Tossaporn Charoenchan",
+      "Pimnapat Bhumkittipich",
+      "Natin Janjamraj",
+      "Sillawat Romphochai",
+      "K. Bhumkittipich"
+    ],
+    "year": 2023,
+    "arxiv_id": null,
+    "doi": "10.1109/ICPEI58931.2023.10473834",
+    "abstract": "This paper presents a multi-objective based genetic algorithm to design the suitable of a solar power generation unit connected with an energy storage unit for a remote area. Due to voltage stability problems in remote areas, the optimal design of renewable energy sources is significant for computing their sizing and location. The renewable energy sources must be designed under optimal power system stability using a multi-objective based genetic algorithm technique. The two objective functions of the proposed study are minimizing the total power loss and maximizing the voltage stability index. The backward and forward sweep methods are chosen to calculate the power flow for the radial distribution system. The IEEE 33 bus test system is also preferred to ensure the proposed method. The simulation results showed that the optimal PV/BESS sizing and location were installed 939 kW at bus no. 12, the voltage amplitude was 0.964 p.u., and the total power loss was 114.121 kW, respectively. The total power loss can be reduced by 44%.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/76e09ed9d23d99fa61a570ccd391766ce2399ba7",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Optimal sizing of autonomous hybrid PV system with considerations for V2G parking lot as controllable load based on a heuristic optimization algorithm",
+    "authors": [
+      "Ahmad Modarresi Ghazvini",
+      "J. Olamaei"
+    ],
+    "year": 2019,
+    "arxiv_id": null,
+    "doi": "10.1016/J.SOLENER.2019.03.087",
+    "abstract": "Abstract Hybrid energy systems such as PV-battery-diesel have been identified as an effective option to solve the power-supply problem and, therefore, the optimal sizing of such hybrid PV systems becomes important. Also, activities related to the demand side of the power system such as demand response programs are interested and, electric vehicle to grid (V2G) parking lot as a controllable load unit is recently used with demand response potential through charging and discharging V2Gs according to electricity price variations. The goal of this study is to develop and examine a heuristic optimization algorithm to solve the optimal sizing for hybrid PV-battery-diesel system with considerations for V2G parking lot as a controllable load. Simulation results show that utilization of V2G parking lot can reduce total cost for optimal sizing of hybrid PV-battery-diesel system by 5.21%.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/2e9f963aa0100b6ac7b4391166832534e56174a7",
+    "fieldsOfStudy": [
+      "Computer Science"
+    ],
+    "citationCount": 60,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Solar photovoltaic (PV) system sizing: Considerations from name plate specifications",
+    "authors": [
+      "P. Nikhil",
+      "D. Subhakar",
+      "Supinder Singh"
+    ],
+    "year": 2015,
+    "arxiv_id": null,
+    "doi": "10.1109/ICCC.2015.7432904",
+    "abstract": "N/A",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/1881086277467efff2c6b9f7c93e3fcba08b22c7",
+    "fieldsOfStudy": [
+      "Engineering"
+    ],
+    "citationCount": 3,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Optimal Type-2 Fuzzy Logic Control for Sizing and Control Grid Connected PV System with Battery",
+    "authors": [
+      "Rania G. Mohamed"
+    ],
+    "year": 2023,
+    "arxiv_id": null,
+    "doi": "10.1109/MEPCON58725.2023.10462343",
+    "abstract": "In this study, Grey Wolf Optimizer (GWO) is employed to optimally design the system depending on the percentage of the possibility of power supply interruption loss of power supply probability (LPSP) to reach the lowest possible cost of the grid connected PV system with battery (GCPVB). Also, GWO is used to determine the optimal gains of Type2- fuzzy logic controllers (T2-FLC) for photovoltaic (PV) power plants to ensure maximum power point tracking (MPPT) of the GCPVB system based on incremental conductance (IC) algorithm. The T2FLC controller is designed to regulate the system\u2019s power flow and ensure that the battery is charged and discharged at optimal rates, while the LPSP is used to determine the optimal battery capacity required to minimize the loss of power supply. The proposed strategy is evaluated using simulation studies under different operating conditions, including varying solar irradiance, load demand, and LPSP. The simulation results demonstrate that the proposed strategy can improve the performance and reduce the cost of operation of the PV system compared to other control techniques, such as conventional Fuzzy Logic Control (FLC) and Proportional- Integral-Derivative (PID) control. Overall, the proposed strategy provides a promising solution for optimizing the sizing and control of GCPVB systems with battery storage and can be used in real-world applications.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/0ef75e0e842334b26112e969d00fab7793914340",
+    "fieldsOfStudy": null,
+    "citationCount": 5,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Optimal PV Sizing of the PV-Based Battery Swapping Stations on the Radial Distribution System using Whale Optimization Algorithm",
+    "authors": [
+      "T. Boonraksa",
+      "Promphak Boonraksa",
+      "B. Marungsri",
+      "Waranyu Sarapan"
+    ],
+    "year": 2022,
+    "arxiv_id": null,
+    "doi": "10.1109/ICPEI55293.2022.9986747",
+    "abstract": "The battery swapping station (BSS) is essential for Electric Bus (E-Bus) service to save charging time, and the electric bus can provide uninterrupted service. The E-Bus BSS requires a lot of electricity to charge the replaced battery. Therefore, renewable energy is applied to generate electricity for the BSS. This paper proposes the optimization of PV power generation systems on E-Bus BSS. The WOA technique is applied for the optimization of PV power generation systems. The simulation results showed that the optimal value of the WOA technique yielded a PV sizing of 0.85 MW. The PV power generation system installation can reduce the energy loss by 1.2109 MWh and have a minimum voltage level of 0.9873 p.u. In addition, PV power generation systems can help reduce the use of electricity from the grid.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/1b2c1cf206ec6f32be76e25b82bb31907535b5ae",
+    "fieldsOfStudy": null,
+    "citationCount": 8,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Optimum Sizing of Hybrid PV, Wind, Battery and Diesel System Using Lightning Search Algorithm",
+    "authors": [
+      "W. Hamanah",
+      "M. Abido",
+      "L. Alhems"
+    ],
+    "year": 2020,
+    "arxiv_id": null,
+    "doi": "10.1007/s13369-019-04292-w",
+    "abstract": "N/A",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/f19f1c80ceee16f753e8b99fcae81a3f2b5a3fde",
+    "fieldsOfStudy": [
+      "Computer Science"
+    ],
+    "citationCount": 80,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Optimized Sizing and Impact of BESS and PV on Grid Frequency Under Varying Droop Coefficients with Partial Load Shedding Mechanism",
+    "authors": [
+      "Irfan Ahmed",
+      "Ahmed Zubair"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.1109/TENCON66050.2025.11374928",
+    "abstract": "Along with the increasing adoption of renewable energy sources, maintaining grid continuity has become a growing concern. As solar photovoltaic (PV) systems and battery storage systems (BESS) proliferate, their contribution toward increasing system resilience and offering frequency response is becoming critical. This research focuses on frequency regulation and assesses how BESS increases stability by modifying the droop coefficient in primary frequency control. We present a simulation-based analysis for different droop settings and construct a BESS sizing algorithm to mitigate a 0.5 Hz frequency dip and advocate a partial load-shedding approach with BESS aid. In addition, the integration of PV systems contributed to a significant reduction in the required size of the BESS, as the PV systems were able to directly supply a portion of the energy demand. The findings demonstrate that adaptive droop improves frequency response, optimal BESS size enhances energy efficiency, and load-shedding with BESS support reduces the burden of excessive load shedding to increase reliability and balance in the system.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/b08a7d7f3814efef135dec1a76221591deef85e0",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Positioning and Sizing of PV-Based DG and Capacitor in Realistic Distribution Network and Verification through ETAP Simulation",
+    "authors": [
+      "Ankush Tandon",
+      "Sarfaraz Nawaz"
+    ],
+    "year": 2023,
+    "arxiv_id": null,
+    "doi": "10.1080/15325008.2023.2217166",
+    "abstract": "Abstract Distributed generation offers a bright future for electric networks, but requires optimal allocation of dispersed resources and an acceptable optimization technique. This article proposes optimal integration of DGs and capacitor banks to optimize distribution network parameters. Imperialist competitive algorithm (ICA) has been used to optimize the distribution network parameters such as optimal location and capacity of Photo Voltaic Distributed Generator ((PVDG) & capacitor. Loss reduction, declination in CO2 emission, and an enhanced voltage profile are major advantages of positioning DGs into the distributive topology. The proposed model has been validated and tested on IEEE-33 and Indian real system of 130 bus of Jaipur City for different load patterns. Furthermore, the results obtained from ICA have been verified by simulating the test systems on ETAP software.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/bbd3c6073d49e132c39892f86a89ef6194c5239b",
+    "fieldsOfStudy": null,
+    "citationCount": 6,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Advanced Sizing Strategy of Battery Energy Storage in PV-Wind Integrated Microgrid",
+    "authors": [
+      "M. Das",
+      "Sarat Chandra Swain",
+      "Ranjeeta Patel",
+      "B. K. Mahala",
+      "S. Bhatta"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.1109/ICPEE65973.2025.11411040",
+    "abstract": "The integration of renewable energy sources such as photovoltaic (PV) and wind power into microgrids offers a sustainable solution to meet increasing energy demands while reducing environmental impact. However, the intermittent and unpredictable nature of these sources necessitates the deployment of an optimally sized Energy Storage System (ESS) to ensure reliability, stability, and economic efficiency of microgrid operations. This study presents a novel approach for the optimal sizing of an ESS in a hybrid PV-wind microgrid using the Sine Cosine Algorithm (SCA), a modern metaheuristic optimization technique. The proposed method aims to minimize the total cost of energy while maintaining power balance and satisfying system constraints. The hybrid system configuration, load demand, and meteorological data are modeled to evaluate the performance of the optimization strategy. Simulation results demonstrate that the SCA efficiently determines the optimal ESS capacity, balancing energy surplus and deficits caused by renewable variability. This approach significantly enhances the microgrid\u2019s autonomy, costeffectiveness, and operational reliability, making it a viable tool for planning future renewable-powered microgrids.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/83c4732520a24b054bed49f1f070f849ce7a2bc0",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "Life Cycle Improvement of Battery Including Sizing of PV/Wind/ Fuel Cell and Diesel Generator in DC Microgrid Using Catch Fish Optimization",
+    "authors": [
+      "Manoj B. Lonkar",
+      "Sushil S. Thale"
+    ],
+    "year": 2025,
+    "arxiv_id": null,
+    "doi": "10.1109/GPECOM65896.2025.11061869",
+    "abstract": "The addition of multiple sources, including PV, wind power, along with diesel generators, battery energy storage systems (BESS), and hydrogen-based fuel cells is crucial for enhancing the reliability and sustainability of DC microgrids. However, optimal component sizing remains a critical challenge in minimizing operational costs while extending battery life. This study presents an advanced optimization approach utilizing the Catch Fish Optimization (CFO) algorithm to find the optimal sizing of PV, wind, diesel, battery, and hydrogen storage components. The optimization framework aims to minimize the Annualized Cost of the System (ACS) and Cost of Energy (COE) while addressing the intermittency of renewable sources and battery degradation constraints. A detailed mathematical modeling approach is employed, incorporating battery lifecycle estimation and techno-economic analysis to ensure long-term feasibility. Simulation results demonstrate that the CFO algorithm effectively reduces ACS and COE while significantly improving battery longevity. The inclusion of a hydrogen storage system in conjunction with battery storage mitigates deep discharge cycles, further enhancing battery lifespan. The results confirm that CFO provides an optimal balance between cost-effectiveness and sustainability, making it highly suitable for off-grid and remote energy applications.",
+    "pdf_url": "",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/706bc6fb43f0028ac086847be6162fe6a7ee4772",
+    "fieldsOfStudy": null,
+    "citationCount": 0,
+    "query_found": "PV system sizing algorithm simulation"
+  },
+  {
+    "title": "A New Approach for Optimal Sizing of a Grid Connected PV System Using PSO and GA Algorithms: Case of Tunisia",
+    "authors": [
+      "Imene Khenissi",
+      "M. Fakhfakh",
+      "Raida Sellami",
+      "R. Neji"
+    ],
+    "year": 2021,
+    "arxiv_id": null,
+    "doi": "10.1080/08839514.2021.1995233",
+    "abstract": "N/A",
+    "pdf_url": "https://www.tandfonline.com/doi/pdf/10.1080/08839514.2021.1995233?needAccess=true",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/cf00ca75513e80eaa5a51b6b1ab38fab6fac2449",
+    "fieldsOfStudy": [
+      "Computer Science"
+    ],
+    "citationCount": 20,
+    "query_found": "PV system sizing algorithm simulation"
+  }
+]
