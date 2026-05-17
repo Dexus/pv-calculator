@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../services/geocoding.dart';
 import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
@@ -19,15 +20,16 @@ class ProjectSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final draft = controller.draft;
+    final l = AppLocalizations.of(context);
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Projekt', style: Theme.of(context).textTheme.titleMedium),
+          Text(l.projectSectionTitle, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           StringField(
-            label: 'Projektname',
+            label: l.projectName,
             initialValue: controller.projectName,
             required: true,
             onChanged: (v) => controller.projectName = v,
@@ -38,7 +40,7 @@ class ProjectSection extends StatelessWidget {
           Wrap(spacing: 12, runSpacing: 12, children: [
             SizedBox(width: 160, child: NumberField(
               key: const Key('latitude-field'),
-              label: 'Breitengrad',
+              label: l.projectLatitude,
               suffix: '°',
               initialValue: draft.latitudeDeg,
               min: -90, max: 90,
@@ -48,7 +50,7 @@ class ProjectSection extends StatelessWidget {
             )),
             SizedBox(width: 160, child: NumberField(
               key: const Key('longitude-field'),
-              label: 'Längengrad',
+              label: l.projectLongitude,
               suffix: '°',
               initialValue: draft.longitudeDeg,
               min: -180, max: 180,
@@ -57,27 +59,26 @@ class ProjectSection extends StatelessWidget {
               },
             )),
             SizedBox(width: 160, child: IntField(
-              label: 'Start-Tag im Jahr',
+              label: l.projectStartDay,
               initialValue: draft.startDayOfYear,
               min: 1, max: 365,
               onChanged: (v) { draft.startDayOfYear = v; controller.touch(); },
             )),
             SizedBox(width: 160, child: IntField(
-              label: 'Simulationstage',
+              label: l.projectSimulationDays,
               initialValue: draft.days,
               min: 1, max: 365,
               onChanged: (v) { draft.days = v; controller.touch(); },
             )),
             SizedBox(width: 200, child: IntField(
-              label: 'Vorlauf-Tage',
+              label: l.projectPreRunDays,
               initialValue: draft.preRunDays,
               min: 0, max: 365,
-              helpText: 'Vorlauftage stabilisieren den Batterie-Startladestand vor '
-                  'der eigentlichen Simulation. Schritte mit Vorlauf erscheinen nicht in den Ergebnissen.',
+              helpText: l.projectPreRunHelp,
               onChanged: (v) { draft.preRunDays = v; controller.touch(); },
             )),
             SizedBox(width: 200, child: NumberField(
-              label: 'Einspeise-Limit',
+              label: l.projectExportLimit,
               suffix: 'kW',
               initialValue: draft.gridExportLimitKw,
               allowNull: true,
@@ -87,10 +88,10 @@ class ProjectSection extends StatelessWidget {
             SizedBox(width: 220, child: DropdownButtonFormField<TimeStep>(
               isExpanded: true,
               initialValue: draft.timeStep,
-              decoration: const InputDecoration(labelText: 'Zeitschritt', isDense: true),
-              items: const [
-                DropdownMenuItem(value: TimeStep.hourly, child: Text('Stündlich', overflow: TextOverflow.ellipsis)),
-                DropdownMenuItem(value: TimeStep.quarterHourly, child: Text('Viertelstündlich', overflow: TextOverflow.ellipsis)),
+              decoration: InputDecoration(labelText: l.projectTimeStep, isDense: true),
+              items: [
+                DropdownMenuItem(value: TimeStep.hourly, child: Text(l.projectTimeStepHourly, overflow: TextOverflow.ellipsis)),
+                DropdownMenuItem(value: TimeStep.quarterHourly, child: Text(l.projectTimeStepQuarter, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (v) {
                 if (v != null) { draft.timeStep = v; controller.touch(); }
@@ -98,26 +99,24 @@ class ProjectSection extends StatelessWidget {
             )),
           ]),
           const SizedBox(height: 16),
-          Text('PVGIS-API', style: Theme.of(context).textTheme.titleSmall),
+          Text(l.projectPvgisApiTitle, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 4),
           Text(
-            'Zeitfenster und Strahlungsdatenbank für „Von PVGIS-API laden“. '
-            'PVGIS-SARAH3 deckt typischerweise 2005–2023 ab; je breiter das '
-            'Fenster, desto stabiler werden TMY-Mittelwerte.',
+            l.projectPvgisApiHelp,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 8),
           Wrap(spacing: 12, runSpacing: 12, children: [
             SizedBox(width: 160, child: IntField(
               key: const Key('pvgis-start-year-field'),
-              label: 'PVGIS Startjahr',
+              label: l.projectPvgisStartYear,
               initialValue: draft.pvgisStartYear,
               min: 2005, max: 2100,
               onChanged: (v) { draft.pvgisStartYear = v; controller.touch(); },
             )),
             SizedBox(width: 160, child: IntField(
               key: const Key('pvgis-end-year-field'),
-              label: 'PVGIS Endjahr',
+              label: l.projectPvgisEndYear,
               initialValue: draft.pvgisEndYear,
               min: 2005, max: 2100,
               onChanged: (v) { draft.pvgisEndYear = v; controller.touch(); },
@@ -128,28 +127,28 @@ class ProjectSection extends StatelessWidget {
               initialValue: pvgisRadDatabaseOptions.contains(draft.pvgisRadDatabase)
                   ? draft.pvgisRadDatabase
                   : null,
-              decoration: const InputDecoration(
-                labelText: 'Strahlungsdatenbank',
+              decoration: InputDecoration(
+                labelText: l.projectRadDatabase,
                 isDense: true,
               ),
-              items: const [
+              items: [
                 DropdownMenuItem<String?>(
                   value: null,
-                  child: Text('PVGIS Auto', overflow: TextOverflow.ellipsis),
+                  child: Text(l.projectRadDatabaseAuto, overflow: TextOverflow.ellipsis),
                 ),
-                DropdownMenuItem<String?>(
+                const DropdownMenuItem<String?>(
                   value: 'PVGIS-SARAH3',
                   child: Text('PVGIS-SARAH3', overflow: TextOverflow.ellipsis),
                 ),
-                DropdownMenuItem<String?>(
+                const DropdownMenuItem<String?>(
                   value: 'PVGIS-SARAH2',
                   child: Text('PVGIS-SARAH2', overflow: TextOverflow.ellipsis),
                 ),
-                DropdownMenuItem<String?>(
+                const DropdownMenuItem<String?>(
                   value: 'PVGIS-ERA5',
                   child: Text('PVGIS-ERA5', overflow: TextOverflow.ellipsis),
                 ),
-                DropdownMenuItem<String?>(
+                const DropdownMenuItem<String?>(
                   value: 'PVGIS-NSRDB',
                   child: Text('PVGIS-NSRDB', overflow: TextOverflow.ellipsis),
                 ),
@@ -217,6 +216,7 @@ class _AddressSearchRowState extends State<_AddressSearchRow> {
   Future<void> _search() async {
     final query = _queryController.text.trim();
     if (query.isEmpty || _busy) return;
+    final l = AppLocalizations.of(context);
     setState(() {
       _busy = true;
       _error = null;
@@ -227,11 +227,11 @@ class _AddressSearchRowState extends State<_AddressSearchRow> {
       if (!mounted) return;
       setState(() {
         _results = results;
-        if (results.isEmpty) _error = 'Keine Treffer gefunden.';
+        if (results.isEmpty) _error = l.projectAddressNoResults;
       });
     } on GeocodingException catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.message);
+      setState(() => _error = formatGeocodingException(l, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -250,14 +250,15 @@ class _AddressSearchRowState extends State<_AddressSearchRow> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: TextField(
           key: const Key('address-search-field'),
           controller: _queryController,
-          decoration: const InputDecoration(
-            labelText: 'Adresse suchen (OpenStreetMap)',
-            hintText: 'z.B. Marktplatz 1, Frankfurt',
+          decoration: InputDecoration(
+            labelText: l.projectAddressSearch,
+            hintText: l.projectAddressHint,
             isDense: true,
           ),
           onSubmitted: (_) => _search(),
@@ -269,7 +270,7 @@ class _AddressSearchRowState extends State<_AddressSearchRow> {
           icon: _busy
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.search),
-          label: const Text('Suchen'),
+          label: Text(l.commonSearch),
         ),
       ]),
       if (_error != null)

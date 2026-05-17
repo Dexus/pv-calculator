@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
 import 'arrays_section.dart';
@@ -9,19 +10,15 @@ import 'inverters_section.dart';
 import 'load_section.dart';
 import 'project_section.dart';
 
-String _weatherHint(int withPvgis, int totalArrays) {
-  const sessionNote = ' PVGIS-Importe gelten nur für diese Sitzung; '
-      'beim erneuten Öffnen eines gespeicherten Projekts müssen sie neu importiert werden.';
+String _weatherHint(AppLocalizations l, int withPvgis, int totalArrays) {
+  final sessionNote = l.editorWeatherSession;
   if (totalArrays == 0 || withPvgis == 0) {
-    return 'Hinweis: Diese Simulation nutzt ein synthetisches Demo-Strahlungsmodell und ersetzt keine PVGIS-Validierung. '
-        'Du kannst pro Modulfeld eine PVGIS-Stündliche-Daten-JSON importieren, um reale Einstrahlung zu nutzen.';
+    return l.editorWeatherSynthetic;
   }
   if (withPvgis == totalArrays) {
-    return 'Wetterquelle: PVGIS-Daten für alle $totalArrays Modulfelder importiert. '
-        'TMY-Mittelwerte über die in der Datei enthaltenen Jahre.$sessionNote';
+    return l.editorWeatherAll(totalArrays, sessionNote);
   }
-  return 'Wetterquelle gemischt: $withPvgis von $totalArrays Modulfeldern nutzen importierte PVGIS-Daten, '
-      'die übrigen fallen auf das synthetische Demo-Modell zurück.$sessionNote';
+  return l.editorWeatherMixed(withPvgis, totalArrays, sessionNote);
 }
 
 class EditorPage extends StatelessWidget {
@@ -32,6 +29,7 @@ class EditorPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
+    final l = AppLocalizations.of(context);
     final issue = controller.draft.validationIssue();
     final orphaned = controller.draft.orphanedWeatherArrayIds().toList();
     // Surface a previous failed run() here: the run button only navigates
@@ -62,7 +60,7 @@ class EditorPage extends StatelessWidget {
                         if (ok) onRunRequested?.call();
                       },
                 icon: const Icon(Icons.play_arrow),
-                label: const Text('Simulation starten'),
+                label: Text(l.editorRun),
               ),
             ),
         ],
@@ -103,7 +101,7 @@ class EditorPage extends StatelessWidget {
               child: const LoadSection()),
           const SizedBox(height: 16),
           Text(
-            _weatherHint(controller.draft.arraysWithWeatherCount, controller.draft.arrays.length),
+            _weatherHint(l, controller.draft.arraysWithWeatherCount, controller.draft.arrays.length),
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -139,12 +137,13 @@ class _ValidationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return Card(
       color: scheme.errorContainer,
       child: ListTile(
         leading: Icon(Icons.error_outline, color: scheme.onErrorContainer),
         title: Text(
-          'Konfiguration unvollständig',
+          l.editorValidationTitle,
           style: TextStyle(color: scheme.onErrorContainer),
         ),
         subtitle: Text(
@@ -164,12 +163,13 @@ class _RunErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return Card(
       color: scheme.errorContainer,
       child: ListTile(
         leading: Icon(Icons.error_outline, color: scheme.onErrorContainer),
         title: Text(
-          'Simulation fehlgeschlagen',
+          l.editorRunErrorTitle,
           style: TextStyle(color: scheme.onErrorContainer),
         ),
         subtitle: Text(
@@ -190,6 +190,7 @@ class _OrphanedImportsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.read<ProjectController>();
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return Card(
       key: const Key('orphaned-pvgis-card'),
       color: scheme.tertiaryContainer,
@@ -201,7 +202,7 @@ class _OrphanedImportsCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'PVGIS-Importe ohne passendes Modulfeld',
+                l.editorOrphanedTitle,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: scheme.onTertiaryContainer,
                   fontWeight: FontWeight.w600,
@@ -211,8 +212,7 @@ class _OrphanedImportsCard extends StatelessWidget {
           ]),
           const SizedBox(height: 6),
           Text(
-            'Die folgenden importierten Wetterreihen verweisen auf gelöschte oder umbenannte Modulfelder '
-            'und werden von der Simulation nicht genutzt. Über „Vergessen“ kannst du sie freigeben.',
+            l.editorOrphanedBody,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: scheme.onTertiaryContainer,
             ),
@@ -229,7 +229,7 @@ class _OrphanedImportsCard extends StatelessWidget {
                   controller.touch();
                 },
                 deleteIcon: const Icon(Icons.close, size: 16),
-                deleteButtonTooltipMessage: 'Vergessen',
+                deleteButtonTooltipMessage: l.editorOrphanedForget,
               ),
           ]),
         ]),

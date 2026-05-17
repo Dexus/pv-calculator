@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pv_calculator_app/main.dart';
+import 'package:pv_calculator_app/state/settings_controller.dart';
 import 'package:pv_calculator_app/widgets/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('drawer opens settings page from the project list', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      SettingsController.localeKey: 'de',
+    });
     await tester.pumpWidget(const PvCalculatorApp());
     await tester.pumpAndSettle();
 

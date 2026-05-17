@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
 import '_field.dart';
@@ -12,30 +13,31 @@ class BatteriesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final draft = controller.draft;
+    final l = AppLocalizations.of(context);
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text('Batteriespeicher', style: Theme.of(context).textTheme.titleMedium)),
+            Expanded(child: Text(l.batteriesTitle, style: Theme.of(context).textTheme.titleMedium)),
             FilledButton.tonalIcon(
               onPressed: () {
                 final n = draft.batteries.length + 1;
                 draft.batteries.add(BatteryDraft(
                   id: 'battery-$n',
-                  label: 'Speicher $n',
+                  label: l.batteriesDefaultLabel(n),
                 ));
                 controller.touch();
               },
               icon: const Icon(Icons.add),
-              label: const Text('Hinzufügen'),
+              label: Text(l.commonAdd),
             ),
           ]),
           if (draft.batteries.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Text('Kein Batteriespeicher konfiguriert (optional).'),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(l.batteriesEmpty),
             ),
           for (var i = 0; i < draft.batteries.length; i++) ...[
             const Divider(height: 24),
@@ -86,42 +88,42 @@ class _BatteryEditorState extends State<_BatteryEditor> {
   @override
   Widget build(BuildContext context) {
     final battery = widget.battery;
+    final l = AppLocalizations.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Expanded(child: Text('Speicher ${widget.index + 1}', style: Theme.of(context).textTheme.titleSmall)),
-        IconButton(onPressed: widget.onRemove, icon: const Icon(Icons.delete_outline), tooltip: 'Entfernen'),
+        Expanded(child: Text(l.batteriesHeading(widget.index + 1), style: Theme.of(context).textTheme.titleSmall)),
+        IconButton(onPressed: widget.onRemove, icon: const Icon(Icons.delete_outline), tooltip: l.commonRemove),
       ]),
       const SizedBox(height: 8),
       Wrap(spacing: 12, runSpacing: 12, children: [
         SizedBox(width: 180, child: StringField(
-          label: 'ID', initialValue: battery.id, required: true,
+          label: l.fieldId, initialValue: battery.id, required: true,
           onChanged: (v) { battery.id = v; widget.onChanged(); },
         )),
         SizedBox(width: 220, child: StringField(
-          label: 'Bezeichnung', initialValue: battery.label,
+          label: l.fieldLabel, initialValue: battery.label,
           onChanged: (v) { battery.label = v; widget.onChanged(); },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Kapazität', suffix: 'kWh', initialValue: battery.capacityKwh, min: 0,
+          label: l.batteriesFieldCapacity, suffix: 'kWh', initialValue: battery.capacityKwh, min: 0,
           onChanged: (v) { if (v != null) { battery.capacityKwh = v; widget.onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Max. Ladeleistung', suffix: 'kW', initialValue: battery.maxChargeKw, min: 0,
+          label: l.batteriesFieldChargePower, suffix: 'kW', initialValue: battery.maxChargeKw, min: 0,
           onChanged: (v) { if (v != null) { battery.maxChargeKw = v; widget.onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Max. Entladeleistung', suffix: 'kW', initialValue: battery.maxDischargeKw, min: 0,
+          label: l.batteriesFieldDischargePower, suffix: 'kW', initialValue: battery.maxDischargeKw, min: 0,
           onChanged: (v) { if (v != null) { battery.maxDischargeKw = v; widget.onChanged(); } },
         )),
         SizedBox(width: 200, child: NumberField(
-          label: 'Roundtrip-Wirkungsgrad', suffix: '0..1',
+          label: l.batteriesFieldRoundtrip, suffix: '0..1',
           initialValue: battery.roundTripEfficiency, min: 0.01, max: 1.0,
-          helpText: 'Lade- × Entladewirkungsgrad. Typisch 0,9 für Lithium-Speicher, '
-              '≈ 0,75 für Blei-Speicher.',
+          helpText: l.batteriesFieldRoundtripHelp,
           onChanged: (v) { if (v != null) { battery.roundTripEfficiency = v; widget.onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Min. SOC', suffix: 'kWh', initialValue: battery.minSocKwh,
+          label: l.batteriesFieldMinSoc, suffix: 'kWh', initialValue: battery.minSocKwh,
           min: 0, max: battery.capacityKwh,
           onChanged: (v) { if (v != null) { battery.minSocKwh = v; widget.onChanged(); } },
         )),
@@ -140,11 +142,11 @@ class _BatteryEditorState extends State<_BatteryEditor> {
             });
           },
         ),
-        const Text('Start-SOC manuell setzen'),
+        Text(l.batteriesCustomInitial),
         const SizedBox(width: 12),
         if (_customInitial)
           SizedBox(width: 160, child: NumberField(
-            label: 'Start-SOC', suffix: 'kWh', initialValue: battery.initialSocKwh,
+            label: l.batteriesFieldStartSoc, suffix: 'kWh', initialValue: battery.initialSocKwh,
             allowNull: true,
             min: battery.minSocKwh, max: battery.capacityKwh,
             onChanged: (v) { battery.initialSocKwh = v; widget.onChanged(); },

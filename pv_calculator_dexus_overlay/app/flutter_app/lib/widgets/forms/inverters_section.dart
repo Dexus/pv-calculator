@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
 import '_field.dart';
@@ -13,30 +14,31 @@ class InvertersSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final draft = controller.draft;
+    final l = AppLocalizations.of(context);
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text('Wechselrichter', style: Theme.of(context).textTheme.titleMedium)),
+            Expanded(child: Text(l.invertersTitle, style: Theme.of(context).textTheme.titleMedium)),
             FilledButton.tonalIcon(
               onPressed: () {
                 final n = draft.inverters.length + 1;
                 draft.inverters.add(InverterDraft(
                   id: 'inverter-$n',
-                  label: 'Wechselrichter $n',
+                  label: l.invertersDefaultLabel(n),
                 ));
                 controller.touch();
               },
               icon: const Icon(Icons.add),
-              label: const Text('Hinzufügen'),
+              label: Text(l.commonAdd),
             ),
           ]),
           if (draft.inverters.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Text('Mindestens ein Wechselrichter ist erforderlich.'),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(l.invertersEmpty),
             ),
           for (var i = 0; i < draft.inverters.length; i++) ...[
             const Divider(height: 24),
@@ -73,35 +75,34 @@ class _InverterEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Expanded(child: Text('Wechselrichter ${index + 1}', style: Theme.of(context).textTheme.titleSmall)),
-        IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline), tooltip: 'Entfernen'),
+        Expanded(child: Text(l.invertersHeading(index + 1), style: Theme.of(context).textTheme.titleSmall)),
+        IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline), tooltip: l.commonRemove),
       ]),
       const SizedBox(height: 8),
       Wrap(spacing: 12, runSpacing: 12, children: [
         SizedBox(width: 180, child: StringField(
-          label: 'ID', initialValue: inverter.id, required: true,
+          label: l.fieldId, initialValue: inverter.id, required: true,
           onChanged: (v) { inverter.id = v; onChanged(); },
         )),
         SizedBox(width: 220, child: StringField(
-          label: 'Bezeichnung', initialValue: inverter.label,
+          label: l.fieldLabel, initialValue: inverter.label,
           onChanged: (v) { inverter.label = v; onChanged(); },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Max. AC-Leistung', suffix: 'kW', initialValue: inverter.maxAcKw, min: 0.001,
+          label: l.invertersFieldMaxAc, suffix: 'kW', initialValue: inverter.maxAcKw, min: 0.001,
           onChanged: (v) { if (v != null) { inverter.maxAcKw = v; onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Wirkungsgrad', suffix: '0..1', initialValue: inverter.efficiency, min: 0.01, max: 1.0,
+          label: l.invertersFieldEfficiency, suffix: '0..1', initialValue: inverter.efficiency, min: 0.01, max: 1.0,
           onChanged: (v) { if (v != null) { inverter.efficiency = v; onChanged(); } },
         )),
         SizedBox(width: 220, child: NumberField(
-          label: 'Max. DC-Eingang', suffix: 'kW',
+          label: l.invertersFieldMaxDc, suffix: 'kW',
           initialValue: inverter.maxDcInputKw, min: 0.001, allowNull: true,
-          helpText: 'Optionale DC-Eingangsgrenze (MPPT). DC-Leistung darüber '
-              'wird vor dem Wechselrichter geclippt und als Abregelung erfasst. '
-              'Leer lassen, wenn der Wechselrichter nicht überdimensioniert ist.',
+          helpText: l.invertersFieldMaxDcHelp,
           onChanged: (v) { inverter.maxDcInputKw = v; onChanged(); },
         )),
         SizedBox(width: 260, child: _RoleDropdown(
@@ -119,37 +120,36 @@ class _RoleDropdown extends StatelessWidget {
   final InverterRole role;
   final ValueChanged<InverterRole> onChanged;
 
-  String get _helpText {
+  String _helpText(AppLocalizations l) {
     switch (role) {
       case InverterRole.microInverter800W:
-        return '800-W-Stecker-Solar: AC-Ausgang wird hart auf 0,8 kW gekappt, '
-            'unabhängig von der eingestellten Max. AC-Leistung.';
+        return l.invertersRoleMicroHelp;
       case InverterRole.batteryCoupled:
-        return 'Wechselrichter ist DC-seitig mit einer Batterie gekoppelt; '
-            'Erfassung wie ein Netz-Wechselrichter, aber semantisch markiert.';
+        return l.invertersRoleBatteryHelp;
       case InverterRole.grid:
-        return 'Standard-Netz-Wechselrichter ohne harte AC-Hürde.';
+        return l.invertersRoleGridHelp;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Row(children: [
       Expanded(
         child: DropdownButtonFormField<InverterRole>(
           isExpanded: true,
           initialValue: role,
-          decoration: const InputDecoration(labelText: 'Rolle', isDense: true),
-          items: const [
-            DropdownMenuItem(value: InverterRole.grid, child: Text('Netz', overflow: TextOverflow.ellipsis)),
-            DropdownMenuItem(value: InverterRole.microInverter800W, child: Text('800-W-Micro', overflow: TextOverflow.ellipsis)),
-            DropdownMenuItem(value: InverterRole.batteryCoupled, child: Text('Batteriegekoppelt', overflow: TextOverflow.ellipsis)),
+          decoration: InputDecoration(labelText: l.invertersFieldRole, isDense: true),
+          items: [
+            DropdownMenuItem(value: InverterRole.grid, child: Text(l.invertersRoleGrid, overflow: TextOverflow.ellipsis)),
+            DropdownMenuItem(value: InverterRole.microInverter800W, child: Text(l.invertersRoleMicro, overflow: TextOverflow.ellipsis)),
+            DropdownMenuItem(value: InverterRole.batteryCoupled, child: Text(l.invertersRoleBattery, overflow: TextOverflow.ellipsis)),
           ],
           onChanged: (v) { if (v != null) onChanged(v); },
         ),
       ),
       Tooltip(
-        message: _helpText,
+        message: _helpText(l),
         triggerMode: TooltipTriggerMode.tap,
         showDuration: const Duration(seconds: 6),
         child: const Padding(

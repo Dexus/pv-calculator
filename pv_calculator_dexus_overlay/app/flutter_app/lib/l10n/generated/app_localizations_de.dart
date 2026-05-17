@@ -1,0 +1,729 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for German (`de`).
+class AppLocalizationsDe extends AppLocalizations {
+  AppLocalizationsDe([String locale = 'de']) : super(locale);
+
+  @override
+  String get commonAdd => 'Hinzufügen';
+
+  @override
+  String get commonRemove => 'Entfernen';
+
+  @override
+  String get commonCancel => 'Abbrechen';
+
+  @override
+  String get commonDelete => 'Löschen';
+
+  @override
+  String get commonSearch => 'Suchen';
+
+  @override
+  String get validationRequired => 'Pflichtfeld';
+
+  @override
+  String get validationMustBeNumber => 'Bitte eine Zahl eingeben';
+
+  @override
+  String validationAtLeast(String value) {
+    return 'Mindestens $value';
+  }
+
+  @override
+  String validationAtMost(String value) {
+    return 'Höchstens $value';
+  }
+
+  @override
+  String get drawerSubtitle => 'Demo · synthetisches Modell';
+
+  @override
+  String get drawerProjects => 'Projekte';
+
+  @override
+  String get drawerSettings => 'Einstellungen';
+
+  @override
+  String get drawerAbout => 'Über';
+
+  @override
+  String get settingsTitle => 'Einstellungen';
+
+  @override
+  String get settingsAppearance => 'Erscheinungsbild';
+
+  @override
+  String get settingsThemeSystem => 'Systemvorgabe folgen';
+
+  @override
+  String get settingsThemeSystemDesc => 'Wechselt mit der Geräteeinstellung.';
+
+  @override
+  String get settingsThemeLight => 'Hell';
+
+  @override
+  String get settingsThemeDark => 'Dunkel';
+
+  @override
+  String get settingsLanguage => 'Sprache';
+
+  @override
+  String get settingsLanguageSystem => 'Systemsprache verwenden';
+
+  @override
+  String get settingsLanguageSystemDesc => 'Folgt der Sprache des Geräts.';
+
+  @override
+  String get settingsAboutApp => 'Über die App';
+
+  @override
+  String get settingsAboutBody =>
+      'Demo-Anwendung zur PV-Auslegung mit Batteriespeicher und 800-W-Micro-Wechselrichter. Das aktuelle Strahlungsmodell ist synthetisch und stellt keine validierte Ertragsprognose dar.';
+
+  @override
+  String get projectListTitle => 'PV Calculator — Projekte';
+
+  @override
+  String get projectListEmpty => 'Noch keine Projekte gespeichert.';
+
+  @override
+  String get projectListEmptyHint =>
+      'Lege ein neues Projekt an oder importiere ein gespeichertes JSON.';
+
+  @override
+  String get projectListCreateButton => 'Neues Projekt erstellen';
+
+  @override
+  String get projectListImportTooltip => 'Importieren';
+
+  @override
+  String get projectListNewTooltip => 'Neues Projekt';
+
+  @override
+  String get projectListExportTooltip => 'Exportieren';
+
+  @override
+  String get projectListDeleteTooltip => 'Löschen';
+
+  @override
+  String get projectListNewDefaultName => 'Neues Projekt';
+
+  @override
+  String projectListLoadFailed(String name) {
+    return 'Projekt \"$name\" konnte nicht geladen werden.';
+  }
+
+  @override
+  String projectListImported(String name) {
+    return 'Importiert: $name';
+  }
+
+  @override
+  String projectListImportFailed(String error) {
+    return 'Import fehlgeschlagen: $error';
+  }
+
+  @override
+  String projectListDownloaded(String filename) {
+    return 'Heruntergeladen: $filename';
+  }
+
+  @override
+  String projectListExported(String filename) {
+    return 'Exportiert: $filename';
+  }
+
+  @override
+  String get projectListExportCancelled => 'Export abgebrochen';
+
+  @override
+  String projectListExportFailed(String error) {
+    return 'Export fehlgeschlagen: $error';
+  }
+
+  @override
+  String get projectListConflictTitle => 'Projekt existiert bereits';
+
+  @override
+  String projectListConflictBody(String name) {
+    return '\"$name\" ist bereits gespeichert. Soll der Import diese Version überschreiben oder unter einem neuen Namen abgelegt werden?';
+  }
+
+  @override
+  String get projectListConflictRename => 'Umbenennen';
+
+  @override
+  String get projectListConflictOverwrite => 'Überschreiben';
+
+  @override
+  String get projectListDeleteTitle => 'Projekt löschen?';
+
+  @override
+  String projectListDeleteBody(String name) {
+    return '\"$name\" wird unwiderruflich gelöscht.';
+  }
+
+  @override
+  String projectListSaveFailed(String error) {
+    return 'Speichern fehlgeschlagen: $error';
+  }
+
+  @override
+  String get editorRun => 'Simulation starten';
+
+  @override
+  String get editorValidationTitle => 'Konfiguration unvollständig';
+
+  @override
+  String get editorRunErrorTitle => 'Simulation fehlgeschlagen';
+
+  @override
+  String get editorOrphanedTitle => 'PVGIS-Importe ohne passendes Modulfeld';
+
+  @override
+  String get editorOrphanedBody =>
+      'Die folgenden importierten Wetterreihen verweisen auf gelöschte oder umbenannte Modulfelder und werden von der Simulation nicht genutzt. Über „Vergessen“ kannst du sie freigeben.';
+
+  @override
+  String get editorOrphanedForget => 'Vergessen';
+
+  @override
+  String get editorWeatherSynthetic =>
+      'Hinweis: Diese Simulation nutzt ein synthetisches Demo-Strahlungsmodell und ersetzt keine PVGIS-Validierung. Du kannst pro Modulfeld eine PVGIS-Stündliche-Daten-JSON importieren, um reale Einstrahlung zu nutzen.';
+
+  @override
+  String get editorWeatherSession =>
+      ' PVGIS-Importe gelten nur für diese Sitzung; beim erneuten Öffnen eines gespeicherten Projekts müssen sie neu importiert werden.';
+
+  @override
+  String editorWeatherAll(int total, String session) {
+    return 'Wetterquelle: PVGIS-Daten für alle $total Modulfelder importiert. TMY-Mittelwerte über die in der Datei enthaltenen Jahre.$session';
+  }
+
+  @override
+  String editorWeatherMixed(int withCount, int total, String session) {
+    return 'Wetterquelle gemischt: $withCount von $total Modulfeldern nutzen importierte PVGIS-Daten, die übrigen fallen auf das synthetische Demo-Modell zurück.$session';
+  }
+
+  @override
+  String get projectSectionTitle => 'Projekt';
+
+  @override
+  String get projectName => 'Projektname';
+
+  @override
+  String get projectLatitude => 'Breitengrad';
+
+  @override
+  String get projectLongitude => 'Längengrad';
+
+  @override
+  String get projectStartDay => 'Start-Tag im Jahr';
+
+  @override
+  String get projectSimulationDays => 'Simulationstage';
+
+  @override
+  String get projectPreRunDays => 'Vorlauf-Tage';
+
+  @override
+  String get projectPreRunHelp =>
+      'Vorlauftage stabilisieren den Batterie-Startladestand vor der eigentlichen Simulation. Schritte mit Vorlauf erscheinen nicht in den Ergebnissen.';
+
+  @override
+  String get projectExportLimit => 'Einspeise-Limit';
+
+  @override
+  String get projectTimeStep => 'Zeitschritt';
+
+  @override
+  String get projectTimeStepHourly => 'Stündlich';
+
+  @override
+  String get projectTimeStepQuarter => 'Viertelstündlich';
+
+  @override
+  String get projectPvgisApiTitle => 'PVGIS-API';
+
+  @override
+  String get projectPvgisApiHelp =>
+      'Zeitfenster und Strahlungsdatenbank für „Von PVGIS-API laden“. PVGIS-SARAH3 deckt typischerweise 2005–2023 ab; je breiter das Fenster, desto stabiler werden TMY-Mittelwerte.';
+
+  @override
+  String get projectPvgisStartYear => 'PVGIS Startjahr';
+
+  @override
+  String get projectPvgisEndYear => 'PVGIS Endjahr';
+
+  @override
+  String get projectRadDatabase => 'Strahlungsdatenbank';
+
+  @override
+  String get projectRadDatabaseAuto => 'PVGIS Auto';
+
+  @override
+  String get projectAddressSearch => 'Adresse suchen (OpenStreetMap)';
+
+  @override
+  String get projectAddressHint => 'z.B. Marktplatz 1, Frankfurt';
+
+  @override
+  String get projectAddressNoResults => 'Keine Treffer gefunden.';
+
+  @override
+  String get fieldId => 'ID';
+
+  @override
+  String get fieldLabel => 'Bezeichnung';
+
+  @override
+  String get arraysTitle => 'PV-Module';
+
+  @override
+  String get arraysEmpty => 'Mindestens ein Modulfeld ist erforderlich.';
+
+  @override
+  String arraysDefaultLabel(int n) {
+    return 'Modulfeld $n';
+  }
+
+  @override
+  String arraysHeading(int n) {
+    return 'Modulfeld $n';
+  }
+
+  @override
+  String get arraysFieldPeak => 'Spitzenleistung';
+
+  @override
+  String get arraysFieldAzimuth => 'Azimut';
+
+  @override
+  String get arraysFieldTilt => 'Neigung';
+
+  @override
+  String get arraysFieldLosses => 'Verluste';
+
+  @override
+  String get arraysFieldShading => 'Verschattung';
+
+  @override
+  String get arraysFieldTempCoef => 'Temperaturkoeff.';
+
+  @override
+  String get arraysFieldTempCoefHelp =>
+      'Leistungsverlust pro °C Zelltemperatur über 25 °C. Kristallines Silizium ≈ −0,4 %/°C; 0 deaktiviert die Temperatur-Derating.';
+
+  @override
+  String get arraysFieldNoct => 'NOCT';
+
+  @override
+  String get arraysFieldNoctHelp =>
+      'Nominal Operating Cell Temperature: Zelltemperatur bei 800 W/m², 20 °C Luft, 1 m/s Wind. Typisch 45 °C.';
+
+  @override
+  String get arraysFieldInverter => 'Wechselrichter';
+
+  @override
+  String get arraysFieldInverterRequired => 'Wechselrichter auswählen';
+
+  @override
+  String get pvgisIdRequired => 'Bitte zuerst eine Modulfeld-ID vergeben.';
+
+  @override
+  String pvgisImported(String id, int count) {
+    return 'PVGIS-Daten für \"$id\" importiert ($count Werte).';
+  }
+
+  @override
+  String pvgisImportFailed(String error) {
+    return 'PVGIS-Import fehlgeschlagen: $error';
+  }
+
+  @override
+  String get pvgisArrayNotFound => 'Modulfeld nicht gefunden.';
+
+  @override
+  String pvgisInvalidRequest(String error) {
+    return 'PVGIS-Abfrage ungültig: $error';
+  }
+
+  @override
+  String pvgisApiLoaded(String id, int count) {
+    return 'PVGIS-API-Daten für \"$id\" geladen ($count Werte).';
+  }
+
+  @override
+  String pvgisApiFailed(String error) {
+    return 'PVGIS-API-Abfrage fehlgeschlagen: $error';
+  }
+
+  @override
+  String get pvgisStatusSynthetic => 'Wetterquelle: synthetisches Demo-Modell';
+
+  @override
+  String get pvgisStatusLoaded => 'PVGIS-Daten geladen';
+
+  @override
+  String pvgisMetadata(
+    String source,
+    int count,
+    String years,
+    String lat,
+    String lon,
+    String orientation,
+  ) {
+    return '$source · $count Stunden · Jahre $years · PVGIS-Lage $lat°/$lon°$orientation';
+  }
+
+  @override
+  String get pvgisSessionNote =>
+      'Hinweis: PVGIS-Importe gelten nur für diese Sitzung — sie werden nicht im Projekt-JSON gespeichert.';
+
+  @override
+  String pvgisOrientationWarning(String issues) {
+    return 'PVGIS-Ausrichtung weicht ab ($issues). Die importierten POA-Werte gelten für die PVGIS-Ausrichtung, nicht für die hier eingestellte.';
+  }
+
+  @override
+  String pvgisOrientationTilt(String value) {
+    return 'Neigung $value°';
+  }
+
+  @override
+  String pvgisOrientationAzimuth(String value) {
+    return 'Azimut $value°';
+  }
+
+  @override
+  String pvgisTiltMismatch(String imported, String configured) {
+    return 'Neigung $imported° vs $configured°';
+  }
+
+  @override
+  String pvgisAzimuthMismatch(String imported, String configured) {
+    return 'Azimut $imported° vs $configured°';
+  }
+
+  @override
+  String get pvgisReloadApi => 'API neu laden';
+
+  @override
+  String get pvgisLoadFromApi => 'Von PVGIS-API laden';
+
+  @override
+  String get pvgisImportJson => 'JSON importieren';
+
+  @override
+  String get invertersTitle => 'Wechselrichter';
+
+  @override
+  String get invertersEmpty =>
+      'Mindestens ein Wechselrichter ist erforderlich.';
+
+  @override
+  String invertersDefaultLabel(int n) {
+    return 'Wechselrichter $n';
+  }
+
+  @override
+  String invertersHeading(int n) {
+    return 'Wechselrichter $n';
+  }
+
+  @override
+  String get invertersFieldMaxAc => 'Max. AC-Leistung';
+
+  @override
+  String get invertersFieldEfficiency => 'Wirkungsgrad';
+
+  @override
+  String get invertersFieldMaxDc => 'Max. DC-Eingang';
+
+  @override
+  String get invertersFieldMaxDcHelp =>
+      'Optionale DC-Eingangsgrenze (MPPT). DC-Leistung darüber wird vor dem Wechselrichter geclippt und als Abregelung erfasst. Leer lassen, wenn der Wechselrichter nicht überdimensioniert ist.';
+
+  @override
+  String get invertersFieldRole => 'Rolle';
+
+  @override
+  String get invertersRoleGrid => 'Netz';
+
+  @override
+  String get invertersRoleMicro => '800-W-Micro';
+
+  @override
+  String get invertersRoleBattery => 'Batteriegekoppelt';
+
+  @override
+  String get invertersRoleMicroHelp =>
+      '800-W-Stecker-Solar: AC-Ausgang wird hart auf 0,8 kW gekappt, unabhängig von der eingestellten Max. AC-Leistung.';
+
+  @override
+  String get invertersRoleBatteryHelp =>
+      'Wechselrichter ist DC-seitig mit einer Batterie gekoppelt; Erfassung wie ein Netz-Wechselrichter, aber semantisch markiert.';
+
+  @override
+  String get invertersRoleGridHelp =>
+      'Standard-Netz-Wechselrichter ohne harte AC-Hürde.';
+
+  @override
+  String get batteriesTitle => 'Batteriespeicher';
+
+  @override
+  String get batteriesEmpty => 'Kein Batteriespeicher konfiguriert (optional).';
+
+  @override
+  String batteriesDefaultLabel(int n) {
+    return 'Speicher $n';
+  }
+
+  @override
+  String batteriesHeading(int n) {
+    return 'Speicher $n';
+  }
+
+  @override
+  String get batteriesFieldCapacity => 'Kapazität';
+
+  @override
+  String get batteriesFieldChargePower => 'Max. Ladeleistung';
+
+  @override
+  String get batteriesFieldDischargePower => 'Max. Entladeleistung';
+
+  @override
+  String get batteriesFieldRoundtrip => 'Roundtrip-Wirkungsgrad';
+
+  @override
+  String get batteriesFieldRoundtripHelp =>
+      'Lade- × Entladewirkungsgrad. Typisch 0,9 für Lithium-Speicher, ≈ 0,75 für Blei-Speicher.';
+
+  @override
+  String get batteriesFieldMinSoc => 'Min. SOC';
+
+  @override
+  String get batteriesCustomInitial => 'Start-SOC manuell setzen';
+
+  @override
+  String get batteriesFieldStartSoc => 'Start-SOC';
+
+  @override
+  String get loadTitle => 'Lastprofil';
+
+  @override
+  String get loadFieldDaily => 'Tagesverbrauch';
+
+  @override
+  String get loadHourlyHint =>
+      'Stundenform: deutsches Haushalts-Standardprofil (24 Werte). Eine manuelle Anpassung der Stundenform ist für eine spätere Version vorgesehen.';
+
+  @override
+  String resultsTitle(String name) {
+    return 'Ergebnis — $name';
+  }
+
+  @override
+  String get resultsEmpty => 'Keine Simulation ausgeführt.';
+
+  @override
+  String get resultsBack => 'Zurück zur Konfiguration';
+
+  @override
+  String get resultsAnnualKpis => 'Jahreskennzahlen';
+
+  @override
+  String get resultsKpiPvAc => 'PV AC';
+
+  @override
+  String get resultsKpiLoad => 'Last';
+
+  @override
+  String get resultsKpiSelfConsumption => 'Eigenverbrauch';
+
+  @override
+  String get resultsKpiGridImport => 'Netzimport';
+
+  @override
+  String get resultsKpiGridExport => 'Netzeinspeisung';
+
+  @override
+  String get resultsKpiCurtailDc => 'Abregelung DC (MPPT)';
+
+  @override
+  String get resultsKpiCurtailAc => 'Abregelung AC (WR-Limit)';
+
+  @override
+  String get resultsKpiCurtailExport => 'Abregelung Einspeisung';
+
+  @override
+  String get resultsKpiBatteryCharge => 'Batt-Ladung';
+
+  @override
+  String get resultsKpiBatteryDischarge => 'Batt-Entladung';
+
+  @override
+  String get resultsKpiAutarky => 'Autarkie';
+
+  @override
+  String get resultsKpiSelfConsumptionRate => 'EV-Quote';
+
+  @override
+  String get resultsBatterySection => 'Batterien (End-SOC)';
+
+  @override
+  String resultsBatteryLabel(int n) {
+    return 'Speicher $n';
+  }
+
+  @override
+  String get resultsMonthly => 'Monatliche Bilanz';
+
+  @override
+  String get resultsCsvSteps => 'CSV-Export Schritte';
+
+  @override
+  String get resultsCsvMonthly => 'CSV-Export Monat';
+
+  @override
+  String resultsCsvPending(int size) {
+    return 'CSV bereit ($size Zeichen). Export folgt im Persistence-Layer.';
+  }
+
+  @override
+  String resultsExported(String filename) {
+    return 'Exportiert: $filename';
+  }
+
+  @override
+  String resultsExportFailed(String error) {
+    return 'Export fehlgeschlagen: $error';
+  }
+
+  @override
+  String get resultsSyntheticNote =>
+      'Hinweis: synthetisches Demo-Strahlungsmodell — keine validierte Ertragsprognose.';
+
+  @override
+  String get monthlyColMonth => 'Monat';
+
+  @override
+  String get monthlyColPvAc => 'PV AC (kWh)';
+
+  @override
+  String get monthlyColLoad => 'Last (kWh)';
+
+  @override
+  String get monthlyColSelfConsumption => 'EV (kWh)';
+
+  @override
+  String get monthlyColBatteryCharge => 'Bat-Lad. (kWh)';
+
+  @override
+  String get monthlyColBatteryDischarge => 'Bat-Entl. (kWh)';
+
+  @override
+  String get monthlyColImport => 'Import (kWh)';
+
+  @override
+  String get monthlyColExport => 'Export (kWh)';
+
+  @override
+  String get monthJan => 'Jan';
+
+  @override
+  String get monthFeb => 'Feb';
+
+  @override
+  String get monthMar => 'Mär';
+
+  @override
+  String get monthApr => 'Apr';
+
+  @override
+  String get monthMay => 'Mai';
+
+  @override
+  String get monthJun => 'Jun';
+
+  @override
+  String get monthJul => 'Jul';
+
+  @override
+  String get monthAug => 'Aug';
+
+  @override
+  String get monthSep => 'Sep';
+
+  @override
+  String get monthOct => 'Okt';
+
+  @override
+  String get monthNov => 'Nov';
+
+  @override
+  String get monthDec => 'Dez';
+
+  @override
+  String get geocodingTimeout => 'Zeitüberschreitung bei der Adresssuche.';
+
+  @override
+  String geocodingNetworkError(String error) {
+    return 'Netzwerkfehler: $error';
+  }
+
+  @override
+  String get geocodingRateLimit =>
+      'Nominatim hat das Limit erreicht (429). Bitte einen Moment warten.';
+
+  @override
+  String geocodingBadStatus(int code) {
+    return 'Nominatim antwortete mit Status $code.';
+  }
+
+  @override
+  String get geocodingInvalidJson =>
+      'Antwort von Nominatim ist kein gültiges JSON.';
+
+  @override
+  String get geocodingInvalidFormat =>
+      'Unerwartetes Antwortformat von Nominatim.';
+
+  @override
+  String pvgisApiInvalidRequest(String error) {
+    return 'Ungültige PVGIS-Anfrage: $error';
+  }
+
+  @override
+  String get pvgisApiTimeout => 'Zeitüberschreitung bei PVGIS-Abfrage.';
+
+  @override
+  String pvgisApiNetworkError(String error) {
+    return 'Netzwerkfehler bei PVGIS-Abfrage: $error';
+  }
+
+  @override
+  String pvgisApiBadStatus(int code, String message) {
+    return 'PVGIS antwortete mit Status $code. $message';
+  }
+
+  @override
+  String pvgisApiParseFailed(String error) {
+    return 'PVGIS-Antwort konnte nicht gelesen werden: $error';
+  }
+
+  @override
+  String get demoArrayLabel => 'Süddach';
+
+  @override
+  String get demoInverterLabel => 'Hauptwechselrichter';
+
+  @override
+  String get demoBatteryLabel => 'Hauptspeicher';
+}

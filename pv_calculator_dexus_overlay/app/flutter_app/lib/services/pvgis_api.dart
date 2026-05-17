@@ -4,6 +4,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:pv_engine/pv_engine.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
+/// Classifies a PVGIS-API failure so the UI can render a localized
+/// message.
+enum PvgisApiFailureKind { invalidRequest, timeout, network, badStatus, parseFailed }
+
 /// Raised when the PVGIS API call fails or returns unusable data.
 ///
 /// Wraps every non-success branch so the UI only needs one catch-all
@@ -11,11 +17,50 @@ import 'package:pv_engine/pv_engine.dart';
 /// JSON, and PVGIS's documented `message` error payloads all funnel
 /// here.
 class PvgisApiException implements Exception {
-  PvgisApiException(this.message, {this.statusCode});
-  final String message;
+  PvgisApiException(this.kind, {this.statusCode, this.detail, String? message})
+      : message = message ?? _fallbackMessage(kind, statusCode, detail);
+
+  final PvgisApiFailureKind kind;
   final int? statusCode;
+  final String? detail;
+
+  /// English fallback for `toString()` / un-localized contexts. UI
+  /// should use [formatPvgisApiException] for user-facing text.
+  final String message;
+
+  static String _fallbackMessage(PvgisApiFailureKind kind, int? code, String? detail) {
+    switch (kind) {
+      case PvgisApiFailureKind.invalidRequest:
+        return 'Invalid PVGIS request: ${detail ?? ''}';
+      case PvgisApiFailureKind.timeout:
+        return 'PVGIS request timed out.';
+      case PvgisApiFailureKind.network:
+        return 'Network error on PVGIS request: ${detail ?? ''}';
+      case PvgisApiFailureKind.badStatus:
+        return 'PVGIS responded with status $code. ${detail ?? ''}';
+      case PvgisApiFailureKind.parseFailed:
+        return 'Could not read PVGIS response: ${detail ?? ''}';
+    }
+  }
+
   @override
   String toString() => 'PvgisApiException: $message';
+}
+
+/// Renders a [PvgisApiException] in the current locale.
+String formatPvgisApiException(AppLocalizations l, PvgisApiException e) {
+  switch (e.kind) {
+    case PvgisApiFailureKind.invalidRequest:
+      return l.pvgisApiInvalidRequest(e.detail ?? '');
+    case PvgisApiFailureKind.timeout:
+      return l.pvgisApiTimeout;
+    case PvgisApiFailureKind.network:
+      return l.pvgisApiNetworkError(e.detail ?? '');
+    case PvgisApiFailureKind.badStatus:
+      return l.pvgisApiBadStatus(e.statusCode ?? 0, e.detail ?? '');
+    case PvgisApiFailureKind.parseFailed:
+      return l.pvgisApiParseFailed(e.detail ?? '');
+  }
 }
 
 /// Thin HTTP wrapper around the PVGIS `seriescalc` endpoint.
@@ -62,7 +107,8 @@ class PvgisApiService {
       url = buildPvgisSeriesCalcUrl(request, endpoint: endpoint);
     } on ArgumentError catch (e) {
       throw PvgisApiException(
-        'Ungültige PVGIS-Anfrage: ${e.message ?? e.toString()}',
+        PvgisApiFailureKind.invalidRequest,
+        detail: e.message?.toString() ?? e.toString(),
       );
     }
     await _respectRateLimit();
@@ -74,9 +120,9 @@ class PvgisApiService {
         headers: const {'Accept': 'application/json'},
       ).timeout(requestTimeout);
     } on TimeoutException {
-      throw PvgisApiException('Zeitüberschreitung bei PVGIS-Abfrage.');
+      throw PvgisApiException(PvgisApiFailureKind.timeout);
     } catch (e) {
-      throw PvgisApiException('Netzwerkfehler bei PVGIS-Abfrage: $e');
+      throw PvgisApiException(PvgisApiFailureKind.network, detail: e.toString());
     }
 
     if (response.statusCode != 200) {
@@ -84,9 +130,9 @@ class PvgisApiService {
       // verbatim so the user sees the actual cause (e.g. coordinates
       // outside the radiation-database coverage).
       throw PvgisApiException(
-        'PVGIS antwortete mit Status ${response.statusCode}. '
-        '${_extractErrorMessage(response.body)}',
+        PvgisApiFailureKind.badStatus,
         statusCode: response.statusCode,
+        detail: _extractErrorMessage(response.body),
       );
     }
 
@@ -94,7 +140,8 @@ class PvgisApiService {
       return parsePvgisHourlyJson(response.body);
     } on FormatException catch (e) {
       throw PvgisApiException(
-        'PVGIS-Antwort konnte nicht gelesen werden: ${e.message}',
+        PvgisApiFailureKind.parseFailed,
+        detail: e.message,
       );
     }
   }

@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
+import '../l10n/generated/app_localizations.dart';
+
 /// One match returned by a geocoder.
 class GeocodeResult {
   const GeocodeResult({
@@ -23,11 +25,61 @@ abstract class GeocodingService {
   Future<List<GeocodeResult>> search(String query, {int limit = 5});
 }
 
+/// Classifies a geocoding failure so the UI can render a localized
+/// message. [detail] carries the raw exception text for `network`; for
+/// `badStatus`, [statusCode] holds the HTTP code.
+enum GeocodingFailureKind { timeout, network, rateLimit, badStatus, invalidJson, invalidFormat }
+
 class GeocodingException implements Exception {
-  GeocodingException(this.message);
+  GeocodingException(this.kind, {this.statusCode, this.detail, String? message})
+      : message = message ?? _fallbackMessage(kind, statusCode, detail);
+
+  final GeocodingFailureKind kind;
+  final int? statusCode;
+  final String? detail;
+
+  /// English fallback used for `toString()` / un-localized contexts
+  /// (tests, logs). The UI should call [formatGeocodingException]
+  /// instead so the user-facing text follows the current locale.
   final String message;
+
+  static String _fallbackMessage(GeocodingFailureKind kind, int? code, String? detail) {
+    switch (kind) {
+      case GeocodingFailureKind.timeout:
+        return 'Address lookup timed out.';
+      case GeocodingFailureKind.network:
+        return 'Network error: ${detail ?? ''}';
+      case GeocodingFailureKind.rateLimit:
+        return 'Rate limit hit (429).';
+      case GeocodingFailureKind.badStatus:
+        return 'Bad status: $code';
+      case GeocodingFailureKind.invalidJson:
+        return 'Invalid JSON response.';
+      case GeocodingFailureKind.invalidFormat:
+        return 'Unexpected response format.';
+    }
+  }
+
   @override
   String toString() => 'GeocodingException: $message';
+}
+
+/// Renders a [GeocodingException] in the current locale.
+String formatGeocodingException(AppLocalizations l, GeocodingException e) {
+  switch (e.kind) {
+    case GeocodingFailureKind.timeout:
+      return l.geocodingTimeout;
+    case GeocodingFailureKind.network:
+      return l.geocodingNetworkError(e.detail ?? '');
+    case GeocodingFailureKind.rateLimit:
+      return l.geocodingRateLimit;
+    case GeocodingFailureKind.badStatus:
+      return l.geocodingBadStatus(e.statusCode ?? 0);
+    case GeocodingFailureKind.invalidJson:
+      return l.geocodingInvalidJson;
+    case GeocodingFailureKind.invalidFormat:
+      return l.geocodingInvalidFormat;
+  }
 }
 
 /// OpenStreetMap Nominatim adapter.
@@ -104,30 +156,26 @@ class NominatimGeocoder implements GeocodingService {
     try {
       response = await _client.get(uri, headers: headers).timeout(requestTimeout);
     } on TimeoutException {
-      throw GeocodingException('Zeitüberschreitung bei der Adresssuche.');
+      throw GeocodingException(GeocodingFailureKind.timeout);
     } catch (e) {
-      throw GeocodingException('Netzwerkfehler: $e');
+      throw GeocodingException(GeocodingFailureKind.network, detail: e.toString());
     }
 
     if (response.statusCode == 429) {
-      throw GeocodingException(
-        'Nominatim hat das Limit erreicht (429). Bitte einen Moment warten.',
-      );
+      throw GeocodingException(GeocodingFailureKind.rateLimit, statusCode: 429);
     }
     if (response.statusCode != 200) {
-      throw GeocodingException(
-        'Nominatim antwortete mit Status ${response.statusCode}.',
-      );
+      throw GeocodingException(GeocodingFailureKind.badStatus, statusCode: response.statusCode);
     }
 
     final Object? decoded;
     try {
       decoded = jsonDecode(response.body);
     } on FormatException {
-      throw GeocodingException('Antwort von Nominatim ist kein gültiges JSON.');
+      throw GeocodingException(GeocodingFailureKind.invalidJson);
     }
     if (decoded is! List) {
-      throw GeocodingException('Unerwartetes Antwortformat von Nominatim.');
+      throw GeocodingException(GeocodingFailureKind.invalidFormat);
     }
 
     final results = <GeocodeResult>[];

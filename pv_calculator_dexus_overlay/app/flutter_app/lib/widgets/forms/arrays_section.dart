@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
 import '../../config.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../persistence/file_io.dart';
 import '../../services/pvgis_api.dart';
 import '../../state/config_draft.dart';
@@ -51,31 +52,32 @@ class _ArraysSectionState extends State<ArraysSection> {
     final draft = controller.draft;
     final inverterIds = draft.inverters.map((i) => i.id).where((id) => id.isNotEmpty).toList();
     final io = widget.fileIo ?? const FileIo();
+    final l = AppLocalizations.of(context);
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text('PV-Module', style: Theme.of(context).textTheme.titleMedium)),
+            Expanded(child: Text(l.arraysTitle, style: Theme.of(context).textTheme.titleMedium)),
             FilledButton.tonalIcon(
               onPressed: () {
                 final n = draft.arrays.length + 1;
                 draft.arrays.add(PvArrayDraft(
                   id: 'array-$n',
-                  label: 'Modulfeld $n',
+                  label: l.arraysDefaultLabel(n),
                   inverterId: inverterIds.isNotEmpty ? inverterIds.first : '',
                 ));
                 controller.touch();
               },
               icon: const Icon(Icons.add),
-              label: const Text('Hinzufügen'),
+              label: Text(l.commonAdd),
             ),
           ]),
           if (draft.arrays.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Text('Mindestens ein Modulfeld ist erforderlich.'),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(l.arraysEmpty),
             ),
           for (var i = 0; i < draft.arrays.length; i++) ...[
             const Divider(height: 24),
@@ -122,15 +124,16 @@ class _ArrayEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Expanded(child: Text('Modulfeld ${index + 1}', style: Theme.of(context).textTheme.titleSmall)),
-        IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline), tooltip: 'Entfernen'),
+        Expanded(child: Text(l.arraysHeading(index + 1), style: Theme.of(context).textTheme.titleSmall)),
+        IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline), tooltip: l.commonRemove),
       ]),
       const SizedBox(height: 8),
       Wrap(spacing: 12, runSpacing: 12, children: [
         SizedBox(width: 180, child: StringField(
-          label: 'ID', initialValue: array.id, required: true,
+          label: l.fieldId, initialValue: array.id, required: true,
           onChanged: (v) {
             final draft = context.read<ProjectController>().draft;
             final oldId = array.id;
@@ -145,53 +148,51 @@ class _ArrayEditor extends StatelessWidget {
           },
         )),
         SizedBox(width: 220, child: StringField(
-          label: 'Bezeichnung', initialValue: array.label,
+          label: l.fieldLabel, initialValue: array.label,
           onChanged: (v) { array.label = v; onChanged(); },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Spitzenleistung', suffix: 'kWp', initialValue: array.peakKw, min: 0.001,
+          label: l.arraysFieldPeak, suffix: 'kWp', initialValue: array.peakKw, min: 0.001,
           onChanged: (v) { if (v != null) { array.peakKw = v; onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Azimut', suffix: '°', initialValue: array.azimuthDeg, min: 0, max: 360,
+          label: l.arraysFieldAzimuth, suffix: '°', initialValue: array.azimuthDeg, min: 0, max: 360,
           onChanged: (v) { if (v != null) { array.azimuthDeg = v; onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Neigung', suffix: '°', initialValue: array.tiltDeg, min: 0, max: 90,
+          label: l.arraysFieldTilt, suffix: '°', initialValue: array.tiltDeg, min: 0, max: 90,
           onChanged: (v) { if (v != null) { array.tiltDeg = v; onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Verluste', suffix: '0..1', initialValue: array.lossFactor, min: 0, max: 0.999,
+          label: l.arraysFieldLosses, suffix: '0..1', initialValue: array.lossFactor, min: 0, max: 0.999,
           onChanged: (v) { if (v != null) { array.lossFactor = v; onChanged(); } },
         )),
         SizedBox(width: 160, child: NumberField(
-          label: 'Verschattung', suffix: '0..1', initialValue: array.shadingFactor, min: 0, max: 0.999,
+          label: l.arraysFieldShading, suffix: '0..1', initialValue: array.shadingFactor, min: 0, max: 0.999,
           onChanged: (v) { if (v != null) { array.shadingFactor = v; onChanged(); } },
         )),
         SizedBox(width: 220, child: NumberField(
-          label: 'Temperaturkoeff.', suffix: '%/°C',
+          label: l.arraysFieldTempCoef, suffix: '%/°C',
           initialValue: array.temperatureCoefficientPctPerC, min: -2, max: 0,
-          helpText: 'Leistungsverlust pro °C Zelltemperatur über 25 °C. '
-              'Kristallines Silizium ≈ −0,4 %/°C; 0 deaktiviert die Temperatur-Derating.',
+          helpText: l.arraysFieldTempCoefHelp,
           onChanged: (v) { if (v != null) { array.temperatureCoefficientPctPerC = v; onChanged(); } },
         )),
         SizedBox(width: 180, child: NumberField(
-          label: 'NOCT', suffix: '°C',
+          label: l.arraysFieldNoct, suffix: '°C',
           initialValue: array.nominalOperatingCellTempC, min: 20, max: 70,
-          helpText: 'Nominal Operating Cell Temperature: Zelltemperatur bei '
-              '800 W/m², 20 °C Luft, 1 m/s Wind. Typisch 45 °C.',
+          helpText: l.arraysFieldNoctHelp,
           onChanged: (v) { if (v != null) { array.nominalOperatingCellTempC = v; onChanged(); } },
         )),
         SizedBox(width: 220, child: DropdownButtonFormField<String>(
           isExpanded: true,
           initialValue: inverterIds.contains(array.inverterId) ? array.inverterId : null,
-          decoration: const InputDecoration(labelText: 'Wechselrichter', isDense: true),
+          decoration: InputDecoration(labelText: l.arraysFieldInverter, isDense: true),
           items: [
             for (final id in inverterIds)
               DropdownMenuItem(value: id, child: Text(id, overflow: TextOverflow.ellipsis)),
           ],
           onChanged: (v) { if (v != null) { array.inverterId = v; onChanged(); } },
-          validator: (v) => (v == null || v.isEmpty) ? 'Wechselrichter auswählen' : null,
+          validator: (v) => (v == null || v.isEmpty) ? l.arraysFieldInverterRequired : null,
         )),
       ]),
       const SizedBox(height: 12),
@@ -237,13 +238,12 @@ class _PvgisRowState extends State<_PvgisRow> {
     if (_busy) return;
     final messenger = ScaffoldMessenger.of(context);
     final controller = context.read<ProjectController>();
+    final l = AppLocalizations.of(context);
     // The simulator looks up samples by the *exact* PvArray.id string,
     // so the storage key must be identical to widget.arrayId — not a
     // trimmed copy. Trim only for the empty-check.
     if (widget.arrayId.trim().isEmpty) {
-      messenger.showSnackBar(const SnackBar(
-        content: Text('Bitte zuerst eine Modulfeld-ID vergeben.'),
-      ));
+      messenger.showSnackBar(SnackBar(content: Text(l.pvgisIdRequired)));
       return;
     }
     setState(() => _busy = true);
@@ -260,11 +260,11 @@ class _PvgisRowState extends State<_PvgisRow> {
       );
       widget.onChanged();
       messenger.showSnackBar(SnackBar(
-        content: Text('PVGIS-Daten für "${widget.arrayId}" importiert (${imported.data.entries.length} Werte).'),
+        content: Text(l.pvgisImported(widget.arrayId, imported.data.entries.length)),
       ));
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('PVGIS-Import fehlgeschlagen: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.pvgisImportFailed(e.toString()))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -274,18 +274,15 @@ class _PvgisRowState extends State<_PvgisRow> {
     if (_busy) return;
     final messenger = ScaffoldMessenger.of(context);
     final controller = context.read<ProjectController>();
+    final l = AppLocalizations.of(context);
     final draft = controller.draft;
     if (widget.arrayId.trim().isEmpty) {
-      messenger.showSnackBar(const SnackBar(
-        content: Text('Bitte zuerst eine Modulfeld-ID vergeben.'),
-      ));
+      messenger.showSnackBar(SnackBar(content: Text(l.pvgisIdRequired)));
       return;
     }
     final array = _findArray(draft, widget.arrayId);
     if (array == null) {
-      messenger.showSnackBar(const SnackBar(
-        content: Text('Modulfeld nicht gefunden.'),
-      ));
+      messenger.showSnackBar(SnackBar(content: Text(l.pvgisArrayNotFound)));
       return;
     }
     final PvgisRequest request;
@@ -293,7 +290,7 @@ class _PvgisRowState extends State<_PvgisRow> {
       request = _buildRequestFor(draft, array);
     } on ArgumentError catch (e) {
       messenger.showSnackBar(SnackBar(
-        content: Text('PVGIS-Abfrage ungültig: ${e.message ?? e.toString()}'),
+        content: Text(l.pvgisInvalidRequest(e.message?.toString() ?? e.toString())),
       ));
       return;
     }
@@ -309,17 +306,15 @@ class _PvgisRowState extends State<_PvgisRow> {
       );
       widget.onChanged();
       messenger.showSnackBar(SnackBar(
-        content: Text(
-          'PVGIS-API-Daten für "${widget.arrayId}" geladen (${data.entries.length} Werte).',
-        ),
+        content: Text(l.pvgisApiLoaded(widget.arrayId, data.entries.length)),
       ));
     } on PvgisApiException catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      messenger.showSnackBar(SnackBar(content: Text(formatPvgisApiException(l, e))));
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('PVGIS-API-Abfrage fehlgeschlagen: $e')),
+        SnackBar(content: Text(l.pvgisApiFailed(e.toString()))),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -361,7 +356,8 @@ class _PvgisRowState extends State<_PvgisRow> {
     final info = draft.weatherInfoFor(widget.arrayId);
     final hasData = info != null;
     final scheme = Theme.of(context).colorScheme;
-    final mismatch = hasData ? _orientationMismatch(info, draft, widget.arrayId) : null;
+    final l = AppLocalizations.of(context);
+    final mismatch = hasData ? _orientationMismatch(l, info, draft, widget.arrayId) : null;
 
     final status = Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(
@@ -376,16 +372,20 @@ class _PvgisRowState extends State<_PvgisRow> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              hasData ? 'PVGIS-Daten geladen' : 'Wetterquelle: synthetisches Demo-Modell',
+              hasData ? l.pvgisStatusLoaded : l.pvgisStatusSynthetic,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             if (hasData) ...[
               const SizedBox(height: 2),
               Text(
-                '${info.sourceLabel} · ${info.entryCount} Stunden · '
-                'Jahre ${info.coveredYears.isEmpty ? "?" : info.coveredYears.join(", ")} · '
-                'PVGIS-Lage ${info.latitudeDeg.toStringAsFixed(3)}°/${info.longitudeDeg.toStringAsFixed(3)}°'
-                '${_orientationSuffix(info)}',
+                l.pvgisMetadata(
+                  info.sourceLabel,
+                  info.entryCount,
+                  info.coveredYears.isEmpty ? '?' : info.coveredYears.join(', '),
+                  info.latitudeDeg.toStringAsFixed(3),
+                  info.longitudeDeg.toStringAsFixed(3),
+                  _orientationSuffix(l, info),
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
                 softWrap: true,
               ),
@@ -404,7 +404,7 @@ class _PvgisRowState extends State<_PvgisRow> {
               ],
               const SizedBox(height: 4),
               Text(
-                'Hinweis: PVGIS-Importe gelten nur für diese Sitzung — sie werden nicht im Projekt-JSON gespeichert.',
+                l.pvgisSessionNote,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontStyle: FontStyle.italic,
@@ -438,7 +438,7 @@ class _PvgisRowState extends State<_PvgisRow> {
                 key: Key('pvgis-remove-${widget.arrayId}'),
                 onPressed: _busy ? null : _remove,
                 icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('Entfernen'),
+                label: Text(l.commonRemove),
               ),
             FilledButton.icon(
               key: Key('pvgis-fetch-api-${widget.arrayId}'),
@@ -446,7 +446,7 @@ class _PvgisRowState extends State<_PvgisRow> {
               icon: _busy
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.cloud_download_outlined, size: 18),
-              label: Text(hasData ? 'API neu laden' : 'Von PVGIS-API laden'),
+              label: Text(hasData ? l.pvgisReloadApi : l.pvgisLoadFromApi),
             ),
             FilledButton.tonalIcon(
               key: Key('pvgis-import-${widget.arrayId}'),
@@ -454,7 +454,7 @@ class _PvgisRowState extends State<_PvgisRow> {
               icon: _busy
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.file_upload_outlined, size: 18),
-              label: const Text('JSON importieren'),
+              label: Text(l.pvgisImportJson),
             ),
           ]),
         ],
@@ -465,13 +465,13 @@ class _PvgisRowState extends State<_PvgisRow> {
 
 /// Tilt/azimuth fragment appended to the metadata line. Empty when
 /// neither was carried in the PVGIS document.
-String _orientationSuffix(PvgisImportInfo info) {
+String _orientationSuffix(AppLocalizations l, PvgisImportInfo info) {
   final tilt = info.slopeDeg;
   final az = info.appAzimuthDeg;
   if (tilt == null && az == null) return '';
   final parts = <String>[];
-  if (tilt != null) parts.add('Neigung ${tilt.toStringAsFixed(0)}°');
-  if (az != null) parts.add('Azimut ${az.toStringAsFixed(0)}°');
+  if (tilt != null) parts.add(l.pvgisOrientationTilt(tilt.toStringAsFixed(0)));
+  if (az != null) parts.add(l.pvgisOrientationAzimuth(az.toStringAsFixed(0)));
   return ' · ${parts.join(", ")}';
 }
 
@@ -479,7 +479,7 @@ String _orientationSuffix(PvgisImportInfo info) {
 /// far enough from the array's configured orientation to materially
 /// change yield (5° tilt or 15° azimuth). `null` when the PVGIS file
 /// carries no mounting metadata or both values are within tolerance.
-String? _orientationMismatch(PvgisImportInfo info, ConfigDraft draft, String arrayId) {
+String? _orientationMismatch(AppLocalizations l, PvgisImportInfo info, ConfigDraft draft, String arrayId) {
   final array = _findArray(draft, arrayId);
   if (array == null) return null;
   final tiltDelta = info.slopeDeg == null ? null : (info.slopeDeg! - array.tiltDeg).abs();
@@ -487,15 +487,19 @@ String? _orientationMismatch(PvgisImportInfo info, ConfigDraft draft, String arr
   final azDelta = az == null ? null : _azimuthDelta(az, array.azimuthDeg);
   final issues = <String>[];
   if (tiltDelta != null && tiltDelta > 5) {
-    issues.add('Neigung ${info.slopeDeg!.toStringAsFixed(0)}° vs ${array.tiltDeg.toStringAsFixed(0)}°');
+    issues.add(l.pvgisTiltMismatch(
+      info.slopeDeg!.toStringAsFixed(0),
+      array.tiltDeg.toStringAsFixed(0),
+    ));
   }
   if (azDelta != null && azDelta > 15) {
-    issues.add('Azimut ${az!.toStringAsFixed(0)}° vs ${array.azimuthDeg.toStringAsFixed(0)}°');
+    issues.add(l.pvgisAzimuthMismatch(
+      az!.toStringAsFixed(0),
+      array.azimuthDeg.toStringAsFixed(0),
+    ));
   }
   if (issues.isEmpty) return null;
-  return 'PVGIS-Ausrichtung weicht ab (${issues.join("; ")}). '
-      'Die importierten POA-Werte gelten für die PVGIS-Ausrichtung, '
-      'nicht für die hier eingestellte.';
+  return l.pvgisOrientationWarning(issues.join('; '));
 }
 
 PvArrayDraft? _findArray(ConfigDraft draft, String id) {

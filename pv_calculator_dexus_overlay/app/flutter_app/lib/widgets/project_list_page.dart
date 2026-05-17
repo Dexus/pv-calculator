@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../persistence/file_io.dart';
 import '../persistence/project_store.dart';
 import '../state/config_draft.dart';
@@ -41,10 +42,11 @@ class _ProjectListPageState extends State<ProjectListPage> {
   Future<void> _openProject(String name) async {
     final controller = context.read<ProjectController>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
     final config = await _store.loadConfig(name);
     if (!mounted) return;
     if (config == null) {
-      messenger.showSnackBar(SnackBar(content: Text('Projekt "$name" konnte nicht geladen werden.')));
+      messenger.showSnackBar(SnackBar(content: Text(l.projectListLoadFailed(name))));
       return;
     }
     controller.loadDraft(name, ConfigDraft.fromConfig(config));
@@ -52,14 +54,21 @@ class _ProjectListPageState extends State<ProjectListPage> {
   }
 
   Future<void> _newProject() async {
+    final l = AppLocalizations.of(context);
     final names = (await _store.listProjects()).toSet();
     if (!mounted) return;
-    context.read<ProjectController>().newProject(name: _uniqueName('Neues Projekt', names));
+    context.read<ProjectController>().newProject(
+      name: _uniqueName(l.projectListNewDefaultName, names),
+      defaultArrayLabel: l.demoArrayLabel,
+      defaultInverterLabel: l.demoInverterLabel,
+      defaultBatteryLabel: l.demoBatteryLabel,
+    );
     _pushEditor();
   }
 
   Future<void> _import() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
     try {
       final imported = await _fileIo.importConfig();
       if (imported == null || !mounted) return;
@@ -76,73 +85,83 @@ class _ProjectListPageState extends State<ProjectListPage> {
       await _store.saveConfig(targetName, imported.config);
       if (!mounted) return;
       _refresh();
-      messenger.showSnackBar(SnackBar(content: Text('Importiert: $targetName')));
+      messenger.showSnackBar(SnackBar(content: Text(l.projectListImported(targetName))));
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Import fehlgeschlagen: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.projectListImportFailed(e.toString()))));
     }
   }
 
   Future<_ImportConflictAction> _askImportConflict(String name) async {
     final action = await showDialog<_ImportConflictAction>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Projekt existiert bereits'),
-        content: Text(
-          '"$name" ist bereits gespeichert. Soll der Import diese Version überschreiben '
-          'oder unter einem neuen Namen abgelegt werden?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, _ImportConflictAction.cancel),
-            child: const Text('Abbrechen'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, _ImportConflictAction.rename),
-            child: const Text('Umbenennen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, _ImportConflictAction.overwrite),
-            child: const Text('Überschreiben'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final l = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(l.projectListConflictTitle),
+          content: Text(l.projectListConflictBody(name)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, _ImportConflictAction.cancel),
+              child: Text(l.commonCancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, _ImportConflictAction.rename),
+              child: Text(l.projectListConflictRename),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, _ImportConflictAction.overwrite),
+              child: Text(l.projectListConflictOverwrite),
+            ),
+          ],
+        );
+      },
     );
     return action ?? _ImportConflictAction.cancel;
   }
 
   Future<void> _export(String name) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
     try {
       final config = await _store.loadConfig(name);
       if (!mounted) return;
       if (config == null) {
-        messenger.showSnackBar(SnackBar(content: Text('Projekt "$name" konnte nicht geladen werden.')));
+        messenger.showSnackBar(SnackBar(content: Text(l.projectListLoadFailed(name))));
         return;
       }
       final filename = '${_safeFilename(name)}.json';
       final ok = await _fileIo.exportConfig(filename, config);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(ok ? (kIsWeb ? 'Heruntergeladen: $filename' : 'Exportiert: $filename') : 'Export abgebrochen'),
-      ));
+      final String msg;
+      if (!ok) {
+        msg = l.projectListExportCancelled;
+      } else if (kIsWeb) {
+        msg = l.projectListDownloaded(filename);
+      } else {
+        msg = l.projectListExported(filename);
+      }
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Export fehlgeschlagen: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.projectListExportFailed(e.toString()))));
     }
   }
 
   Future<void> _delete(String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Projekt löschen?'),
-        content: Text('"$name" wird unwiderruflich gelöscht.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Löschen')),
-        ],
-      ),
+      builder: (ctx) {
+        final l = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(l.projectListDeleteTitle),
+          content: Text(l.projectListDeleteBody(name)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.commonCancel)),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.commonDelete)),
+          ],
+        );
+      },
     );
     if (confirmed != true) return;
     await _store.deleteProject(name);
@@ -160,6 +179,7 @@ class _ProjectListPageState extends State<ProjectListPage> {
             builder: (editorContext) => EditorPage(
               onRunRequested: () async {
                 final editorMessenger = ScaffoldMessenger.of(editorContext);
+                final l = AppLocalizations.of(editorContext);
                 try {
                   await _store.saveConfig(
                     controller.projectName.trim(),
@@ -168,7 +188,7 @@ class _ProjectListPageState extends State<ProjectListPage> {
                 } catch (e) {
                   if (!editorContext.mounted) return;
                   editorMessenger.showSnackBar(SnackBar(
-                    content: Text('Speichern fehlgeschlagen: $e'),
+                    content: Text(l.projectListSaveFailed(e.toString())),
                   ));
                   // Block navigation so the user can fix the project name /
                   // storage condition before losing their results.
@@ -213,13 +233,14 @@ class _ProjectListPageState extends State<ProjectListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text('PV Calculator — Projekte'),
+        title: Text(l.projectListTitle),
         actions: [
-          IconButton(onPressed: _import, icon: const Icon(Icons.file_upload), tooltip: 'Importieren'),
-          IconButton(onPressed: _newProject, icon: const Icon(Icons.add), tooltip: 'Neues Projekt'),
+          IconButton(onPressed: _import, icon: const Icon(Icons.file_upload), tooltip: l.projectListImportTooltip),
+          IconButton(onPressed: _newProject, icon: const Icon(Icons.add), tooltip: l.projectListNewTooltip),
         ],
       ),
       body: FutureBuilder<List<String>>(
@@ -238,12 +259,12 @@ class _ProjectListPageState extends State<ProjectListPage> {
                   Icon(Icons.solar_power, size: 72, color: scheme.outline),
                   const SizedBox(height: 12),
                   Text(
-                    'Noch keine Projekte gespeichert.',
+                    l.projectListEmpty,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Lege ein neues Projekt an oder importiere ein gespeichertes JSON.',
+                    l.projectListEmptyHint,
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
@@ -251,7 +272,7 @@ class _ProjectListPageState extends State<ProjectListPage> {
                   FilledButton.icon(
                     onPressed: _newProject,
                     icon: const Icon(Icons.add),
-                    label: const Text('Neues Projekt erstellen'),
+                    label: Text(l.projectListCreateButton),
                   ),
                 ]),
               ),
@@ -268,12 +289,12 @@ class _ProjectListPageState extends State<ProjectListPage> {
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   IconButton(
                     icon: const Icon(Icons.file_download),
-                    tooltip: 'Exportieren',
+                    tooltip: l.projectListExportTooltip,
                     onPressed: () => _export(name),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Löschen',
+                    tooltip: l.projectListDeleteTooltip,
                     onPressed: () => _delete(name),
                   ),
                 ]),

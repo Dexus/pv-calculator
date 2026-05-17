@@ -7,6 +7,8 @@ import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/forms/arrays_section.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '_test_localization.dart';
+
 /// FileIo stub that returns a deterministic PVGIS dataset without
 /// touching the filesystem or the platform file picker.
 class _FakeFileIo implements FileIo {
@@ -54,7 +56,7 @@ void main() {
     final controller = ProjectController();
     final fileIo = _FakeFileIo(result: _buildFakeImport());
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
@@ -103,7 +105,7 @@ void main() {
     final controller = ProjectController(draft: draft);
     final fileIo = _FakeFileIo(result: _buildFakeImport());
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
@@ -130,7 +132,7 @@ void main() {
     // −90 → app 90) setup. Both deltas exceed the tolerance.
     final fileIo = _FakeFileIo(result: _buildFakeImport(slopeDeg: 5.0, azimuthDegPvgis: -90.0));
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
@@ -156,7 +158,7 @@ void main() {
     final controller = ProjectController(); // demo: tilt 35, az 180
     final fileIo = _FakeFileIo(result: _buildFakeImport(slopeDeg: 35.0, azimuthDegPvgis: 0.0));
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
@@ -177,7 +179,7 @@ void main() {
     final controller = ProjectController();
     final fileIo = _FakeFileIo(result: _buildFakeImport());
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
@@ -201,7 +203,7 @@ void main() {
     final controller = ProjectController();
     final fileIo = _FakeFileIo(); // returns null
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(body: SingleChildScrollView(child: ArraysSection(fileIo: fileIo))),
