@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../app_info.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../state/settings_controller.dart';
 
@@ -89,7 +90,7 @@ void showAppAboutDialog(BuildContext context) {
   showAboutDialog(
     context: context,
     applicationName: 'PV Calculator',
-    applicationVersion: '0.1.0',
+    applicationVersion: appVersion,
     applicationLegalese: '© Dexus — AGPL-3.0',
     children: [
       const SizedBox(height: 12),
