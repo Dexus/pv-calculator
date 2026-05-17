@@ -1,4 +1,5 @@
 import 'package:sqlite3/wasm.dart';
+import 'package:web/web.dart' as web;
 
 /// Web sqlite3 connection helpers. Selected at compile time by
 /// `database.dart`'s conditional import. Uses `package:sqlite3/wasm.dart`,
@@ -17,7 +18,14 @@ import 'package:sqlite3/wasm.dart';
 WasmSqlite3? _cachedWasm;
 
 Future<WasmSqlite3> _loadWasm() async {
-  return _cachedWasm ??= await WasmSqlite3.loadFromUrl(Uri.parse('sqlite3.wasm'));
+  if (_cachedWasm != null) return _cachedWasm!;
+  // Resolve against `<base href>` rather than `window.location.href`: under
+  // GitHub Pages the page lives at `/pv-calculator/app-dev/`, but on a deep
+  // route or a URL without a trailing slash `Uri.base` would point one
+  // directory up and the fetch would 404 into the Pages HTML, which
+  // `WebAssembly.instantiateStreaming` then rejects on MIME type.
+  final wasmUrl = Uri.parse(web.document.baseURI).resolve('sqlite3.wasm');
+  return _cachedWasm = await WasmSqlite3.loadFromUrl(wasmUrl);
 }
 
 /// Synchronous in-memory init is not possible on web — loading the wasm

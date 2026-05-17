@@ -33,6 +33,10 @@ dependencies:
   # points. Pure SQL (no codegen) keeps the build lightweight.
   sqlite3: ^3.3.0
   sqlite3_flutter_libs: ^0.5.27
+  # Used by persistence/connection_web.dart to read document.baseURI when
+  # resolving the sqlite3.wasm URL. Transitively pulled in by sqlite3/wasm,
+  # but listed explicitly so the analyzer accepts the direct import.
+  web: ^1.1.0
   path_provider: ^2.1.4
   path: ^1.9.0
 
