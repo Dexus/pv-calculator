@@ -83,12 +83,14 @@ const List<String?> pvgisRadDatabaseOptions = [
 /// year preselected without the user having to think.
 const int defaultIrradianceYear = 2022;
 
-/// Default radiation database. SARAH3 is PVGIS v5.3's primary
-/// satellite-derived database for Europe and Africa and the most
-/// physically accurate option for that region; users elsewhere can
-/// switch to ERA5 (global) or NSRDB (Americas) in the dropdown, or
-/// SARAH2 to reproduce older reference numbers.
-const String defaultRadDatabase = 'PVGIS-SARAH3';
+/// Default radiation database. SARAH2 matches the annual totals reported
+/// by the comparison/reference app this project is calibrated against —
+/// SARAH3 runs ~3% higher on the same site/year, which made our numbers
+/// look "off" against the example. SARAH2 lives on PVGIS v5.2; both the
+/// Cloudflare proxy and the Dart URL builder route it there via
+/// `pvgisSeriesCalcEndpointFor`. Users can still switch to any other
+/// database in the dropdown (or to `null` / "PVGIS auto").
+const String defaultRadDatabase = 'PVGIS-SARAH2';
 
 /// Site-level horizontal-irradiance request + cached samples for the
 /// Einstrahlung tab.
