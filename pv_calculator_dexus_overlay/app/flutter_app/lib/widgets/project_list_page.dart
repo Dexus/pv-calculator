@@ -6,6 +6,7 @@ import '../persistence/file_io.dart';
 import '../persistence/project_store.dart';
 import '../state/config_draft.dart';
 import '../state/project_controller.dart';
+import 'app_drawer.dart';
 import 'forms/editor_page.dart';
 import 'results/results_page.dart';
 
@@ -213,6 +214,7 @@ class _ProjectListPageState extends State<ProjectListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('PV Calculator — Projekte'),
         actions: [
