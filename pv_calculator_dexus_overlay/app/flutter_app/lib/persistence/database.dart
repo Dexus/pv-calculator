@@ -13,9 +13,14 @@ enum DbStorageTier {
   /// Native sqlite3 backed by a file in the platform's app-documents dir.
   native,
 
-  /// In-memory only. Used by tests and as the current web fallback (until
-  /// the OPFS/IndexedDB worker setup tracked in
-  /// `docs/ROADMAP.md` §Phase 7 Verschoben lands).
+  /// Web sqlite3 backed by `package:sqlite3`'s `IndexedDbFileSystem`. The
+  /// sqlite file lives in an IndexedDB store on the current origin; data
+  /// survives reloads but may be evicted under browser storage pressure.
+  indexedDb,
+
+  /// In-memory only. Used by the VM-side test suite via
+  /// [AppDatabase.memory]; never selected by [AppDatabase.open] in
+  /// production.
   memory,
 }
 
@@ -38,21 +43,16 @@ class AppDatabase {
   ///
   /// - Native: a file under the platform's app-documents directory.
   /// - Web: loads `sqlite3.wasm` from the same origin (`web/sqlite3.wasm`)
-  ///   and runs an in-memory db on top. Persistent OPFS/IndexedDB storage
-  ///   on web is deferred (see ROADMAP §Phase 7 Verschoben).
+  ///   and stores the sqlite file in an `IndexedDbFileSystem` keyed by
+  ///   [fileName]. OPFS (which removes the async-flush window) is still
+  ///   deferred — see ROADMAP §Phase 7 Verschoben.
   static Future<AppDatabase> open({String fileName = 'pv_calculator.sqlite'}) async {
-    if (kIsWeb) {
-      final db = await conn.openInMemoryAsync();
-      debugPrint('AppDatabase: web build using sqlite3.wasm in-memory. '
-          'Persistent storage (OPFS/IndexedDB) is tracked under '
-          'ROADMAP §Phase 7 Verschoben.');
-      return AppDatabase._(db, DbStorageTier.memory);
-    }
     final result = await conn.openFile(fileName);
     if (result.created) {
-      debugPrint('AppDatabase: created new sqlite file at ${result.path}.');
+      debugPrint('AppDatabase: created new sqlite store at ${result.path}.');
     }
-    return AppDatabase._(result.db, DbStorageTier.native);
+    final tier = kIsWeb ? DbStorageTier.indexedDb : DbStorageTier.native;
+    return AppDatabase._(result.db, tier);
   }
 
   /// In-memory database used by the VM-side test suite. The web shim's
