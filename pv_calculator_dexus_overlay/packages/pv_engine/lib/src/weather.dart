@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'transposition.dart';
+
 /// Plane-of-array weather sample at one instant for one array.
 ///
 /// `poaWPerM2` is irradiance on the tilted module plane in W/m². At
@@ -217,5 +219,131 @@ class HourlyWeatherSeries extends IrradianceSource {
     final day = (query.dayOfYear - 1).clamp(0, 364).toInt();
     final hour = query.hourOfDay.floor().clamp(0, 23).toInt();
     return series[day * 24 + hour];
+  }
+}
+
+/// One hour of horizontal-plane irradiance + ambient conditions at a site.
+///
+/// "Horizontal" means the global and diffuse components are measured on a
+/// flat surface (`angle=0` in PVGIS terms). The per-array plane-of-array
+/// irradiance is derived later by [transposeToPoa]; storing horizontal
+/// values lets one PVGIS fetch per site cover any number of arrays.
+class HorizontalIrradianceSample {
+  const HorizontalIrradianceSample({
+    required this.globalHorizontalWPerM2,
+    required this.diffuseHorizontalWPerM2,
+    required this.ambientTempC,
+    this.windMS = 1.0,
+  });
+
+  /// Global horizontal irradiance (W/m²). Sum of beam, diffuse and any
+  /// reflected components on a flat surface.
+  final double globalHorizontalWPerM2;
+
+  /// Diffuse horizontal irradiance (W/m²). Sky-diffuse component only.
+  final double diffuseHorizontalWPerM2;
+
+  final double ambientTempC;
+  final double windMS;
+
+  static const empty = HorizontalIrradianceSample(
+    globalHorizontalWPerM2: 0,
+    diffuseHorizontalWPerM2: 0,
+    ambientTempC: 25,
+    windMS: 1,
+  );
+}
+
+/// 365×24 horizontal-irradiance samples for one site/year, plus the
+/// site metadata needed to drive transposition.
+///
+/// Built once per project from a single PVGIS `seriescalc&components=1`
+/// fetch (see `parsePvgisHorizontalSeries`). Reused across every array
+/// on the site — no per-array network call.
+class HorizontalIrradianceSeries {
+  HorizontalIrradianceSeries({
+    required List<HorizontalIrradianceSample> samples,
+    required this.year,
+    required this.latitudeDeg,
+    required this.longitudeDeg,
+    this.radDatabase,
+  }) : samples = _validateLength(samples);
+
+  /// 365×24 hourly samples, indexed `(dayOfYear-1) * 24 + hourOfDay`.
+  /// Leap days are dropped during parsing so this always has exactly
+  /// 8760 entries.
+  final List<HorizontalIrradianceSample> samples;
+
+  /// Calendar year the data was sampled from (single-year only; multi-year
+  /// averaging is not part of this iteration).
+  final int year;
+
+  final double latitudeDeg;
+  final double longitudeDeg;
+
+  /// Optional radiation database label (e.g. `PVGIS-SARAH3`, `PVGIS-ERA5`).
+  /// Useful for showing provenance in the UI; never required by the engine.
+  final String? radDatabase;
+
+  static List<HorizontalIrradianceSample> _validateLength(
+    List<HorizontalIrradianceSample> samples,
+  ) {
+    if (samples.length != 365 * 24) {
+      throw ArgumentError(
+        'HorizontalIrradianceSeries must have ${365 * 24} samples, '
+        'got ${samples.length}.',
+      );
+    }
+    return List<HorizontalIrradianceSample>.unmodifiable(samples);
+  }
+
+  /// Returns the sample for the given day-of-year (1..365) and
+  /// hour-of-day (0..23, integer-floored).
+  HorizontalIrradianceSample sampleAt({required int dayOfYear, required double hourOfDay}) {
+    final day = (dayOfYear - 1).clamp(0, 364).toInt();
+    final hour = hourOfDay.floor().clamp(0, 23).toInt();
+    return samples[day * 24 + hour];
+  }
+
+  /// Sum of GHI over the year in kWh/m². Hourly samples are W/m², so each
+  /// equals 1 Wh/m²·h → divide by 1000 for kWh.
+  double get annualGlobalKWhPerM2 {
+    var total = 0.0;
+    for (final s in samples) {
+      total += s.globalHorizontalWPerM2;
+    }
+    return total / 1000.0;
+  }
+
+  /// Mean GHI over the year in W/m².
+  double get meanGlobalWPerM2 {
+    var total = 0.0;
+    for (final s in samples) {
+      total += s.globalHorizontalWPerM2;
+    }
+    return total / samples.length;
+  }
+}
+
+/// [IrradianceSource] that derives per-array POA on the fly from one
+/// site-level [HorizontalIrradianceSeries] by applying [transposeToPoa]
+/// for each array's tilt + azimuth. Stateless — safe to share between
+/// runs of the same simulation.
+class HorizontalToPoaSource extends IrradianceSource {
+  const HorizontalToPoaSource(this.series);
+
+  final HorizontalIrradianceSeries series;
+
+  @override
+  WeatherSample sampleFor(WeatherQuery query) {
+    final h = series.sampleAt(dayOfYear: query.dayOfYear, hourOfDay: query.hourOfDay);
+    return transposeToPoa(
+      h: h,
+      tiltDeg: query.tiltDeg,
+      azimuthDeg: query.azimuthDeg,
+      latitudeDeg: query.latitudeDeg,
+      dayOfYear: query.dayOfYear,
+      hourOfDay: query.hourOfDay,
+    );
   }
 }
