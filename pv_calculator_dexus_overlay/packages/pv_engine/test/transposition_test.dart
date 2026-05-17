@@ -14,6 +14,7 @@ void main() {
         tiltDeg: 0,
         azimuthDeg: 180,
         latitudeDeg: 52.0,
+        longitudeDeg: 0,
         dayOfYear: 172, // summer solstice noon
         hourOfDay: 12.0,
       );
@@ -34,6 +35,7 @@ void main() {
         tiltDeg: 30,
         azimuthDeg: 180,
         latitudeDeg: 52.0,
+        longitudeDeg: 0,
         dayOfYear: 172,
         hourOfDay: 12.0,
       );
@@ -57,6 +59,7 @@ void main() {
         tiltDeg: 90,
         azimuthDeg: 0, // facing north
         latitudeDeg: 52.0,
+        longitudeDeg: 0,
         dayOfYear: 172,
         hourOfDay: 12.0,
       );
@@ -79,6 +82,7 @@ void main() {
         tiltDeg: 30,
         azimuthDeg: 180,
         latitudeDeg: 52.0,
+        longitudeDeg: 0,
         dayOfYear: 355,
         hourOfDay: 23.5,
       );
@@ -97,6 +101,7 @@ void main() {
         tiltDeg: 30,
         azimuthDeg: 90, // east
         latitudeDeg: 52.0,
+        longitudeDeg: 0,
         dayOfYear: 80,
         hourOfDay: 8.0,
       );
@@ -105,6 +110,7 @@ void main() {
         tiltDeg: 30,
         azimuthDeg: 90, // east
         latitudeDeg: 52.0,
+        longitudeDeg: 0,
         dayOfYear: 80,
         hourOfDay: 17.0,
       );

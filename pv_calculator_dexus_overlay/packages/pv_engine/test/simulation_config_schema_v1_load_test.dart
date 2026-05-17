@@ -44,7 +44,7 @@ void main() {
       expect(config.latitudeDeg, 52.0);
     });
 
-    test('round-trips through v2 schema', () {
+    test('round-trips through toJson/fromJson preserving all fields', () {
       final original = SimulationConfig(
         arrays: const [
           PvArray(
