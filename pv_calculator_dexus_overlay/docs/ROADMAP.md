@@ -34,21 +34,18 @@ Basiert auf PRD v0.1 und Architekturkonzept v0.1 (15. Mai 2026).
 
 ---
 
-## Phase 4 – Topologie & erweitertes Dispatch *(in Arbeit)*
+## Phase 4 – Topologie & erweitertes Dispatch ✓
 
 Ziel: Mehrere PV-Arrays mit individuellen Ausrichtungen, gerichteter Energiegraph, erweiterte Dispatch-Policies (PRD FR-03, FR-08, FR-09; Architektur Kap. 4).
 
 - [x] `TopologyGraph`-Modell in `pv_engine`: DC-Bus, AC-Bus, MPPT-Knoten, Kanten mit Wirkungsgrad und Leistungslimit (`src/topology.dart` + `TopologyGraph.fromLegacy`).
-- [x] Arrays auf getrennte MPPTs/Busse verdrahten *im Modell* (per `PvArray.inverterId` und `fromLegacy`-Adapter). UI-seitige Ost/Süd/West-Konfiguration siehe „Verschoben".
+- [x] Arrays auf getrennte MPPTs/Busse verdrahten *im Modell* (per `PvArray.inverterId` und `fromLegacy`-Adapter).
 - [x] Dispatch-Policies als austauschbares Interface: `SelfConsumptionFirst`, `BatteryReserve`, `ConstantFeed24h`, `TimeWindowFeed`, `GridAssist` (`src/dispatch_policy.dart`, `src/dispatch_policies.dart`).
 - [x] `MicroInverterBank`-Modell: Anzahl × Einheitsleistung, Zeitplan, `minSocShutdown`, Shortfall-Tracking (`src/micro_inverter_bank.dart`, `src/energy_router.dart`).
 - [x] Tests: Energieerhaltung über alle Pfade, SOC nie außerhalb Grenzen, Shortfall korrekt ausgewiesen (`test/energy_conservation_test.dart`, `test/dispatch_policy_test.dart`, geteilter-Batterie-Cap).
-
-### Verschoben (PR #17 Reviews + offene UI-Arbeit)
-
-- [ ] **Topologie-Editor im UI**: visuelle Zuordnung Array → MPPT → Inverter/Bus. Aktuell legt nur `TopologyGraph.fromLegacy` die Topologie an; ein expliziter Editor (Mehrfach-Inverter, getrennte DC-Busse, Battery-Coupling-Auswahl AC vs. DC) fehlt.
-- [ ] **`HourlySchedule`-Editor im UI**: Engine + Persistenz unterstützen 24-Faktoren-Pläne, der Bank-Editor kann sie aktuell nur **erhalten** (Codex-P2 Fix, `MicroInverterBankDraft.preservedSchedule`). Eigene UI (Heatmap oder 24-Zeilen-Tabelle) noch zu bauen.
-- [ ] **Per-Inverter-AC-Cap im Energie-Router prüfen**: Bank- und Direkt-Discharge-Wege rechnen aktuell beide AC-seitig gegen `BatteryConfig.maxDischargeKw`. Die Annahme „maxDischargeKw = AC-Output-Cap" gilt für alle Banks dieser Batterie gemeinsam (siehe Fix für geteilte Batterien), aber eine sauberere DC-vs-AC-Modellierung (Battery → optionale Inverter-Kante → AC-Bus) wäre konsistenter mit dem `TopologyGraph`-Modell.
+- [x] **Topologie-Editor im UI** (`widgets/forms/topology_section.dart`): DC-/AC-Busse, MPPT-Knoten (read-only), Kanten und Batterie-Kopplungen (AC vs. DC, optional Battery-Inverter) im Auswertung-Tab.
+- [x] **`HourlySchedule`-Editor im UI** (`widgets/forms/micro_inverter_banks_section.dart`): Auswahl `Dauerbetrieb` / `Zeitfenster` / `Stündlich (24 Werte)` mit 24-Zellen-Grid und „Auf 1.0 zurücksetzen".
+- [x] **Per-Inverter-AC-Cap im Energie-Router** (Architektur §5.3 `min(target, battery.maxDischargeW, inverterLimitW)`): `BatteryCouplingSpec.inverterId` ersetzt im `EnergyRouter` den AC-Anteil von `maxDischargeKw`, sobald gesetzt. Direkt-Discharge und alle Banks dieser Batterie respektieren denselben Inverter-Cap. Backward-compatible: ohne `inverterId` bleibt die Pre-Phase-4-Logik aktiv.
 
 ---
 

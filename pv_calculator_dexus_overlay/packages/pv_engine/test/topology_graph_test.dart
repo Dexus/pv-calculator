@@ -93,6 +93,16 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('rejects coupling.inverterId pointing at unknown inverter', () {
+      const topo = TopologyGraph(
+        batteryCouplings: [BatteryCouplingSpec(batteryId: 'b1', inverterId: 'ghost')],
+      );
+      expect(
+        () => topo.validate(arrayIds: {}, inverterIds: {'real'}, batteryIds: {'b1'}, bankIds: {}),
+        throwsArgumentError,
+      );
+    });
   });
 
   group('TopologyGraph JSON', () {
@@ -112,6 +122,18 @@ void main() {
       expect(round.mppts.length, original.mppts.length);
       expect(round.edges.length, original.edges.length);
       expect(round.batteryCouplings.length, original.batteryCouplings.length);
+    });
+
+    test('BatteryCouplingSpec.inverterId survives JSON round-trip', () {
+      const spec = BatteryCouplingSpec(batteryId: 'b1', inverterId: 'bat-inv');
+      final round = BatteryCouplingSpec.fromJson(spec.toJson().cast<String, dynamic>());
+      expect(round.inverterId, 'bat-inv');
+      // The opposite direction: missing inverterId stays null and is
+      // not serialised, keeping legacy JSON shapes intact.
+      const legacy = BatteryCouplingSpec(batteryId: 'b2');
+      expect(legacy.toJson().containsKey('inverterId'), isFalse);
+      final legacyRound = BatteryCouplingSpec.fromJson(legacy.toJson().cast<String, dynamic>());
+      expect(legacyRound.inverterId, isNull);
     });
   });
 }

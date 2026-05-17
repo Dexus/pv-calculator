@@ -48,6 +48,8 @@ Temperaturmodell: `NoctTemperatureModel` (Default) oder `FaimanTemperatureModel`
 
 MPPT-/String-Clipping: `Inverter.maxDcInputKw` cappt die aggregierte DC-Energie pro Wechselrichter vor der AC-Konversion. Reale Gerätekennlinien bleiben Folgearbeit.
 
+Per-Inverter-AC-Cap (Phase 4, Architektur-Doc §5.3): `BatteryCouplingSpec.inverterId` koppelt eine Batterie optional an einen expliziten Batterie-Wechselrichter. Ist das Feld gesetzt, verwendet `EnergyRouter` dessen `effectiveMaxAcKw` als gemeinsame AC-Obergrenze für Direkt-Discharge und alle Banks dieser Batterie — entsprechend `min(targetPowerW, battery.maxDischargeW, inverterLimitW)`. Ohne Feld fällt der Router auf `BatteryConfig.maxDischargeKw` als AC-Cap zurück, womit Pre-Phase-4-Projekte ihre Ergebnisse unverändert behalten.
+
 ## Teststrategie
 
 - Engine-Unit-Tests: Dispatch (inkl. Mehrfach-Batterie-Reihenfolge), SOC-Grenzen, 800-W-Microkappung, Export-Limit, Lastprofil, JSON-Roundtrip pro Typ, Monats-Bucket-Summen, CSV-Format.
