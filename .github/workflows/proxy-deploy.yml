@@ -1,18 +1,15 @@
 name: Deploy PVGIS proxy
 
-# Pushes the Cloudflare Worker in pv_calculator_dexus_overlay/cloudflare-pvgis-proxy/
-# whenever main is touched in a way that affects it. Manual run available too.
+# Manual fallback only. Day-to-day deploys go through Cloudflare's own
+# GitHub integration (Workers dashboard → connect repo), which pulls the
+# branch and runs `wrangler deploy` itself. Leaving this workflow on a
+# `push` trigger would double-deploy and race the Cloudflare-side build.
 #
-# Requires two repo secrets to be configured out-of-band (never committed):
-#   CLOUDFLARE_API_TOKEN  — scoped to "Edit Workers" + "Edit R2"
-#   CLOUDFLARE_ACCOUNT_ID — the account that owns the pvgis-cache R2 bucket
+# Run from the Actions tab when the Cloudflare integration is paused
+# (e.g. during a rollback or a token rotation). Requires repo secrets
+# CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID configured out-of-band.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'pv_calculator_dexus_overlay/cloudflare-pvgis-proxy/**'
-      - '.github/workflows/proxy-deploy.yml'
   workflow_dispatch:
 
 permissions:
