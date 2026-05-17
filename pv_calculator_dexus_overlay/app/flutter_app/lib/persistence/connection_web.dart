@@ -25,7 +25,12 @@ Future<WasmSqlite3> _loadWasm() async {
   // directory up and the fetch would 404 into the Pages HTML, which
   // `WebAssembly.instantiateStreaming` then rejects on MIME type.
   final wasmUrl = Uri.parse(web.document.baseURI).resolve('sqlite3.wasm');
-  return _cachedWasm = await WasmSqlite3.loadFromUrl(wasmUrl);
+  final wasm = await WasmSqlite3.loadFromUrl(wasmUrl);
+  // The wasm sqlite3 build ships without a built-in VFS — every open call,
+  // including `:memory:`, fails with `no such vfs:` until one is registered
+  // as default. See `package:sqlite3` example/web/main.dart.
+  wasm.registerVirtualFileSystem(InMemoryFileSystem(), makeDefault: true);
+  return _cachedWasm = wasm;
 }
 
 /// Synchronous in-memory init is not possible on web — loading the wasm
