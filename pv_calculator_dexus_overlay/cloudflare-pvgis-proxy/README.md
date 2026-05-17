@@ -73,10 +73,11 @@ gehen alphabetisch sortiert in den SHA-256-Hash ein:
 | `lat` | Breitengrad |
 | `lon` | Längengrad |
 | `loss` | Systemverluste (%) |
+| `components` | Strahlungskomponenten ausgeben (`0`/`1`) — `1` liefert beim horizontalen Modus die Diffusanteile separat |
 | `mountingplace` | `building` oder `free` |
 | `outputformat` | Immer `json` (vom Worker erzwungen) |
 | `peakpower` | Spitzenleistung in kWp |
-| `pvcalculation` | Immer `1` (vom Worker erzwungen) |
+| `pvcalculation` | `1` = PV-Leistung berechnen, `0` = nur Einstrahlung (horizontal). Beide Modi haben getrennte Cache-Einträge. |
 | `raddatabase` | Strahlungsdatenbank, z. B. `PVGIS-SARAH3` |
 | `startyear` | Erstes Datenjahr |
 | `usehorizon` | Horizont-Abschattung (`0`/`1`) |
@@ -230,6 +231,17 @@ flutter run -d chrome \
 ```bash
 npm run typecheck
 ```
+
+### Tests ausführen
+
+```bash
+npm test
+```
+
+Die Suite läuft unter `@cloudflare/vitest-pool-workers`; sie startet einen
+isolierten Worker-Runtime mit demselben `wrangler.toml` und einem
+in-memory R2-Bucket. Upstream-PVGIS-Aufrufe werden mit `fetchMock`
+abgefangen, kein Netzwerkzugriff erforderlich.
 
 ---
 

@@ -26,6 +26,7 @@ const PVGIS_UPSTREAM = 'https://re.jrc.ec.europa.eu/api/v5_3/seriescalc';
 const CACHE_PARAMS = [
   'angle',
   'aspect',
+  'components',
   'endyear',
   'lat',
   'lon',
@@ -55,16 +56,17 @@ async function sha256Hex(input: string): Promise<string> {
 
 /** Builds a stable canonical query string from the recognised cache params.
  *
- *  `outputformat` and `pvcalculation` are always normalised to their enforced
- *  values (`json` / `1`) so the cache key reflects the actual upstream request,
- *  not whatever the client happened to send. Without this, a caller varying
- *  those params could generate unbounded distinct R2 keys for the same
- *  effective PVGIS response.
+ *  `outputformat` is normalised to `json` so the cache key reflects the actual
+ *  upstream request, not whatever the client happened to send. `pvcalculation`
+ *  is no longer forced — both PV-power mode (`pvcalculation=1`, requires
+ *  `peakpower`+`loss`) and horizontal-irradiance mode (`pvcalculation=0`,
+ *  paired with `components=1`) are legitimate; the value the client sends is
+ *  preserved in the cache key so the two modes don't alias to the same R2
+ *  object.
  */
 function canonicalParams(url: URL): string {
   const ENFORCED: Partial<Record<(typeof CACHE_PARAMS)[number], string>> = {
     outputformat: 'json',
-    pvcalculation: '1',
   };
   const pairs: [string, string][] = [];
   for (const key of CACHE_PARAMS) {
@@ -85,7 +87,7 @@ function canonicalParams(url: URL): string {
 }
 
 /** Builds the upstream PVGIS URL, forwarding all incoming query params and
- *  forcing outputformat=json + pvcalculation=1. */
+ *  forcing outputformat=json. */
 function buildUpstreamUrl(incomingUrl: URL): URL {
   const upstream = new URL(PVGIS_UPSTREAM);
   // Copy all params from the incoming request, then enforce required fields.
@@ -93,7 +95,6 @@ function buildUpstreamUrl(incomingUrl: URL): URL {
     upstream.searchParams.set(key, value);
   });
   upstream.searchParams.set('outputformat', 'json');
-  upstream.searchParams.set('pvcalculation', '1');
   return upstream;
 }
 
