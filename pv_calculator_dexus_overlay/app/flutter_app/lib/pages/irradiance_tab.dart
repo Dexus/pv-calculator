@@ -441,21 +441,28 @@ class _ChartArea extends StatelessWidget {
           children: [
             IrradianceChart(series: samples),
             const SizedBox(height: 8),
-            if (site.loadedFromCache != null)
-              Row(children: [
-                Icon(
-                  site.loadedFromCache! ? Icons.cached : Icons.cloud_download_outlined,
-                  size: 14,
-                  color: scheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  site.loadedFromCache! ? l.irradianceCacheHit : l.irradianceCacheMiss,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-              ]),
+            Row(children: [
+              Icon(
+                switch (site.loadedFromCache) {
+                  true => Icons.cached,
+                  false => Icons.cloud_download_outlined,
+                  null => Icons.public,
+                },
+                size: 14,
+                color: scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                [
+                  samples.radDatabase ?? l.projectRadDatabaseAuto,
+                  if (site.loadedFromCache == true) l.irradianceCacheHit,
+                  if (site.loadedFromCache == false) l.irradianceCacheMiss,
+                ].join(' · '),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            ]),
           ],
         ),
       ),

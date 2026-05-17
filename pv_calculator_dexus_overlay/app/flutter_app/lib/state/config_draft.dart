@@ -78,6 +78,12 @@ const List<String?> pvgisRadDatabaseOptions = [
 /// year preselected without the user having to think.
 const int defaultIrradianceYear = 2022;
 
+/// Default radiation database. SARAH2 matches the annual totals reported
+/// by the comparison/reference app the project is calibrated against —
+/// SARAH3 runs ~3% higher on the same site/year, which made our numbers
+/// look "off" against the example. `null` (PVGIS auto) is still selectable.
+const String defaultRadDatabase = 'PVGIS-SARAH2';
+
 /// Site-level horizontal-irradiance request + cached samples for the
 /// Einstrahlung tab.
 ///
@@ -90,7 +96,7 @@ const int defaultIrradianceYear = 2022;
 class SiteIrradianceDraft {
   SiteIrradianceDraft({
     this.year = defaultIrradianceYear,
-    this.radDatabase,
+    this.radDatabase = defaultRadDatabase,
     this.samples,
     this.loadedFromCache,
   });
