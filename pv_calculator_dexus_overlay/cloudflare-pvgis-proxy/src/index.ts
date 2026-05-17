@@ -30,6 +30,18 @@ function upstreamForDatabase(radDatabase: string | null): string {
   return radDatabase === 'PVGIS-SARAH2' ? PVGIS_UPSTREAM_V5_2 : PVGIS_UPSTREAM_V5_3;
 }
 
+/** Returns the *last* occurrence of `key` in `params`, or `null` if the
+ *  key is absent. WHATWG `URLSearchParams.get` returns the *first*
+ *  duplicate, but `buildUpstreamUrl` overwrites with `set` while
+ *  iterating, so the upstream actually sees the last duplicate. Routing
+ *  and the cache key must agree with that, otherwise a request with
+ *  duplicate `raddatabase` params could be routed (and cached) as one
+ *  database while PVGIS receives another. */
+function lastValueOf(params: URLSearchParams, key: string): string | null {
+  const values = params.getAll(key);
+  return values.length === 0 ? null : values[values.length - 1];
+}
+
 // Parameters that define a unique PVGIS result. Sorted alphabetically before
 // hashing so equivalent requests always yield the same key regardless of the
 // order the Flutter client sends them.
@@ -77,6 +89,12 @@ async function sha256Hex(input: string): Promise<string> {
  *  paired with `components=1`) are legitimate; the value the client sends is
  *  preserved in the cache key so the two modes don't alias to the same R2
  *  object.
+ *
+ *  Duplicate keys are collapsed to the last occurrence (see [lastValueOf])
+ *  so the cache key matches the value PVGIS actually receives — the
+ *  upstream loop overwrites duplicates with `set`, so first-wins (the
+ *  default `URLSearchParams.get` behaviour) would desync the cache key
+ *  from the request that fills the cache.
  */
 function canonicalParams(url: URL): string {
   const ENFORCED: Partial<Record<(typeof CACHE_PARAMS)[number], string>> = {
@@ -89,7 +107,7 @@ function canonicalParams(url: URL): string {
       pairs.push([key, forced]);
       continue;
     }
-    const value = url.searchParams.get(key);
+    const value = lastValueOf(url.searchParams, key);
     if (value !== null && value !== '') {
       pairs.push([key, value]);
     }
@@ -104,7 +122,7 @@ function canonicalParams(url: URL): string {
  *  forcing outputformat=json, and routing SARAH2 requests to v5.2 (v5.3
  *  does not serve SARAH2 any more). */
 function buildUpstreamUrl(incomingUrl: URL): URL {
-  const radDatabase = incomingUrl.searchParams.get('raddatabase');
+  const radDatabase = lastValueOf(incomingUrl.searchParams, 'raddatabase');
   const upstream = new URL(upstreamForDatabase(radDatabase));
   // Copy all params from the incoming request, then enforce required fields.
   incomingUrl.searchParams.forEach((value, key) => {

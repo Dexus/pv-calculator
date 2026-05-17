@@ -138,6 +138,23 @@ describe('PVGIS caching proxy', () => {
     expect(response.headers.get('X-Cache')).toBe('MISS');
   });
 
+  it('duplicate raddatabase params route on the last value (the one upstream receives)', async () => {
+    // Pathological input: raddatabase appears twice. The forwarding loop
+    // uses `set` and so PVGIS receives the LAST value (SARAH2); routing
+    // and the cache key must agree, otherwise a request could be routed
+    // (and cached) as SARAH3 while PVGIS sees SARAH2. Stubbing only v5_2
+    // catches the regression — a wrong route would 502 against an
+    // unstubbed v5_3 fetch.
+    stubPvgisVersion('v5_2', 1);
+    const response = await dispatch(
+      'https://proxy.test/?lat=52.41&lon=7.976&angle=0&aspect=0' +
+        '&components=1&pvcalculation=0' +
+        '&raddatabase=PVGIS-SARAH3&raddatabase=PVGIS-SARAH2' +
+        '&startyear=2022&endyear=2022&usehorizon=1',
+    );
+    expect(response.status).toBe(200);
+  });
+
   it('keeps SARAH2 (v5_2) and SARAH3 (v5_3) under separate cache keys', async () => {
     stubPvgisVersion('v5_2', 1);
     stubPvgisVersion('v5_3', 1);

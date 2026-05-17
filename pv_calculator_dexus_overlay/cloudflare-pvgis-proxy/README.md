@@ -53,7 +53,7 @@ Die gleiche Routing-Regel steckt im Dart-Engine
 (`pvgisSeriesCalcEndpointFor`), damit Direktaufrufe ohne Proxy identisch
 ankommen. Coverage-Hinweis: `PVGIS-SARAH3` deckt Europa/Afrika,
 `PVGIS-NSRDB` Nord-/Mittelamerika, `PVGIS-ERA5` global – außerhalb des
-jeweiligen Abdeckungsbereichs antwortet PVGIS mit „outside coverage"
+jeweiligen Abdeckungsbereichs antwortet PVGIS mit „outside coverage“
 (4xx), was der Worker unverändert weiterreicht und nicht cacht.
 
 ---
