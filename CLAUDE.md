@@ -92,6 +92,7 @@ When you add input forms, persistence, or PVGIS adapters, route them through `pv
 - **No new runtime dependencies without justification.** `pv_engine` has zero runtime deps by design — keep it that way so it stays usable from CLI/server contexts.
 - **`pubspec.lock` policy** (`.gitignore`): the Flutter app's lockfile is committed; the engine library's lockfile is ignored.
 - **Don't edit `pv_calculator_pvgis_clientv4pgis.html`** for new feature work — it's the reference prototype and the deployed Pages site. Changes there trigger a Pages redeploy.
+- **Always record deferred work in the docs.** When a task is partially completed, scoped down, or a review surfaces follow-ups that aren't being fixed in the same commit, capture them before ending the session. Default location: a `Verschoben` / `Deferred` subsection under the relevant phase in `pv_calculator_dexus_overlay/docs/ROADMAP.md`. If the work belongs to a more specific doc (e.g. architectural debt → `ARCHITECTURE.md`, starter task → `CODEX_FIRST_TASKS.md`), note it there and cross-reference from the roadmap. Each entry should state the gap in one sentence, point at the relevant file/PR, and note the trigger for picking it up later. Never rely on commit messages or PR comments alone — those rot out of view.
 
 ## Documentation map
 
