@@ -816,4 +816,144 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get arraysSelectForCompass => 'Für Kompass-Auswahl markiert';
+
+  @override
+  String get dispatchPolicyTitle => 'Dispatch-Strategie';
+
+  @override
+  String get dispatchPolicyKindLabel => 'Strategie';
+
+  @override
+  String get dispatchPolicySelfConsumption => 'Eigenverbrauch zuerst';
+
+  @override
+  String get dispatchPolicySelfConsumptionDesc =>
+      'PV deckt zuerst die Last, Überschuss lädt die Speicher, danach Einspeisung. Standardverhalten und identisch zur alten Engine.';
+
+  @override
+  String get dispatchPolicyReserve => 'Speicherreserve';
+
+  @override
+  String get dispatchPolicyReserveDesc =>
+      'Wie Eigenverbrauch, aber die Speicher werden nur bis zum Reserveziel geladen. PV-Überschuss wird früher eingespeist statt vollständig zwischengespeichert.';
+
+  @override
+  String get dispatchPolicyReserveSoc => 'Reserveziel';
+
+  @override
+  String get dispatchPolicyReserveSocHelp =>
+      'Bruchteil der Speicherkapazität (0..1), bis zu dem PV-Überschuss geladen wird. 0,5 = nur bis zur Hälfte laden.';
+
+  @override
+  String get dispatchPolicyConstantFeed => '24h-Konstanteinspeisung';
+
+  @override
+  String get dispatchPolicyConstantFeedDesc =>
+      'Micro-Inverter-Bänke speisen rund um die Uhr mit ihrer Sollleistung, solange der Speicher über dem Abschalt-SOC liegt.';
+
+  @override
+  String get dispatchPolicyTimeWindow => 'Zeitfenster-Einspeisung';
+
+  @override
+  String get dispatchPolicyTimeWindowDesc =>
+      'Micro-Inverter-Bänke speisen nur innerhalb der in jedem Bank konfigurierten Zeitfenster.';
+
+  @override
+  String get dispatchPolicyGridAssist => 'Netz-Assist';
+
+  @override
+  String get dispatchPolicyGridAssistDesc =>
+      'Wie Eigenverbrauch, aber Netzimport kann blockiert werden — nicht gedeckte Last erscheint als „unversorgte Last“.';
+
+  @override
+  String get dispatchPolicyGridImportLabel => 'Netzimport zulassen';
+
+  @override
+  String get dispatchPolicyGridImportHelp =>
+      'Aus = Inselbetrieb. Nicht gedeckte Last wird als „unversorgte Last“ statt als Netzimport bilanziert.';
+
+  @override
+  String get dispatchPolicyBankHint =>
+      'Tipp: Diese Strategie ist nur sinnvoll mit mindestens einem Micro-Inverter-Bank.';
+
+  @override
+  String get microInverterBanksTitle =>
+      'Micro-Inverter-Bänke (Batterieausgang)';
+
+  @override
+  String microInverterBanksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Bänke',
+      one: '1 Bank',
+      zero: 'Keine Bänke konfiguriert',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get microInverterBanksEmpty =>
+      'Keine Bänke konfiguriert. Über „Hinzufügen“ einen batteriegekoppelten AC-Ausgang anlegen.';
+
+  @override
+  String microInverterBanksHeading(int n) {
+    return 'Bank $n';
+  }
+
+  @override
+  String microInverterBanksDefaultLabel(int n) {
+    return 'Bank $n';
+  }
+
+  @override
+  String get microInverterBanksWarnPvDevice =>
+      'Hinweis: Reguläre PV-Micro-Inverter erwarten Modulkennlinien; ein Batterieausgang braucht ein vom Hersteller dafür freigegebenes Gerät. Die Simulation ersetzt keine Elektrofachplanung.';
+
+  @override
+  String get microInverterBankBattery => 'Quell-Speicher';
+
+  @override
+  String get microInverterBankCount => 'Anzahl';
+
+  @override
+  String get microInverterBankUnitW => 'Leistung je Einheit';
+
+  @override
+  String get microInverterBankShutdown => 'Abschalt-SOC';
+
+  @override
+  String get microInverterBankShutdownHelp =>
+      'Bruchteil der Speicherkapazität (0..1), unter dem die Bank nicht mehr einspeist. 0 = nie abschalten.';
+
+  @override
+  String get microInverterBankEfficiency => 'Wirkungsgrad';
+
+  @override
+  String get microInverterBankSchedule => 'Zeitplan';
+
+  @override
+  String get microInverterBankAddWindow => 'Zeitfenster';
+
+  @override
+  String get microInverterBankAlwaysOn =>
+      'Ohne Fenster: rund um die Uhr aktiv (gemäß Dispatch-Strategie).';
+
+  @override
+  String get microInverterBankWindowStart => 'Start (h)';
+
+  @override
+  String get microInverterBankWindowEnd => 'Ende (h)';
+
+  @override
+  String get microInverterBankWindowFactor => 'Faktor';
+
+  @override
+  String get resultsKpiMicroDelivered => 'Micro-Inverter geliefert';
+
+  @override
+  String get resultsKpiMicroShortfall => 'Micro-Inverter Fehlbetrag';
+
+  @override
+  String get resultsKpiUnservedLoad => 'Unversorgte Last';
 }

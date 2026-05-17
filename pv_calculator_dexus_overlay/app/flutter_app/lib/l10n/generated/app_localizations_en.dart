@@ -814,4 +814,143 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get arraysSelectForCompass => 'Selected for compass picker';
+
+  @override
+  String get dispatchPolicyTitle => 'Dispatch policy';
+
+  @override
+  String get dispatchPolicyKindLabel => 'Strategy';
+
+  @override
+  String get dispatchPolicySelfConsumption => 'Self-consumption first';
+
+  @override
+  String get dispatchPolicySelfConsumptionDesc =>
+      'PV covers load first, surplus charges batteries, then exports. Default behaviour, identical to the pre-Phase-4 engine.';
+
+  @override
+  String get dispatchPolicyReserve => 'Battery reserve';
+
+  @override
+  String get dispatchPolicyReserveDesc =>
+      'Like self-consumption, but batteries only charge up to a reserve ceiling. PV surplus exports earlier instead of fully storing.';
+
+  @override
+  String get dispatchPolicyReserveSoc => 'Reserve ceiling';
+
+  @override
+  String get dispatchPolicyReserveSocHelp =>
+      'Fraction of capacity (0..1) up to which PV surplus charges the battery. 0.5 = charge to half full only.';
+
+  @override
+  String get dispatchPolicyConstantFeed => '24h constant feed';
+
+  @override
+  String get dispatchPolicyConstantFeedDesc =>
+      'Micro-inverter banks deliver continuously at their target power as long as SOC stays above the shutdown threshold.';
+
+  @override
+  String get dispatchPolicyTimeWindow => 'Time-window feed';
+
+  @override
+  String get dispatchPolicyTimeWindowDesc =>
+      'Micro-inverter banks deliver only inside the time windows configured on each bank.';
+
+  @override
+  String get dispatchPolicyGridAssist => 'Grid assist';
+
+  @override
+  String get dispatchPolicyGridAssistDesc =>
+      'Like self-consumption, but grid import can be disabled — unmet load shows as \"unserved load\".';
+
+  @override
+  String get dispatchPolicyGridImportLabel => 'Allow grid import';
+
+  @override
+  String get dispatchPolicyGridImportHelp =>
+      'Off = islanded. Unmet load is reported as \"unserved load\" instead of grid import.';
+
+  @override
+  String get dispatchPolicyBankHint =>
+      'Tip: this policy only makes sense with at least one configured micro-inverter bank.';
+
+  @override
+  String get microInverterBanksTitle => 'Micro-inverter banks (battery output)';
+
+  @override
+  String microInverterBanksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count banks',
+      one: '1 bank',
+      zero: 'No banks configured',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get microInverterBanksEmpty =>
+      'No banks configured. Use \"Add\" to create a battery-coupled AC output.';
+
+  @override
+  String microInverterBanksHeading(int n) {
+    return 'Bank $n';
+  }
+
+  @override
+  String microInverterBanksDefaultLabel(int n) {
+    return 'Bank $n';
+  }
+
+  @override
+  String get microInverterBanksWarnPvDevice =>
+      'Note: regular PV micro-inverters expect module IV curves; a battery-fed output requires a device that the manufacturer certifies for that purpose. The simulation does not replace qualified electrical planning.';
+
+  @override
+  String get microInverterBankBattery => 'Source battery';
+
+  @override
+  String get microInverterBankCount => 'Count';
+
+  @override
+  String get microInverterBankUnitW => 'Power per unit';
+
+  @override
+  String get microInverterBankShutdown => 'Shutdown SOC';
+
+  @override
+  String get microInverterBankShutdownHelp =>
+      'Fraction of capacity (0..1) below which the bank stops delivering. 0 = never shut down.';
+
+  @override
+  String get microInverterBankEfficiency => 'Efficiency';
+
+  @override
+  String get microInverterBankSchedule => 'Schedule';
+
+  @override
+  String get microInverterBankAddWindow => 'Window';
+
+  @override
+  String get microInverterBankAlwaysOn =>
+      'No windows: active 24h (subject to dispatch policy).';
+
+  @override
+  String get microInverterBankWindowStart => 'Start (h)';
+
+  @override
+  String get microInverterBankWindowEnd => 'End (h)';
+
+  @override
+  String get microInverterBankWindowFactor => 'Factor';
+
+  @override
+  String get resultsKpiMicroDelivered => 'Micro-inverter delivered';
+
+  @override
+  String get resultsKpiMicroShortfall => 'Micro-inverter shortfall';
+
+  @override
+  String get resultsKpiUnservedLoad => 'Unserved load';
 }
