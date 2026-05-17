@@ -35,6 +35,26 @@ ohne PVGIS zu kontaktieren.
 | Identische Anfragen von vielen Nutzern belasten PVGIS | Einmalig cachen, beliebig oft abrufen |
 | CORS-Restriktionen in verwalteten Hosting-Umgebungen | Worker setzt `Access-Control-Allow-Origin: *` |
 | PVGIS gelegentlich nicht erreichbar | Gecachte Antworten bleiben verfügbar |
+| `PVGIS-SARAH2` ist nur unter v5.2 erreichbar | Worker routet pro `raddatabase` auf v5.2 / v5.3 |
+
+### API-Versionen je Strahlungsdatenbank
+
+PVGIS v5.3 liefert `PVGIS-SARAH3`, `PVGIS-ERA5` und `PVGIS-NSRDB`. Die
+ältere Datenbank `PVGIS-SARAH2` wurde in v5.3 entfernt und ist nur noch
+unter v5.2 verfügbar. Der Worker wählt deshalb pro Anfrage anhand des
+`raddatabase`-Parameters den richtigen Upstream:
+
+| `raddatabase` | Upstream |
+|---------------|----------|
+| `PVGIS-SARAH2` | `https://re.jrc.ec.europa.eu/api/v5_2/seriescalc` |
+| Alles andere (inkl. unbestimmt) | `https://re.jrc.ec.europa.eu/api/v5_3/seriescalc` |
+
+Die gleiche Routing-Regel steckt im Dart-Engine
+(`pvgisSeriesCalcEndpointFor`), damit Direktaufrufe ohne Proxy identisch
+ankommen. Coverage-Hinweis: `PVGIS-SARAH3` deckt Europa/Afrika,
+`PVGIS-NSRDB` Nord-/Mittelamerika, `PVGIS-ERA5` global – außerhalb des
+jeweiligen Abdeckungsbereichs antwortet PVGIS mit „outside coverage"
+(4xx), was der Worker unverändert weiterreicht und nicht cacht.
 
 ---
 

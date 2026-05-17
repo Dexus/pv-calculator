@@ -18,7 +18,17 @@
 
 import type { Env } from './types';
 
-const PVGIS_UPSTREAM = 'https://re.jrc.ec.europa.eu/api/v5_3/seriescalc';
+// PVGIS v5.3 serves SARAH3, ERA5 and NSRDB. v5.2 is the only upstream that
+// still serves the legacy SARAH2 database — v5.3 dropped it, so a SARAH2
+// request to v5.3 comes back as "database not available". The Dart engine's
+// `pvgisSeriesCalcEndpointFor` mirrors this routing so direct (proxy-less)
+// requests pick the correct version too.
+const PVGIS_UPSTREAM_V5_3 = 'https://re.jrc.ec.europa.eu/api/v5_3/seriescalc';
+const PVGIS_UPSTREAM_V5_2 = 'https://re.jrc.ec.europa.eu/api/v5_2/seriescalc';
+
+function upstreamForDatabase(radDatabase: string | null): string {
+  return radDatabase === 'PVGIS-SARAH2' ? PVGIS_UPSTREAM_V5_2 : PVGIS_UPSTREAM_V5_3;
+}
 
 // Parameters that define a unique PVGIS result. Sorted alphabetically before
 // hashing so equivalent requests always yield the same key regardless of the
@@ -90,10 +100,12 @@ function canonicalParams(url: URL): string {
   return new URLSearchParams(pairs).toString();
 }
 
-/** Builds the upstream PVGIS URL, forwarding all incoming query params and
- *  forcing outputformat=json. */
+/** Builds the upstream PVGIS URL, forwarding all incoming query params,
+ *  forcing outputformat=json, and routing SARAH2 requests to v5.2 (v5.3
+ *  does not serve SARAH2 any more). */
 function buildUpstreamUrl(incomingUrl: URL): URL {
-  const upstream = new URL(PVGIS_UPSTREAM);
+  const radDatabase = incomingUrl.searchParams.get('raddatabase');
+  const upstream = new URL(upstreamForDatabase(radDatabase));
   // Copy all params from the incoming request, then enforce required fields.
   incomingUrl.searchParams.forEach((value, key) => {
     upstream.searchParams.set(key, value);

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'pvgis_client.dart' show pvgisSeriesCalcEndpoint;
+import 'pvgis_client.dart' show pvgisSeriesCalcEndpointFor;
 import 'weather.dart';
 
 /// Builds the PVGIS `seriescalc` URL for a **horizontal** irradiance request
@@ -9,7 +9,9 @@ import 'weather.dart';
 ///
 /// The returned URL forces `angle=0&aspect=0&components=1&pvcalculation=0`
 /// so the response carries the beam/diffuse/reflected split needed to
-/// reconstruct GHI and DHI. Pass [endpoint] to point at a caching proxy.
+/// reconstruct GHI and DHI. Pass [endpoint] to point at a caching proxy;
+/// when [endpoint] is null, the upstream PVGIS API version is picked from
+/// [radDatabase] (v5.2 for SARAH2, v5.3 for everything else).
 Uri pvgisHorizontalSeriesUrl({
   required double latitudeDeg,
   required double longitudeDeg,
@@ -27,7 +29,9 @@ Uri pvgisHorizontalSeriesUrl({
   if (year < 2005) {
     throw ArgumentError('year must be 2005 or later.');
   }
-  final base = Uri.parse(endpoint ?? pvgisSeriesCalcEndpoint);
+  final base = Uri.parse(
+    endpoint ?? pvgisSeriesCalcEndpointFor(radDatabase: radDatabase),
+  );
   final params = <String, String>{
     'lat': latitudeDeg.toStringAsFixed(6),
     'lon': longitudeDeg.toStringAsFixed(6),

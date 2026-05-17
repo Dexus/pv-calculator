@@ -80,6 +80,17 @@ void main() {
         radDatabase: 'PVGIS-SARAH3',
       ));
       expect(url.queryParameters['raddatabase'], 'PVGIS-SARAH3');
+      expect(url.path, '/api/v5_3/seriescalc');
+    });
+
+    test('routes SARAH2 to the v5_2 endpoint when no proxy is set', () {
+      final url = buildPvgisSeriesCalcUrl(const PvgisRequest(
+        latitudeDeg: 50, longitudeDeg: 8, peakKw: 1, tiltDeg: 30,
+        appAzimuthDeg: 180, startYear: 2020, endYear: 2020,
+        radDatabase: 'PVGIS-SARAH2',
+      ));
+      expect(url.path, '/api/v5_2/seriescalc');
+      expect(url.queryParameters['raddatabase'], 'PVGIS-SARAH2');
     });
 
     test('honours a custom endpoint (self-hosted / proxy)', () {
