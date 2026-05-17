@@ -4,10 +4,13 @@ name: Deploy GitHub Pages
 #   - push to main when HTML prototype, Flutter app, engine, or this workflow change
 #   - workflow_dispatch (manual trigger from the Actions tab)
 #
-# Every deploy ships BOTH the HTML prototype at the site root and the Flutter
-# web app under /app/. GitHub Pages serves only the most recently uploaded
-# artifact, so a partial deploy would wipe the sibling path; keeping them
-# bundled guarantees the site is always whole.
+# Every deploy ships THREE things side by side: the HTML prototype at the
+# site root, the production Flutter app under /app/, and a debug build of
+# the same app under /app-dev/ (profile mode, mild minification, full
+# source maps so browser stack traces decode back to Dart). GitHub Pages
+# serves only the most recently uploaded artifact, so a partial deploy
+# would wipe the sibling paths; keeping all three bundled guarantees the
+# site is always whole.
 #
 # Third-party actions are pinned to full commit SHAs (with the tag in a
 # trailing comment) per GitHub's supply-chain guidance. Update the SHA and
@@ -51,7 +54,7 @@ jobs:
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter pub get
 
-      - name: Flutter build web
+      - name: Flutter build web (release)
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
         env:
           # Optional: set the PVGIS_PROXY secret in the repository to route
@@ -75,6 +78,34 @@ jobs:
         run: |
           mkdir -p _site/app
           cp -r pv_calculator_dexus_overlay/app/flutter_app/build/web/. _site/app/
+
+      - name: Flutter build web (debug, with source maps)
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        env:
+          PVGIS_PROXY: ${{ secrets.PVGIS_PROXY }}
+        run: |
+          # Same Pro/PVGIS flags as the release build above; the only
+          # differences are --profile (keeps debug names + service
+          # extensions, asserts stay off as in release), --source-maps
+          # (emits main.dart.js.map alongside the JS bundle), and -O 1
+          # (mild dart2js optimisation so function names survive in stack
+          # traces). Output is ~3x larger than --release; we accept that
+          # for /app-dev/ to keep crash reports debuggable.
+          # `flutter build web` always writes to build/web, overwriting the
+          # release output — that's fine because we already copied the
+          # release bundle into _site/app/ above.
+          dart_defines="--dart-define=PRO_FEATURES=true"
+          if [ -n "$PVGIS_PROXY" ]; then
+            dart_defines="$dart_defines --dart-define=PVGIS_PROXY=$PVGIS_PROXY"
+          fi
+          flutter build web --profile --source-maps -O 1 \
+            --base-href "/${{ github.event.repository.name }}/app-dev/" \
+            $dart_defines
+
+      - name: Stage Flutter debug app at /app-dev/
+        run: |
+          mkdir -p _site/app-dev
+          cp -r pv_calculator_dexus_overlay/app/flutter_app/build/web/. _site/app-dev/
 
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
