@@ -234,7 +234,32 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get projectPreRunHelp =>
-      'Les jours d\'amorçage stabilisent l\'état de charge initial de la batterie avant la simulation proprement dite. Les pas d\'amorçage n\'apparaissent pas dans les résultats.';
+      'Nombre de jours d\'amorçage pour le mode \"Amorçage simple\". N\'est utilisé que dans ce mode ; les pas d\'amorçage n\'apparaissent pas dans les résultats.';
+
+  @override
+  String get projectPreRunMode => 'Préparation du SOC';
+
+  @override
+  String get projectPreRunModeManual => 'SOC initial manuel';
+
+  @override
+  String get projectPreRunModeSingle => 'Amorçage simple';
+
+  @override
+  String get projectPreRunModeCyclic => 'Convergence cyclique';
+
+  @override
+  String get projectPreRunModeCyclicPro => 'Convergence cyclique (Pro)';
+
+  @override
+  String get projectConvergenceTolerance => 'Tolérance de convergence';
+
+  @override
+  String get projectConvergenceToleranceHelp =>
+      '|début − fin| SOC max après un cycle, en % de la capacité utile. PRD §6.2 suggère 0,5 %.';
+
+  @override
+  String get projectMaxConvergenceIterations => 'Itérations max';
 
   @override
   String get projectExportLimit => 'Limite d\'injection';
@@ -580,6 +605,29 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String resultsBatteryLabel(int n) {
     return 'Batterie $n';
+  }
+
+  @override
+  String get resultsPreRunSection => 'Préparation du SOC';
+
+  @override
+  String get resultsPreRunMode => 'Mode';
+
+  @override
+  String get resultsPreRunIterations => 'Itérations';
+
+  @override
+  String get resultsPreRunConverged => 'Convergé';
+
+  @override
+  String get resultsPreRunConvergedYes => 'Oui';
+
+  @override
+  String get resultsPreRunConvergedNo => 'Non';
+
+  @override
+  String resultsPreRunStartSoc(int n) {
+    return 'SOC initial batterie $n';
   }
 
   @override

@@ -489,8 +489,56 @@ abstract class AppLocalizations {
   /// No description provided for @projectPreRunHelp.
   ///
   /// In de, this message translates to:
-  /// **'Vorlauftage stabilisieren den Batterie-Startladestand vor der eigentlichen Simulation. Schritte mit Vorlauf erscheinen nicht in den Ergebnissen.'**
+  /// **'Anzahl Vorlauftage für den Modus „Einfacher Vorlauf“. Wird nur ausgewertet, wenn dieser Modus aktiv ist; die Vorlauf-Schritte erscheinen nicht in den Ergebnissen.'**
   String get projectPreRunHelp;
+
+  /// No description provided for @projectPreRunMode.
+  ///
+  /// In de, this message translates to:
+  /// **'SOC-Vorlauf'**
+  String get projectPreRunMode;
+
+  /// No description provided for @projectPreRunModeManual.
+  ///
+  /// In de, this message translates to:
+  /// **'Manueller Start-SOC'**
+  String get projectPreRunModeManual;
+
+  /// No description provided for @projectPreRunModeSingle.
+  ///
+  /// In de, this message translates to:
+  /// **'Einfacher Vorlauf'**
+  String get projectPreRunModeSingle;
+
+  /// No description provided for @projectPreRunModeCyclic.
+  ///
+  /// In de, this message translates to:
+  /// **'Zyklische Konvergenz'**
+  String get projectPreRunModeCyclic;
+
+  /// No description provided for @projectPreRunModeCyclicPro.
+  ///
+  /// In de, this message translates to:
+  /// **'Zyklische Konvergenz (Pro)'**
+  String get projectPreRunModeCyclicPro;
+
+  /// No description provided for @projectConvergenceTolerance.
+  ///
+  /// In de, this message translates to:
+  /// **'Konvergenz-Toleranz'**
+  String get projectConvergenceTolerance;
+
+  /// No description provided for @projectConvergenceToleranceHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Maximaler |Start − End|-SOC nach einem Zyklus, in % der nutzbaren Kapazität. PRD §6.2 empfiehlt 0,5 %.'**
+  String get projectConvergenceToleranceHelp;
+
+  /// No description provided for @projectMaxConvergenceIterations.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. Iterationen'**
+  String get projectMaxConvergenceIterations;
 
   /// No description provided for @projectExportLimit.
   ///
@@ -1080,6 +1128,48 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Speicher {n}'**
   String resultsBatteryLabel(int n);
+
+  /// No description provided for @resultsPreRunSection.
+  ///
+  /// In de, this message translates to:
+  /// **'SOC-Vorlauf'**
+  String get resultsPreRunSection;
+
+  /// No description provided for @resultsPreRunMode.
+  ///
+  /// In de, this message translates to:
+  /// **'Modus'**
+  String get resultsPreRunMode;
+
+  /// No description provided for @resultsPreRunIterations.
+  ///
+  /// In de, this message translates to:
+  /// **'Iterationen'**
+  String get resultsPreRunIterations;
+
+  /// No description provided for @resultsPreRunConverged.
+  ///
+  /// In de, this message translates to:
+  /// **'Konvergiert'**
+  String get resultsPreRunConverged;
+
+  /// No description provided for @resultsPreRunConvergedYes.
+  ///
+  /// In de, this message translates to:
+  /// **'Ja'**
+  String get resultsPreRunConvergedYes;
+
+  /// No description provided for @resultsPreRunConvergedNo.
+  ///
+  /// In de, this message translates to:
+  /// **'Nein'**
+  String get resultsPreRunConvergedNo;
+
+  /// No description provided for @resultsPreRunStartSoc.
+  ///
+  /// In de, this message translates to:
+  /// **'Start-SOC Speicher {n}'**
+  String resultsPreRunStartSoc(int n);
 
   /// No description provided for @resultsMonthly.
   ///

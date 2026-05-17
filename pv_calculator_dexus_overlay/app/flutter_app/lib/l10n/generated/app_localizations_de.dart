@@ -233,7 +233,32 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get projectPreRunHelp =>
-      'Vorlauftage stabilisieren den Batterie-Startladestand vor der eigentlichen Simulation. Schritte mit Vorlauf erscheinen nicht in den Ergebnissen.';
+      'Anzahl Vorlauftage für den Modus „Einfacher Vorlauf“. Wird nur ausgewertet, wenn dieser Modus aktiv ist; die Vorlauf-Schritte erscheinen nicht in den Ergebnissen.';
+
+  @override
+  String get projectPreRunMode => 'SOC-Vorlauf';
+
+  @override
+  String get projectPreRunModeManual => 'Manueller Start-SOC';
+
+  @override
+  String get projectPreRunModeSingle => 'Einfacher Vorlauf';
+
+  @override
+  String get projectPreRunModeCyclic => 'Zyklische Konvergenz';
+
+  @override
+  String get projectPreRunModeCyclicPro => 'Zyklische Konvergenz (Pro)';
+
+  @override
+  String get projectConvergenceTolerance => 'Konvergenz-Toleranz';
+
+  @override
+  String get projectConvergenceToleranceHelp =>
+      'Maximaler |Start − End|-SOC nach einem Zyklus, in % der nutzbaren Kapazität. PRD §6.2 empfiehlt 0,5 %.';
+
+  @override
+  String get projectMaxConvergenceIterations => 'Max. Iterationen';
 
   @override
   String get projectExportLimit => 'Einspeise-Limit';
@@ -580,6 +605,29 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String resultsBatteryLabel(int n) {
     return 'Speicher $n';
+  }
+
+  @override
+  String get resultsPreRunSection => 'SOC-Vorlauf';
+
+  @override
+  String get resultsPreRunMode => 'Modus';
+
+  @override
+  String get resultsPreRunIterations => 'Iterationen';
+
+  @override
+  String get resultsPreRunConverged => 'Konvergiert';
+
+  @override
+  String get resultsPreRunConvergedYes => 'Ja';
+
+  @override
+  String get resultsPreRunConvergedNo => 'Nein';
+
+  @override
+  String resultsPreRunStartSoc(int n) {
+    return 'Start-SOC Speicher $n';
   }
 
   @override

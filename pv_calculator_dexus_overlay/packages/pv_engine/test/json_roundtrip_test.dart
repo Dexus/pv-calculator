@@ -110,6 +110,61 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('Phase-5 defaults stay on schema v1', () {
+      // A vanilla config with no Phase-4 and no Phase-5 changes should
+      // continue to emit schemaVersion: 1, so legacy consumers keep
+      // round-tripping byte-stable JSON.
+      final json = _config().toJson();
+      expect(json['schemaVersion'], 1);
+      expect(json.containsKey('preRunMode'), isFalse);
+      expect(json.containsKey('convergenceToleranceFraction'), isFalse);
+      expect(json.containsKey('maxConvergenceIterations'), isFalse);
+    });
+
+    test('cyclicConvergence config round-trips as schema v3', () {
+      final cyclic = SimulationConfig(
+        arrays: _config().arrays,
+        inverters: _config().inverters,
+        batteries: _config().batteries,
+        loadProfile: _config().loadProfile,
+        days: 365,
+        preRunMode: PreRunMode.cyclicConvergence,
+        convergenceToleranceFraction: 0.002,
+        maxConvergenceIterations: 5,
+      );
+      final json = cyclic.toJson();
+      expect(json['schemaVersion'], 3);
+      expect(json['preRunMode'], 'cyclicConvergence');
+      expect(json['convergenceToleranceFraction'], 0.002);
+      expect(json['maxConvergenceIterations'], 5);
+
+      final decoded = SimulationConfig.fromJson(jsonDecode(jsonEncode(json)));
+      expect(decoded.preRunMode, PreRunMode.cyclicConvergence);
+      expect(decoded.convergenceToleranceFraction, 0.002);
+      expect(decoded.maxConvergenceIterations, 5);
+    });
+
+    test('schema v1/v2 without preRunMode defaults to singleWarmUp', () {
+      // Loading a legacy JSON (no `preRunMode` key) must preserve the
+      // pre-Phase-5 behaviour where `preRunDays` controls a single
+      // warm-up.
+      final legacy = _config().toJson();
+      legacy.remove('preRunMode');
+      legacy.remove('convergenceToleranceFraction');
+      legacy.remove('maxConvergenceIterations');
+      final decoded = SimulationConfig.fromJson(legacy);
+      expect(decoded.preRunMode, PreRunMode.singleWarmUp);
+      expect(decoded.convergenceToleranceFraction, 0.005);
+      expect(decoded.maxConvergenceIterations, 10);
+    });
+
+    test('unknown PreRunMode value throws ArgumentError', () {
+      final json = _config().toJson();
+      json['schemaVersion'] = 3;
+      json['preRunMode'] = 'doesNotExist';
+      expect(() => SimulationConfig.fromJson(json), throwsArgumentError);
+    });
   });
 }
 

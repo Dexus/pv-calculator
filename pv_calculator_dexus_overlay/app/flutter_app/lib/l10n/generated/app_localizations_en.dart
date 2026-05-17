@@ -233,7 +233,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get projectPreRunHelp =>
-      'Pre-run days stabilise the battery starting state of charge before the actual simulation. Pre-run steps do not appear in the results.';
+      'Warm-up days for the \'Single warm-up\' mode. Only used when that mode is active; warm-up steps are not included in the results.';
+
+  @override
+  String get projectPreRunMode => 'SOC pre-run';
+
+  @override
+  String get projectPreRunModeManual => 'Manual start SOC';
+
+  @override
+  String get projectPreRunModeSingle => 'Single warm-up';
+
+  @override
+  String get projectPreRunModeCyclic => 'Cyclic convergence';
+
+  @override
+  String get projectPreRunModeCyclicPro => 'Cyclic convergence (Pro)';
+
+  @override
+  String get projectConvergenceTolerance => 'Convergence tolerance';
+
+  @override
+  String get projectConvergenceToleranceHelp =>
+      'Maximum |start − end| SOC after one cycle, as a percentage of usable capacity. PRD §6.2 suggests 0.5 %.';
+
+  @override
+  String get projectMaxConvergenceIterations => 'Max iterations';
 
   @override
   String get projectExportLimit => 'Export limit';
@@ -579,6 +604,29 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String resultsBatteryLabel(int n) {
     return 'Battery $n';
+  }
+
+  @override
+  String get resultsPreRunSection => 'SOC pre-run';
+
+  @override
+  String get resultsPreRunMode => 'Mode';
+
+  @override
+  String get resultsPreRunIterations => 'Iterations';
+
+  @override
+  String get resultsPreRunConverged => 'Converged';
+
+  @override
+  String get resultsPreRunConvergedYes => 'Yes';
+
+  @override
+  String get resultsPreRunConvergedNo => 'No';
+
+  @override
+  String resultsPreRunStartSoc(int n) {
+    return 'Start SOC battery $n';
   }
 
   @override

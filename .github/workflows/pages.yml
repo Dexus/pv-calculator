@@ -59,9 +59,13 @@ jobs:
           # The build works without it; the app falls back to the public API.
           PVGIS_PROXY: ${{ secrets.PVGIS_PROXY }}
         run: |
-          dart_defines=""
+          # Web deploys always ship the full Pro feature set (currently:
+          # cyclic SOC convergence). Local `flutter run` and CI default
+          # to the free build; this workflow is the single place that
+          # flips Pro on.
+          dart_defines="--dart-define=PRO_FEATURES=true"
           if [ -n "$PVGIS_PROXY" ]; then
-            dart_defines="--dart-define=PVGIS_PROXY=$PVGIS_PROXY"
+            dart_defines="$dart_defines --dart-define=PVGIS_PROXY=$PVGIS_PROXY"
           fi
           flutter build web --release \
             --base-href "/${{ github.event.repository.name }}/app/" \

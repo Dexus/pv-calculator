@@ -12,3 +12,13 @@
 const _rawPvgisProxy = String.fromEnvironment('PVGIS_PROXY');
 final String? pvgisProxyEndpoint =
     _rawPvgisProxy.trim().isEmpty ? null : _rawPvgisProxy.trim();
+
+/// Gates Pro-tier features (currently: cyclic SOC convergence).
+///
+/// Enabled in the GitHub Pages workflow via
+/// `--dart-define=PRO_FEATURES=true` so the public web build ships the
+/// full feature set; local `flutter run` and standard CI default to the
+/// free build. The engine itself is feature-agnostic — Pro gating
+/// lives in the UI layer only.
+const bool kProFeatures =
+    bool.fromEnvironment('PRO_FEATURES', defaultValue: false);
