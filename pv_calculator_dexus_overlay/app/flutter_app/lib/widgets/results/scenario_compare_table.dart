@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../state/scenario_comparison_controller.dart';
 
 /// Side-by-side KPI table for the Scenario-Compare page. Rows = scenarios,
@@ -15,20 +16,21 @@ class ScenarioCompareTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
         headingTextStyle: theme.textTheme.titleSmall,
-        columns: const [
-          DataColumn(label: Text('Szenario')),
-          DataColumn(label: Text('PV AC (kWh)'), numeric: true),
-          DataColumn(label: Text('Eigenverbrauch %'), numeric: true),
-          DataColumn(label: Text('Autarkie %'), numeric: true),
-          DataColumn(label: Text('Netzbezug (kWh)'), numeric: true),
-          DataColumn(label: Text('Einspeisung (kWh)'), numeric: true),
-          DataColumn(label: Text('Mikro-WR (kWh)'), numeric: true),
-          DataColumn(label: Text('Abregelung AC (kWh)'), numeric: true),
-          DataColumn(label: Text('Quelle')),
+        columns: [
+          DataColumn(label: Text(l.compareTableScenario)),
+          DataColumn(label: Text(l.compareTablePvAcKwh), numeric: true),
+          DataColumn(label: Text(l.compareTableSelfConsumption), numeric: true),
+          DataColumn(label: Text(l.compareTableAutarky), numeric: true),
+          DataColumn(label: Text(l.compareTableGridImport), numeric: true),
+          DataColumn(label: Text(l.compareTableGridExport), numeric: true),
+          DataColumn(label: Text(l.compareTableMicroInverter), numeric: true),
+          DataColumn(label: Text(l.compareTableCurtailedAc), numeric: true),
+          DataColumn(label: Text(l.compareTableSource)),
         ],
         rows: [
           for (final e in entries)
@@ -41,7 +43,7 @@ class ScenarioCompareTable extends StatelessWidget {
               DataCell(Text(e.summary.gridExportKwh.toStringAsFixed(0))),
               DataCell(Text(e.summary.microInverterDeliveredKwh.toStringAsFixed(0))),
               DataCell(Text(e.summary.curtailedAcKwh.toStringAsFixed(0))),
-              DataCell(Text(e.fromCache ? 'Cache' : 'Neu')),
+              DataCell(Text(e.fromCache ? l.compareTableSourceCache : l.compareTableSourceFresh)),
             ]),
         ],
       ),

@@ -155,10 +155,10 @@ class _ProjectsTabState extends State<ProjectsTab> {
   Future<void> _renameProject(ProjectRow project) async {
     final l = AppLocalizations.of(context);
     final name = await _promptText(
-      title: 'Projekt umbenennen',
+      title: l.projectsTabRenameProjectTitle,
       initial: project.name,
       cancel: l.commonCancel,
-      ok: 'Speichern',
+      ok: l.projectsTabDialogSave,
     );
     if (name == null || name.trim().isEmpty || name == project.name) return;
     _projects.renameProject(project.id, name.trim());
@@ -182,10 +182,10 @@ class _ProjectsTabState extends State<ProjectsTab> {
     final l = AppLocalizations.of(context);
     final siblings = _scenarios.listForProject(project.id).map((s) => s.name).toSet();
     final name = await _promptText(
-      title: 'Neues Szenario',
-      initial: _uniqueName('Szenario', siblings),
+      title: l.projectsTabNewScenarioTitle,
+      initial: _uniqueName(l.projectsTabSuggestedScenarioName, siblings),
       cancel: l.commonCancel,
-      ok: 'Anlegen',
+      ok: l.projectsTabDialogCreate,
     );
     if (name == null || name.trim().isEmpty) return;
     final scenario = _scenarios.create(
@@ -207,10 +207,10 @@ class _ProjectsTabState extends State<ProjectsTab> {
   Future<void> _renameScenario(ScenarioRow scenario) async {
     final l = AppLocalizations.of(context);
     final name = await _promptText(
-      title: 'Szenario umbenennen',
+      title: l.projectsTabRenameScenarioTitle,
       initial: scenario.name,
       cancel: l.commonCancel,
-      ok: 'Speichern',
+      ok: l.projectsTabDialogSave,
     );
     if (name == null || name.trim().isEmpty || name == scenario.name) return;
     _scenarios.rename(scenario.id, name.trim());
@@ -220,8 +220,8 @@ class _ProjectsTabState extends State<ProjectsTab> {
   Future<void> _deleteScenario(ScenarioRow scenario) async {
     final l = AppLocalizations.of(context);
     final ok = await _confirm(
-      title: 'Szenario löschen?',
-      body: 'Wirklich "${scenario.name}" löschen?',
+      title: l.projectsTabDeleteScenarioTitle,
+      body: l.projectsTabDeleteScenarioBody(scenario.name),
       ok: l.commonDelete,
       cancel: l.commonCancel,
     );
@@ -358,7 +358,7 @@ class _ProjectsTabState extends State<ProjectsTab> {
               FilledButton.tonalIcon(
                 onPressed: _compareIds.length >= 2 ? _openCompare : null,
                 icon: const Icon(Icons.compare_arrows),
-                label: Text('Vergleichen (${_compareIds.length})'),
+                label: Text(l.projectsTabCompareButton(_compareIds.length)),
               ),
             ],
           ),
@@ -443,10 +443,11 @@ class _ProjectExpansionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return ExpansionTile(
       initiallyExpanded: true,
       title: Text(project.name),
-      subtitle: Text('${scenarios.length} Szenarien'),
+      subtitle: Text(l.projectsTabScenarioCount(scenarios.length)),
       trailing: PopupMenuButton<String>(
         onSelected: (key) {
           switch (key) {
@@ -461,19 +462,19 @@ class _ProjectExpansionTile extends StatelessWidget {
               break;
           }
         },
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'new-scenario', child: Text('Neues Szenario')),
-          PopupMenuItem(value: 'rename', child: Text('Umbenennen')),
-          PopupMenuDivider(),
-          PopupMenuItem(value: 'delete', child: Text('Projekt löschen')),
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'new-scenario', child: Text(l.projectsTabPopupNewScenario)),
+          PopupMenuItem(value: 'rename', child: Text(l.projectsTabPopupRename)),
+          const PopupMenuDivider(),
+          PopupMenuItem(value: 'delete', child: Text(l.projectsTabPopupDeleteProject)),
         ],
       ),
       children: [
         if (scenarios.isEmpty)
-          const ListTile(
+          ListTile(
             dense: true,
-            leading: Icon(Icons.info_outline),
-            title: Text('Noch kein Szenario in diesem Projekt.'),
+            leading: const Icon(Icons.info_outline),
+            title: Text(l.projectsTabEmptyScenarios),
           )
         else
           for (final s in scenarios)
@@ -488,22 +489,22 @@ class _ProjectExpansionTile extends StatelessWidget {
               onTap: () => onOpenScenario(project, s),
               trailing: Wrap(spacing: 0, children: [
                 IconButton(
-                  tooltip: 'Duplizieren',
+                  tooltip: l.projectsTabDuplicateTooltip,
                   icon: const Icon(Icons.content_copy),
                   onPressed: () => onDuplicateScenario(s),
                 ),
                 IconButton(
-                  tooltip: 'Umbenennen',
+                  tooltip: l.projectsTabRenameTooltip,
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () => onRenameScenario(s),
                 ),
                 IconButton(
-                  tooltip: 'Exportieren',
+                  tooltip: l.projectsTabExportTooltip,
                   icon: const Icon(Icons.file_download),
                   onPressed: () => onExportScenario(s),
                 ),
                 IconButton(
-                  tooltip: 'Löschen',
+                  tooltip: l.projectsTabDeleteTooltip,
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () => onDeleteScenario(s),
                 ),

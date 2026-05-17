@@ -1144,4 +1144,133 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get topologySeedFromLegacy => 'Aus aktueller Konfiguration übernehmen';
+
+  @override
+  String projectsTabCompareButton(int count) {
+    return 'Vergleichen ($count)';
+  }
+
+  @override
+  String projectsTabScenarioCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Szenarien',
+      one: '1 Szenario',
+      zero: 'Keine Szenarien',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get projectsTabEmptyScenarios =>
+      'Noch kein Szenario in diesem Projekt.';
+
+  @override
+  String get projectsTabPopupNewScenario => 'Neues Szenario';
+
+  @override
+  String get projectsTabPopupRename => 'Umbenennen';
+
+  @override
+  String get projectsTabPopupDeleteProject => 'Projekt löschen';
+
+  @override
+  String get projectsTabDuplicateTooltip => 'Duplizieren';
+
+  @override
+  String get projectsTabRenameTooltip => 'Umbenennen';
+
+  @override
+  String get projectsTabExportTooltip => 'Exportieren';
+
+  @override
+  String get projectsTabDeleteTooltip => 'Löschen';
+
+  @override
+  String get projectsTabRenameProjectTitle => 'Projekt umbenennen';
+
+  @override
+  String get projectsTabRenameScenarioTitle => 'Szenario umbenennen';
+
+  @override
+  String get projectsTabNewScenarioTitle => 'Neues Szenario';
+
+  @override
+  String get projectsTabDeleteScenarioTitle => 'Szenario löschen?';
+
+  @override
+  String projectsTabDeleteScenarioBody(String name) {
+    return 'Wirklich \"$name\" löschen?';
+  }
+
+  @override
+  String get projectsTabDialogSave => 'Speichern';
+
+  @override
+  String get projectsTabDialogCreate => 'Anlegen';
+
+  @override
+  String get projectsTabSuggestedScenarioName => 'Szenario';
+
+  @override
+  String get compareTitle => 'Szenariovergleich';
+
+  @override
+  String get comparePreparing => 'Wird vorbereitet…';
+
+  @override
+  String get compareEmptyHint =>
+      'Wähle mindestens zwei Szenarien aus dem Projekte-Tab.';
+
+  @override
+  String get compareKpisCard => 'KPIs';
+
+  @override
+  String get compareChartCard => 'Energiebilanz im Vergleich';
+
+  @override
+  String get compareTableScenario => 'Szenario';
+
+  @override
+  String get compareTablePvAcKwh => 'PV AC (kWh)';
+
+  @override
+  String get compareTableSelfConsumption => 'Eigenverbrauch %';
+
+  @override
+  String get compareTableAutarky => 'Autarkie %';
+
+  @override
+  String get compareTableGridImport => 'Netzbezug (kWh)';
+
+  @override
+  String get compareTableGridExport => 'Einspeisung (kWh)';
+
+  @override
+  String get compareTableMicroInverter => 'Mikro-WR (kWh)';
+
+  @override
+  String get compareTableCurtailedAc => 'Abregelung AC (kWh)';
+
+  @override
+  String get compareTableSource => 'Quelle';
+
+  @override
+  String get compareTableSourceCache => 'Cache';
+
+  @override
+  String get compareTableSourceFresh => 'Neu';
+
+  @override
+  String get compareChartPvAc => 'PV AC';
+
+  @override
+  String get compareChartSelfConsumption => 'Eigenverbr.';
+
+  @override
+  String get compareChartGridImport => 'Netzbezug';
+
+  @override
+  String get compareChartGridExport => 'Einspeisung';
 }

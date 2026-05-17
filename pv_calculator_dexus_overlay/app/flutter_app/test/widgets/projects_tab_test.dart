@@ -137,7 +137,8 @@ void main() {
     await tester.pumpWidget(_host(db));
     await tester.pumpAndSettle();
 
-    expect(find.text('1 Szenarien'), findsOneWidget);
+    // ICU plural: singular German is "1 Szenario", plural "N Szenarien".
+    expect(find.text('1 Szenario'), findsOneWidget);
     await tester.tap(find.byTooltip('Duplizieren'));
     await tester.pumpAndSettle();
 

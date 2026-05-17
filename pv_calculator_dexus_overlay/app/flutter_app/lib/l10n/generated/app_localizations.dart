@@ -2052,6 +2052,234 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Aus aktueller Konfiguration übernehmen'**
   String get topologySeedFromLegacy;
+
+  /// No description provided for @projectsTabCompareButton.
+  ///
+  /// In de, this message translates to:
+  /// **'Vergleichen ({count})'**
+  String projectsTabCompareButton(int count);
+
+  /// No description provided for @projectsTabScenarioCount.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =0{Keine Szenarien} =1{1 Szenario} other{{count} Szenarien}}'**
+  String projectsTabScenarioCount(int count);
+
+  /// No description provided for @projectsTabEmptyScenarios.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch kein Szenario in diesem Projekt.'**
+  String get projectsTabEmptyScenarios;
+
+  /// No description provided for @projectsTabPopupNewScenario.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Szenario'**
+  String get projectsTabPopupNewScenario;
+
+  /// No description provided for @projectsTabPopupRename.
+  ///
+  /// In de, this message translates to:
+  /// **'Umbenennen'**
+  String get projectsTabPopupRename;
+
+  /// No description provided for @projectsTabPopupDeleteProject.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt löschen'**
+  String get projectsTabPopupDeleteProject;
+
+  /// No description provided for @projectsTabDuplicateTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Duplizieren'**
+  String get projectsTabDuplicateTooltip;
+
+  /// No description provided for @projectsTabRenameTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Umbenennen'**
+  String get projectsTabRenameTooltip;
+
+  /// No description provided for @projectsTabExportTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Exportieren'**
+  String get projectsTabExportTooltip;
+
+  /// No description provided for @projectsTabDeleteTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Löschen'**
+  String get projectsTabDeleteTooltip;
+
+  /// No description provided for @projectsTabRenameProjectTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt umbenennen'**
+  String get projectsTabRenameProjectTitle;
+
+  /// No description provided for @projectsTabRenameScenarioTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Szenario umbenennen'**
+  String get projectsTabRenameScenarioTitle;
+
+  /// No description provided for @projectsTabNewScenarioTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Szenario'**
+  String get projectsTabNewScenarioTitle;
+
+  /// No description provided for @projectsTabDeleteScenarioTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Szenario löschen?'**
+  String get projectsTabDeleteScenarioTitle;
+
+  /// No description provided for @projectsTabDeleteScenarioBody.
+  ///
+  /// In de, this message translates to:
+  /// **'Wirklich \"{name}\" löschen?'**
+  String projectsTabDeleteScenarioBody(String name);
+
+  /// No description provided for @projectsTabDialogSave.
+  ///
+  /// In de, this message translates to:
+  /// **'Speichern'**
+  String get projectsTabDialogSave;
+
+  /// No description provided for @projectsTabDialogCreate.
+  ///
+  /// In de, this message translates to:
+  /// **'Anlegen'**
+  String get projectsTabDialogCreate;
+
+  /// No description provided for @projectsTabSuggestedScenarioName.
+  ///
+  /// In de, this message translates to:
+  /// **'Szenario'**
+  String get projectsTabSuggestedScenarioName;
+
+  /// No description provided for @compareTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Szenariovergleich'**
+  String get compareTitle;
+
+  /// No description provided for @comparePreparing.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird vorbereitet…'**
+  String get comparePreparing;
+
+  /// No description provided for @compareEmptyHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Wähle mindestens zwei Szenarien aus dem Projekte-Tab.'**
+  String get compareEmptyHint;
+
+  /// No description provided for @compareKpisCard.
+  ///
+  /// In de, this message translates to:
+  /// **'KPIs'**
+  String get compareKpisCard;
+
+  /// No description provided for @compareChartCard.
+  ///
+  /// In de, this message translates to:
+  /// **'Energiebilanz im Vergleich'**
+  String get compareChartCard;
+
+  /// No description provided for @compareTableScenario.
+  ///
+  /// In de, this message translates to:
+  /// **'Szenario'**
+  String get compareTableScenario;
+
+  /// No description provided for @compareTablePvAcKwh.
+  ///
+  /// In de, this message translates to:
+  /// **'PV AC (kWh)'**
+  String get compareTablePvAcKwh;
+
+  /// No description provided for @compareTableSelfConsumption.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigenverbrauch %'**
+  String get compareTableSelfConsumption;
+
+  /// No description provided for @compareTableAutarky.
+  ///
+  /// In de, this message translates to:
+  /// **'Autarkie %'**
+  String get compareTableAutarky;
+
+  /// No description provided for @compareTableGridImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Netzbezug (kWh)'**
+  String get compareTableGridImport;
+
+  /// No description provided for @compareTableGridExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Einspeisung (kWh)'**
+  String get compareTableGridExport;
+
+  /// No description provided for @compareTableMicroInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'Mikro-WR (kWh)'**
+  String get compareTableMicroInverter;
+
+  /// No description provided for @compareTableCurtailedAc.
+  ///
+  /// In de, this message translates to:
+  /// **'Abregelung AC (kWh)'**
+  String get compareTableCurtailedAc;
+
+  /// No description provided for @compareTableSource.
+  ///
+  /// In de, this message translates to:
+  /// **'Quelle'**
+  String get compareTableSource;
+
+  /// No description provided for @compareTableSourceCache.
+  ///
+  /// In de, this message translates to:
+  /// **'Cache'**
+  String get compareTableSourceCache;
+
+  /// No description provided for @compareTableSourceFresh.
+  ///
+  /// In de, this message translates to:
+  /// **'Neu'**
+  String get compareTableSourceFresh;
+
+  /// No description provided for @compareChartPvAc.
+  ///
+  /// In de, this message translates to:
+  /// **'PV AC'**
+  String get compareChartPvAc;
+
+  /// No description provided for @compareChartSelfConsumption.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigenverbr.'**
+  String get compareChartSelfConsumption;
+
+  /// No description provided for @compareChartGridImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Netzbezug'**
+  String get compareChartGridImport;
+
+  /// No description provided for @compareChartGridExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Einspeisung'**
+  String get compareChartGridExport;
 }
 
 class _AppLocalizationsDelegate

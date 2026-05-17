@@ -1141,4 +1141,132 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get topologySeedFromLegacy => 'Seed from current setup';
+
+  @override
+  String projectsTabCompareButton(int count) {
+    return 'Compare ($count)';
+  }
+
+  @override
+  String projectsTabScenarioCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count scenarios',
+      one: '1 scenario',
+      zero: 'No scenarios',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get projectsTabEmptyScenarios => 'No scenarios in this project yet.';
+
+  @override
+  String get projectsTabPopupNewScenario => 'New scenario';
+
+  @override
+  String get projectsTabPopupRename => 'Rename';
+
+  @override
+  String get projectsTabPopupDeleteProject => 'Delete project';
+
+  @override
+  String get projectsTabDuplicateTooltip => 'Duplicate';
+
+  @override
+  String get projectsTabRenameTooltip => 'Rename';
+
+  @override
+  String get projectsTabExportTooltip => 'Export';
+
+  @override
+  String get projectsTabDeleteTooltip => 'Delete';
+
+  @override
+  String get projectsTabRenameProjectTitle => 'Rename project';
+
+  @override
+  String get projectsTabRenameScenarioTitle => 'Rename scenario';
+
+  @override
+  String get projectsTabNewScenarioTitle => 'New scenario';
+
+  @override
+  String get projectsTabDeleteScenarioTitle => 'Delete scenario?';
+
+  @override
+  String projectsTabDeleteScenarioBody(String name) {
+    return 'Really delete \"$name\"?';
+  }
+
+  @override
+  String get projectsTabDialogSave => 'Save';
+
+  @override
+  String get projectsTabDialogCreate => 'Create';
+
+  @override
+  String get projectsTabSuggestedScenarioName => 'Scenario';
+
+  @override
+  String get compareTitle => 'Scenario comparison';
+
+  @override
+  String get comparePreparing => 'Preparing…';
+
+  @override
+  String get compareEmptyHint =>
+      'Pick at least two scenarios from the Projects tab.';
+
+  @override
+  String get compareKpisCard => 'KPIs';
+
+  @override
+  String get compareChartCard => 'Energy balance comparison';
+
+  @override
+  String get compareTableScenario => 'Scenario';
+
+  @override
+  String get compareTablePvAcKwh => 'PV AC (kWh)';
+
+  @override
+  String get compareTableSelfConsumption => 'Self-consumption %';
+
+  @override
+  String get compareTableAutarky => 'Self-sufficiency %';
+
+  @override
+  String get compareTableGridImport => 'Grid import (kWh)';
+
+  @override
+  String get compareTableGridExport => 'Grid export (kWh)';
+
+  @override
+  String get compareTableMicroInverter => 'Micro-inv. (kWh)';
+
+  @override
+  String get compareTableCurtailedAc => 'Curtailed AC (kWh)';
+
+  @override
+  String get compareTableSource => 'Source';
+
+  @override
+  String get compareTableSourceCache => 'Cache';
+
+  @override
+  String get compareTableSourceFresh => 'Fresh';
+
+  @override
+  String get compareChartPvAc => 'PV AC';
+
+  @override
+  String get compareChartSelfConsumption => 'Self-cons.';
+
+  @override
+  String get compareChartGridImport => 'Grid imp.';
+
+  @override
+  String get compareChartGridExport => 'Grid exp.';
 }

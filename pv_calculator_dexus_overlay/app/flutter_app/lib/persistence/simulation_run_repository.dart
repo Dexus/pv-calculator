@@ -45,17 +45,22 @@ class SimulationRunRepository {
     return _findById(id)!;
   }
 
-  /// Most recent run whose `input_hash` matches [inputHash], or null if
-  /// the scenario has no cached run for its current inputs. Callers use
-  /// this to short-circuit re-runs when nothing has changed.
+  /// Most recent run whose `input_hash` matches [inputHash] **and** was
+  /// produced by the current [kEngineVersion]. The engine-version guard
+  /// matters: bumping the engine after a dispatch/inverter/SOC change
+  /// invalidates yesterday's cached summary even when the user hasn't
+  /// touched the scenario, so re-using a row with a stale engine version
+  /// would silently show the old numbers next to a freshly-edited
+  /// scenario. Callers use this to short-circuit re-runs only when both
+  /// inputs and engine still match.
   SimulationRunRow? latestMatching(String scenarioId, String inputHash) {
     final rows = _db.db.select(
       'SELECT id, scenario_id, started_at, finished_at, input_hash, '
       'engine_version, summary_json, duration_ms '
       'FROM simulation_runs '
-      'WHERE scenario_id = ? AND input_hash = ? '
+      'WHERE scenario_id = ? AND input_hash = ? AND engine_version = ? '
       'ORDER BY finished_at DESC LIMIT 1',
-      [scenarioId, inputHash],
+      [scenarioId, inputHash, kEngineVersion],
     );
     if (rows.isEmpty) return null;
     return _fromRow(rows.first);

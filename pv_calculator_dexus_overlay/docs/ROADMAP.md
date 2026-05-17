@@ -96,7 +96,7 @@ Ziel: Projekte, Standorte, Szenarien anlegen, duplizieren, vergleichen (PRD FR-0
 ### Verschoben
 
 - **Persistierte Zeitreihen** (Architektur §7 `result_points`): aktuell speichern wir nur `SimulationSummary` als JSON-Blob in `simulation_runs.summary_json`. Per-Step-Reihen würden auf 365×24×N(scenarios) Floats wachsen; Architektur-Empfehlung war ohnehin „bei Bedarf rekonstruieren". Frühestens Phase 9 (Performance / 15-Minuten-Mode), wenn ein Float64List-basierter Streaming-Speicher steht.
-- **Web-Persistenz aktivieren**: `database.dart` fällt aktuell auf In-Memory zurück, wenn der `sqlite3.wasm`-Bundle unter `web/` fehlt. Der Loader-Switch auf `WasmDatabase.open` mit OPFS/IndexedDB-Auswahl ist vorbereitet, das Asset-Wiring (Download des passenden `sqlite3.wasm` über den Flutter-Build) bleibt offen — Trigger: nächster Pages-Deploy der Flutter-App.
+- **OPFS-/IndexedDB-Persistenz im Web**: Web-Builds laden `web/sqlite3.wasm` und nutzen eine In-Memory-Datenbank — alle Projekt-/Szenario-Daten verschwinden bei jedem Reload. `connection_web.dart` ist auf den Wechsel auf eine VFS-basierte persistente Implementation (`SimpleOpfsFileSystem` / `IndexedDbFileSystem` aus `package:sqlite3/wasm.dart`) vorbereitet, der Worker-Bootstrap fehlt noch. Trigger: nächster ernsthafter Pages-Deploy des Flutter-Clients (heutige Pages-Verteilung ist die HTML-Referenz, nicht die Flutter-App).
 
 ---
 

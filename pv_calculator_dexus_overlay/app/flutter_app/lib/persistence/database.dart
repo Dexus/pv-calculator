@@ -1,12 +1,9 @@
 import 'dart:async';
-import 'dart:io' show Directory, File, Platform;
 
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/common.dart';
-import 'package:sqlite3/sqlite3.dart' as native;
 
+import 'connection_io.dart' if (dart.library.js_interop) 'connection_web.dart' as conn;
 import 'schema.dart';
 
 /// Storage tier actually backing [AppDatabase]. Surfaced through
@@ -16,24 +13,16 @@ enum DbStorageTier {
   /// Native sqlite3 backed by a file in the platform's app-documents dir.
   native,
 
-  /// In-memory only. Used by tests and as the last-resort fallback on web
-  /// when neither the wasm bundle nor a persistent backend is available.
+  /// In-memory only. Used by tests and as the current web fallback (until
+  /// the OPFS/IndexedDB worker setup tracked in
+  /// `docs/ROADMAP.md` §Phase 7 Verschoben lands).
   memory,
-
-  /// Web: sqlite3 wasm with OPFS or IndexedDB persistence (the choice is
-  /// made by the sqlite3 web runtime). The Phase-7 web bundle is opt-in
-  /// — `web/` does not yet ship sqlite3.wasm, so until that asset lands
-  /// the web build falls back to [memory] and logs a warning.
-  web,
 }
 
-/// Thin synchronous wrapper around [CommonDatabase]. Owns connection
-/// lifecycle and exposes the raw db handle to repositories. Repositories
-/// stay free of platform branching — only this file knows about file
-/// paths and web vs. native.
-///
-/// Construction is async because the native backend needs a platform
-/// documents path. Tests can side-step that with [AppDatabase.memory].
+/// Thin wrapper around [CommonDatabase]. Owns connection lifecycle and
+/// exposes the raw db handle to repositories. Platform branching lives in
+/// the conditional imports of `connection_io.dart` / `connection_web.dart`
+/// — this file is platform-neutral and safe to import from both targets.
 class AppDatabase {
   AppDatabase._(this._db, this.storageTier) {
     _db.execute('PRAGMA foreign_keys = ON');
@@ -47,39 +36,32 @@ class AppDatabase {
 
   /// Opens (or creates) the production database on the current platform.
   ///
-  /// Native: a file under [getApplicationDocumentsDirectory] named
-  /// `pv_calculator.sqlite`.
-  ///
-  /// Web: until the wasm bundle is shipped under `web/`, this falls back
-  /// to an in-memory db with a `severe`-level log. The fallback keeps the
-  /// app launchable; project data won't survive a reload until the asset
-  /// is bundled and `WasmSqlite3.loadFromUrl` replaces this branch.
+  /// - Native: a file under the platform's app-documents directory.
+  /// - Web: loads `sqlite3.wasm` from the same origin (`web/sqlite3.wasm`)
+  ///   and runs an in-memory db on top. Persistent OPFS/IndexedDB storage
+  ///   on web is deferred (see ROADMAP §Phase 7 Verschoben).
   static Future<AppDatabase> open({String fileName = 'pv_calculator.sqlite'}) async {
     if (kIsWeb) {
-      debugPrint('AppDatabase: web build — sqlite3.wasm bundle not yet '
-          'shipped; falling back to in-memory db. Project data will not '
-          'persist across reloads until the wasm asset is added.');
-      return AppDatabase._(native.sqlite3.openInMemory(), DbStorageTier.memory);
+      final db = await conn.openInMemoryAsync();
+      debugPrint('AppDatabase: web build using sqlite3.wasm in-memory. '
+          'Persistent storage (OPFS/IndexedDB) is tracked under '
+          'ROADMAP §Phase 7 Verschoben.');
+      return AppDatabase._(db, DbStorageTier.memory);
     }
-    final docs = await getApplicationDocumentsDirectory();
-    final dir = Directory(docs.path);
-    if (!dir.existsSync()) dir.createSync(recursive: true);
-    final path = p.join(docs.path, fileName);
-    final exists = File(path).existsSync();
-    final database = native.sqlite3.open(path);
-    if (!exists) {
-      debugPrint('AppDatabase: created new sqlite file at $path '
-          '(platform=${Platform.operatingSystem})');
+    final result = await conn.openFile(fileName);
+    if (result.created) {
+      debugPrint('AppDatabase: created new sqlite file at ${result.path}.');
     }
-    return AppDatabase._(database, DbStorageTier.native);
+    return AppDatabase._(result.db, DbStorageTier.native);
   }
 
-  /// In-memory database used by widget/unit tests and by the web fallback.
+  /// In-memory database used by the VM-side test suite. The web shim's
+  /// synchronous entry point throws — call [open] instead from web code.
   factory AppDatabase.memory() {
-    return AppDatabase._(native.sqlite3.openInMemory(), DbStorageTier.memory);
+    return AppDatabase._(conn.openInMemorySync(), DbStorageTier.memory);
   }
 
-  void close() => _db.dispose();
+  void close() => _db.close();
 
   void _ensureSchema() {
     for (final stmt in createStatements) {

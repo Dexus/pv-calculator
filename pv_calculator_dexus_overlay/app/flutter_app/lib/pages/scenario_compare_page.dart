@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../state/scenario_comparison_controller.dart';
 import '../widgets/results/scenario_compare_chart.dart';
 import '../widgets/results/scenario_compare_table.dart';
@@ -30,13 +31,14 @@ class _ScenarioComparePageState extends State<ScenarioComparePage> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ScenarioComparisonController>();
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Szenariovergleich')),
-      body: _body(context, controller),
+      appBar: AppBar(title: Text(l.compareTitle)),
+      body: _body(context, controller, l),
     );
   }
 
-  Widget _body(BuildContext context, ScenarioComparisonController c) {
+  Widget _body(BuildContext context, ScenarioComparisonController c, AppLocalizations l) {
     if (c.running) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -46,14 +48,10 @@ class _ScenarioComparePageState extends State<ScenarioComparePage> {
     }
     final entries = c.entries;
     if (entries == null) {
-      return _placeholder(context, Icons.hourglass_empty, 'Wird vorbereitet…');
+      return _placeholder(context, Icons.hourglass_empty, l.comparePreparing);
     }
     if (entries.isEmpty) {
-      return _placeholder(
-        context,
-        Icons.compare_arrows,
-        'Wähle mindestens zwei Szenarien aus dem Projekte-Tab.',
-      );
+      return _placeholder(context, Icons.compare_arrows, l.compareEmptyHint);
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -67,7 +65,7 @@ class _ScenarioComparePageState extends State<ScenarioComparePage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'KPIs',
+                    l.compareKpisCard,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
@@ -84,7 +82,7 @@ class _ScenarioComparePageState extends State<ScenarioComparePage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Energiebilanz im Vergleich',
+                    l.compareChartCard,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),

@@ -1146,4 +1146,133 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get topologySeedFromLegacy =>
       'Inicializar desde la configuración actual';
+
+  @override
+  String projectsTabCompareButton(int count) {
+    return 'Comparar ($count)';
+  }
+
+  @override
+  String projectsTabScenarioCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count escenarios',
+      one: '1 escenario',
+      zero: 'Sin escenarios',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get projectsTabEmptyScenarios =>
+      'Aún no hay escenarios en este proyecto.';
+
+  @override
+  String get projectsTabPopupNewScenario => 'Nuevo escenario';
+
+  @override
+  String get projectsTabPopupRename => 'Renombrar';
+
+  @override
+  String get projectsTabPopupDeleteProject => 'Eliminar proyecto';
+
+  @override
+  String get projectsTabDuplicateTooltip => 'Duplicar';
+
+  @override
+  String get projectsTabRenameTooltip => 'Renombrar';
+
+  @override
+  String get projectsTabExportTooltip => 'Exportar';
+
+  @override
+  String get projectsTabDeleteTooltip => 'Eliminar';
+
+  @override
+  String get projectsTabRenameProjectTitle => 'Renombrar proyecto';
+
+  @override
+  String get projectsTabRenameScenarioTitle => 'Renombrar escenario';
+
+  @override
+  String get projectsTabNewScenarioTitle => 'Nuevo escenario';
+
+  @override
+  String get projectsTabDeleteScenarioTitle => '¿Eliminar escenario?';
+
+  @override
+  String projectsTabDeleteScenarioBody(String name) {
+    return '¿Eliminar \"$name\" realmente?';
+  }
+
+  @override
+  String get projectsTabDialogSave => 'Guardar';
+
+  @override
+  String get projectsTabDialogCreate => 'Crear';
+
+  @override
+  String get projectsTabSuggestedScenarioName => 'Escenario';
+
+  @override
+  String get compareTitle => 'Comparación de escenarios';
+
+  @override
+  String get comparePreparing => 'Preparando…';
+
+  @override
+  String get compareEmptyHint =>
+      'Selecciona al menos dos escenarios en la pestaña Proyectos.';
+
+  @override
+  String get compareKpisCard => 'KPIs';
+
+  @override
+  String get compareChartCard => 'Balance energético comparado';
+
+  @override
+  String get compareTableScenario => 'Escenario';
+
+  @override
+  String get compareTablePvAcKwh => 'FV CA (kWh)';
+
+  @override
+  String get compareTableSelfConsumption => 'Autoconsumo %';
+
+  @override
+  String get compareTableAutarky => 'Autonomía %';
+
+  @override
+  String get compareTableGridImport => 'Consumo de red (kWh)';
+
+  @override
+  String get compareTableGridExport => 'Inyección a la red (kWh)';
+
+  @override
+  String get compareTableMicroInverter => 'Microinv. (kWh)';
+
+  @override
+  String get compareTableCurtailedAc => 'Limitación CA (kWh)';
+
+  @override
+  String get compareTableSource => 'Origen';
+
+  @override
+  String get compareTableSourceCache => 'Caché';
+
+  @override
+  String get compareTableSourceFresh => 'Nuevo';
+
+  @override
+  String get compareChartPvAc => 'FV CA';
+
+  @override
+  String get compareChartSelfConsumption => 'Autocons.';
+
+  @override
+  String get compareChartGridImport => 'Cons. red';
+
+  @override
+  String get compareChartGridExport => 'Inyección';
 }
