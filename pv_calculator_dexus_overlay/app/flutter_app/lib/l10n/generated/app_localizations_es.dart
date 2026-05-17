@@ -816,4 +816,144 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get arraysSelectForCompass => 'Seleccionado para la brújula';
+
+  @override
+  String get dispatchPolicyTitle => 'Estrategia de despacho';
+
+  @override
+  String get dispatchPolicyKindLabel => 'Estrategia';
+
+  @override
+  String get dispatchPolicySelfConsumption => 'Autoconsumo primero';
+
+  @override
+  String get dispatchPolicySelfConsumptionDesc =>
+      'El PV cubre primero la carga, el excedente carga las baterías y luego se exporta. Comportamiento por defecto, idéntico al motor previo a la fase 4.';
+
+  @override
+  String get dispatchPolicyReserve => 'Reserva de batería';
+
+  @override
+  String get dispatchPolicyReserveDesc =>
+      'Como autoconsumo, pero las baterías solo se cargan hasta un techo de reserva. El excedente PV se exporta antes en vez de almacenarse por completo.';
+
+  @override
+  String get dispatchPolicyReserveSoc => 'Techo de reserva';
+
+  @override
+  String get dispatchPolicyReserveSocHelp =>
+      'Fracción de la capacidad (0..1) hasta la que el excedente PV carga la batería. 0,5 = cargar solo hasta la mitad.';
+
+  @override
+  String get dispatchPolicyConstantFeed => 'Inyección continua 24 h';
+
+  @override
+  String get dispatchPolicyConstantFeedDesc =>
+      'Los bancos de microinversores inyectan continuamente a su potencia objetivo mientras el SOC supere el umbral de apagado.';
+
+  @override
+  String get dispatchPolicyTimeWindow => 'Inyección por ventanas';
+
+  @override
+  String get dispatchPolicyTimeWindowDesc =>
+      'Los bancos solo inyectan dentro de las ventanas horarias configuradas en cada banco.';
+
+  @override
+  String get dispatchPolicyGridAssist => 'Asistencia de red';
+
+  @override
+  String get dispatchPolicyGridAssistDesc =>
+      'Como autoconsumo, pero la importación de red puede desactivarse — la carga no cubierta aparece como «carga no servida».';
+
+  @override
+  String get dispatchPolicyGridImportLabel => 'Permitir importación de red';
+
+  @override
+  String get dispatchPolicyGridImportHelp =>
+      'Desactivado = modo aislado. La carga no cubierta se contabiliza como «carga no servida» en vez de importación de red.';
+
+  @override
+  String get dispatchPolicyBankHint =>
+      'Sugerencia: esta estrategia solo tiene sentido con al menos un banco de microinversores configurado.';
+
+  @override
+  String get microInverterBanksTitle =>
+      'Bancos de microinversores (salida de batería)';
+
+  @override
+  String microInverterBanksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bancos',
+      one: '1 banco',
+      zero: 'Sin bancos configurados',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get microInverterBanksEmpty =>
+      'Sin bancos configurados. Use «Añadir» para crear una salida AC acoplada a batería.';
+
+  @override
+  String microInverterBanksHeading(int n) {
+    return 'Banco $n';
+  }
+
+  @override
+  String microInverterBanksDefaultLabel(int n) {
+    return 'Banco $n';
+  }
+
+  @override
+  String get microInverterBanksWarnPvDevice =>
+      'Nota: los microinversores PV convencionales esperan curvas IV de módulo; una salida alimentada por batería requiere un dispositivo certificado por el fabricante para ese uso. La simulación no sustituye una planificación eléctrica cualificada.';
+
+  @override
+  String get microInverterBankBattery => 'Batería fuente';
+
+  @override
+  String get microInverterBankCount => 'Cantidad';
+
+  @override
+  String get microInverterBankUnitW => 'Potencia por unidad';
+
+  @override
+  String get microInverterBankShutdown => 'SOC de apagado';
+
+  @override
+  String get microInverterBankShutdownHelp =>
+      'Fracción de la capacidad (0..1) por debajo de la cual el banco deja de entregar. 0 = nunca apagar.';
+
+  @override
+  String get microInverterBankEfficiency => 'Eficiencia';
+
+  @override
+  String get microInverterBankSchedule => 'Programación';
+
+  @override
+  String get microInverterBankAddWindow => 'Ventana';
+
+  @override
+  String get microInverterBankAlwaysOn =>
+      'Sin ventanas: activo 24 h (según la estrategia de despacho).';
+
+  @override
+  String get microInverterBankWindowStart => 'Inicio (h)';
+
+  @override
+  String get microInverterBankWindowEnd => 'Fin (h)';
+
+  @override
+  String get microInverterBankWindowFactor => 'Factor';
+
+  @override
+  String get resultsKpiMicroDelivered => 'Microinversor entregado';
+
+  @override
+  String get resultsKpiMicroShortfall => 'Microinversor déficit';
+
+  @override
+  String get resultsKpiUnservedLoad => 'Carga no servida';
 }

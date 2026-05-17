@@ -817,4 +817,144 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get arraysSelectForCompass => 'Sélectionné pour la boussole';
+
+  @override
+  String get dispatchPolicyTitle => 'Stratégie de dispatch';
+
+  @override
+  String get dispatchPolicyKindLabel => 'Stratégie';
+
+  @override
+  String get dispatchPolicySelfConsumption => 'Autoconsommation d’abord';
+
+  @override
+  String get dispatchPolicySelfConsumptionDesc =>
+      'Le PV couvre d’abord la charge, le surplus charge les batteries, puis exporte. Comportement par défaut, identique au moteur d’avant la phase 4.';
+
+  @override
+  String get dispatchPolicyReserve => 'Réserve batterie';
+
+  @override
+  String get dispatchPolicyReserveDesc =>
+      'Comme l’autoconsommation, mais les batteries ne se chargent que jusqu’à un plafond de réserve. Le surplus PV est exporté plus tôt.';
+
+  @override
+  String get dispatchPolicyReserveSoc => 'Plafond de réserve';
+
+  @override
+  String get dispatchPolicyReserveSocHelp =>
+      'Fraction de la capacité (0..1) jusqu’à laquelle le surplus PV charge la batterie. 0,5 = charger seulement jusqu’à la moitié.';
+
+  @override
+  String get dispatchPolicyConstantFeed => 'Injection continue 24 h';
+
+  @override
+  String get dispatchPolicyConstantFeedDesc =>
+      'Les bancs de micro-onduleurs injectent en continu à leur puissance cible tant que le SOC dépasse le seuil d’arrêt.';
+
+  @override
+  String get dispatchPolicyTimeWindow => 'Injection par fenêtres';
+
+  @override
+  String get dispatchPolicyTimeWindowDesc =>
+      'Les bancs n’injectent qu’à l’intérieur des fenêtres horaires configurées sur chaque banc.';
+
+  @override
+  String get dispatchPolicyGridAssist => 'Assistance réseau';
+
+  @override
+  String get dispatchPolicyGridAssistDesc =>
+      'Comme l’autoconsommation, mais l’import réseau peut être désactivé — la charge non couverte est comptée comme « charge non servie ».';
+
+  @override
+  String get dispatchPolicyGridImportLabel => 'Autoriser l’import réseau';
+
+  @override
+  String get dispatchPolicyGridImportHelp =>
+      'Désactivé = mode îloté. La charge non couverte est reportée comme « charge non servie » au lieu d’import réseau.';
+
+  @override
+  String get dispatchPolicyBankHint =>
+      'Astuce : cette stratégie n’a de sens qu’avec au moins un banc de micro-onduleurs.';
+
+  @override
+  String get microInverterBanksTitle =>
+      'Bancs de micro-onduleurs (sortie batterie)';
+
+  @override
+  String microInverterBanksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bancs',
+      one: '1 banc',
+      zero: 'Aucun banc configuré',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get microInverterBanksEmpty =>
+      'Aucun banc configuré. Utilisez « Ajouter » pour créer une sortie AC couplée batterie.';
+
+  @override
+  String microInverterBanksHeading(int n) {
+    return 'Banc $n';
+  }
+
+  @override
+  String microInverterBanksDefaultLabel(int n) {
+    return 'Banc $n';
+  }
+
+  @override
+  String get microInverterBanksWarnPvDevice =>
+      'Note : les micro-onduleurs PV standards attendent des courbes IV de modules ; une sortie alimentée par batterie exige un appareil certifié par le fabricant pour cet usage. La simulation ne remplace pas une étude électrique qualifiée.';
+
+  @override
+  String get microInverterBankBattery => 'Batterie source';
+
+  @override
+  String get microInverterBankCount => 'Nombre';
+
+  @override
+  String get microInverterBankUnitW => 'Puissance par unité';
+
+  @override
+  String get microInverterBankShutdown => 'SOC d’arrêt';
+
+  @override
+  String get microInverterBankShutdownHelp =>
+      'Fraction de la capacité (0..1) en dessous de laquelle le banc cesse d’injecter. 0 = jamais d’arrêt.';
+
+  @override
+  String get microInverterBankEfficiency => 'Rendement';
+
+  @override
+  String get microInverterBankSchedule => 'Programmation';
+
+  @override
+  String get microInverterBankAddWindow => 'Fenêtre';
+
+  @override
+  String get microInverterBankAlwaysOn =>
+      'Sans fenêtres : actif 24 h/24 (selon la stratégie de dispatch).';
+
+  @override
+  String get microInverterBankWindowStart => 'Début (h)';
+
+  @override
+  String get microInverterBankWindowEnd => 'Fin (h)';
+
+  @override
+  String get microInverterBankWindowFactor => 'Facteur';
+
+  @override
+  String get resultsKpiMicroDelivered => 'Micro-onduleur livré';
+
+  @override
+  String get resultsKpiMicroShortfall => 'Micro-onduleur déficit';
+
+  @override
+  String get resultsKpiUnservedLoad => 'Charge non servie';
 }

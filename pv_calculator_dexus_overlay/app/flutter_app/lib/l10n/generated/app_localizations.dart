@@ -1488,6 +1488,234 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Für Kompass-Auswahl markiert'**
   String get arraysSelectForCompass;
+
+  /// No description provided for @dispatchPolicyTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Dispatch-Strategie'**
+  String get dispatchPolicyTitle;
+
+  /// No description provided for @dispatchPolicyKindLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Strategie'**
+  String get dispatchPolicyKindLabel;
+
+  /// No description provided for @dispatchPolicySelfConsumption.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigenverbrauch zuerst'**
+  String get dispatchPolicySelfConsumption;
+
+  /// No description provided for @dispatchPolicySelfConsumptionDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'PV deckt zuerst die Last, Überschuss lädt die Speicher, danach Einspeisung. Standardverhalten und identisch zur alten Engine.'**
+  String get dispatchPolicySelfConsumptionDesc;
+
+  /// No description provided for @dispatchPolicyReserve.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicherreserve'**
+  String get dispatchPolicyReserve;
+
+  /// No description provided for @dispatchPolicyReserveDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Wie Eigenverbrauch, aber die Speicher werden nur bis zum Reserveziel geladen. PV-Überschuss wird früher eingespeist statt vollständig zwischengespeichert.'**
+  String get dispatchPolicyReserveDesc;
+
+  /// No description provided for @dispatchPolicyReserveSoc.
+  ///
+  /// In de, this message translates to:
+  /// **'Reserveziel'**
+  String get dispatchPolicyReserveSoc;
+
+  /// No description provided for @dispatchPolicyReserveSocHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Bruchteil der Speicherkapazität (0..1), bis zu dem PV-Überschuss geladen wird. 0,5 = nur bis zur Hälfte laden.'**
+  String get dispatchPolicyReserveSocHelp;
+
+  /// No description provided for @dispatchPolicyConstantFeed.
+  ///
+  /// In de, this message translates to:
+  /// **'24h-Konstanteinspeisung'**
+  String get dispatchPolicyConstantFeed;
+
+  /// No description provided for @dispatchPolicyConstantFeedDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Micro-Inverter-Bänke speisen rund um die Uhr mit ihrer Sollleistung, solange der Speicher über dem Abschalt-SOC liegt.'**
+  String get dispatchPolicyConstantFeedDesc;
+
+  /// No description provided for @dispatchPolicyTimeWindow.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitfenster-Einspeisung'**
+  String get dispatchPolicyTimeWindow;
+
+  /// No description provided for @dispatchPolicyTimeWindowDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Micro-Inverter-Bänke speisen nur innerhalb der in jedem Bank konfigurierten Zeitfenster.'**
+  String get dispatchPolicyTimeWindowDesc;
+
+  /// No description provided for @dispatchPolicyGridAssist.
+  ///
+  /// In de, this message translates to:
+  /// **'Netz-Assist'**
+  String get dispatchPolicyGridAssist;
+
+  /// No description provided for @dispatchPolicyGridAssistDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Wie Eigenverbrauch, aber Netzimport kann blockiert werden — nicht gedeckte Last erscheint als „unversorgte Last“.'**
+  String get dispatchPolicyGridAssistDesc;
+
+  /// No description provided for @dispatchPolicyGridImportLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Netzimport zulassen'**
+  String get dispatchPolicyGridImportLabel;
+
+  /// No description provided for @dispatchPolicyGridImportHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus = Inselbetrieb. Nicht gedeckte Last wird als „unversorgte Last“ statt als Netzimport bilanziert.'**
+  String get dispatchPolicyGridImportHelp;
+
+  /// No description provided for @dispatchPolicyBankHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Tipp: Diese Strategie ist nur sinnvoll mit mindestens einem Micro-Inverter-Bank.'**
+  String get dispatchPolicyBankHint;
+
+  /// No description provided for @microInverterBanksTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Micro-Inverter-Bänke (Batterieausgang)'**
+  String get microInverterBanksTitle;
+
+  /// No description provided for @microInverterBanksCount.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =0{Keine Bänke konfiguriert} =1{1 Bank} other{{count} Bänke}}'**
+  String microInverterBanksCount(int count);
+
+  /// No description provided for @microInverterBanksEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Bänke konfiguriert. Über „Hinzufügen“ einen batteriegekoppelten AC-Ausgang anlegen.'**
+  String get microInverterBanksEmpty;
+
+  /// No description provided for @microInverterBanksHeading.
+  ///
+  /// In de, this message translates to:
+  /// **'Bank {n}'**
+  String microInverterBanksHeading(int n);
+
+  /// No description provided for @microInverterBanksDefaultLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Bank {n}'**
+  String microInverterBanksDefaultLabel(int n);
+
+  /// No description provided for @microInverterBanksWarnPvDevice.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinweis: Reguläre PV-Micro-Inverter erwarten Modulkennlinien; ein Batterieausgang braucht ein vom Hersteller dafür freigegebenes Gerät. Die Simulation ersetzt keine Elektrofachplanung.'**
+  String get microInverterBanksWarnPvDevice;
+
+  /// No description provided for @microInverterBankBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Quell-Speicher'**
+  String get microInverterBankBattery;
+
+  /// No description provided for @microInverterBankCount.
+  ///
+  /// In de, this message translates to:
+  /// **'Anzahl'**
+  String get microInverterBankCount;
+
+  /// No description provided for @microInverterBankUnitW.
+  ///
+  /// In de, this message translates to:
+  /// **'Leistung je Einheit'**
+  String get microInverterBankUnitW;
+
+  /// No description provided for @microInverterBankShutdown.
+  ///
+  /// In de, this message translates to:
+  /// **'Abschalt-SOC'**
+  String get microInverterBankShutdown;
+
+  /// No description provided for @microInverterBankShutdownHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Bruchteil der Speicherkapazität (0..1), unter dem die Bank nicht mehr einspeist. 0 = nie abschalten.'**
+  String get microInverterBankShutdownHelp;
+
+  /// No description provided for @microInverterBankEfficiency.
+  ///
+  /// In de, this message translates to:
+  /// **'Wirkungsgrad'**
+  String get microInverterBankEfficiency;
+
+  /// No description provided for @microInverterBankSchedule.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitplan'**
+  String get microInverterBankSchedule;
+
+  /// No description provided for @microInverterBankAddWindow.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitfenster'**
+  String get microInverterBankAddWindow;
+
+  /// No description provided for @microInverterBankAlwaysOn.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne Fenster: rund um die Uhr aktiv (gemäß Dispatch-Strategie).'**
+  String get microInverterBankAlwaysOn;
+
+  /// No description provided for @microInverterBankWindowStart.
+  ///
+  /// In de, this message translates to:
+  /// **'Start (h)'**
+  String get microInverterBankWindowStart;
+
+  /// No description provided for @microInverterBankWindowEnd.
+  ///
+  /// In de, this message translates to:
+  /// **'Ende (h)'**
+  String get microInverterBankWindowEnd;
+
+  /// No description provided for @microInverterBankWindowFactor.
+  ///
+  /// In de, this message translates to:
+  /// **'Faktor'**
+  String get microInverterBankWindowFactor;
+
+  /// No description provided for @resultsKpiMicroDelivered.
+  ///
+  /// In de, this message translates to:
+  /// **'Micro-Inverter geliefert'**
+  String get resultsKpiMicroDelivered;
+
+  /// No description provided for @resultsKpiMicroShortfall.
+  ///
+  /// In de, this message translates to:
+  /// **'Micro-Inverter Fehlbetrag'**
+  String get resultsKpiMicroShortfall;
+
+  /// No description provided for @resultsKpiUnservedLoad.
+  ///
+  /// In de, this message translates to:
+  /// **'Unversorgte Last'**
+  String get resultsKpiUnservedLoad;
 }
 
 class _AppLocalizationsDelegate

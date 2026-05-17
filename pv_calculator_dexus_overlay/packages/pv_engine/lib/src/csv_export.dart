@@ -5,6 +5,7 @@ const _lineEnding = '\r\n';
 String stepsCsv(
   List<SimulationStep> steps, {
   int batteryCount = 0,
+  int bankCount = 0,
   String delimiter = ';',
 }) {
   final headers = <String>[
@@ -13,9 +14,12 @@ String stepsCsv(
     'batteryChargeKwh', 'batteryDischargeKwh', 'batterySocKwh',
     'gridImportKwh', 'gridExportKwh',
     'curtailedDcKwh', 'curtailedAcKwh', 'curtailedExportKwh',
+    'microInverterDeliveredKwh', 'microInverterShortfallKwh', 'unservedLoadKwh',
     for (var i = 1; i <= batteryCount; i++) 'chargeKwh_$i',
     for (var i = 1; i <= batteryCount; i++) 'dischargeKwh_$i',
     for (var i = 1; i <= batteryCount; i++) 'socKwh_$i',
+    for (var i = 1; i <= bankCount; i++) 'bankDeliveredKwh_$i',
+    for (var i = 1; i <= bankCount; i++) 'bankShortfallKwh_$i',
   ];
 
   final buffer = StringBuffer()..write(headers.map((h) => _quote(h, delimiter)).join(delimiter))..write(_lineEnding);
@@ -38,12 +42,19 @@ String stepsCsv(
       _num(step.curtailedDcKwh),
       _num(step.curtailedAcKwh),
       _num(step.curtailedExportKwh),
+      _num(step.microInverterDeliveredKwh),
+      _num(step.microInverterShortfallKwh),
+      _num(step.unservedLoadKwh),
       for (var i = 0; i < batteryCount; i++)
         _num(i < step.batteryChargesKwh.length ? step.batteryChargesKwh[i] : 0.0),
       for (var i = 0; i < batteryCount; i++)
         _num(i < step.batteryDischargesKwh.length ? step.batteryDischargesKwh[i] : 0.0),
       for (var i = 0; i < batteryCount; i++)
         _num(i < step.batterySocsKwh.length ? step.batterySocsKwh[i] : 0.0),
+      for (var i = 0; i < bankCount; i++)
+        _num(i < step.microInverterDeliveriesKwh.length ? step.microInverterDeliveriesKwh[i] : 0.0),
+      for (var i = 0; i < bankCount; i++)
+        _num(i < step.microInverterShortfallsKwh.length ? step.microInverterShortfallsKwh[i] : 0.0),
     ];
     buffer..write(row.map((v) => _quote(v, delimiter)).join(delimiter))..write(_lineEnding);
   }

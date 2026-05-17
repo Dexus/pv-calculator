@@ -9,8 +9,10 @@ import '../state/config_draft.dart';
 import '../state/project_controller.dart';
 import '../widgets/forms/_field.dart';
 import '../widgets/forms/batteries_section.dart';
+import '../widgets/forms/dispatch_policy_section.dart';
 import '../widgets/forms/inverters_section.dart';
 import '../widgets/forms/load_section.dart';
+import '../widgets/forms/micro_inverter_banks_section.dart';
 import '../widgets/results/monthly_table.dart';
 
 /// Auswertung tab — system definition (inverters + batteries + load
@@ -60,6 +62,10 @@ class ResultsTab extends StatelessWidget {
         const InvertersSection(),
         const SizedBox(height: 12),
         const BatteriesSection(),
+        const SizedBox(height: 12),
+        const MicroInverterBanksSection(),
+        const SizedBox(height: 12),
+        const DispatchPolicySection(),
         const SizedBox(height: 12),
         const LoadSection(),
         const SizedBox(height: 16),
@@ -191,6 +197,9 @@ class _ResultsBody extends StatelessWidget {
     final s = result.summary;
     final monthly = SummaryAggregator.monthly(result.steps);
     final batteryCount = s.finalBatterySocsKwh.length;
+    final bankCount = result.steps.isEmpty
+        ? 0
+        : result.steps.first.microInverterDeliveriesKwh.length;
     final l = AppLocalizations.of(context);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -209,6 +218,12 @@ class _ResultsBody extends StatelessWidget {
         _KpiCard(label: l.resultsKpiBatteryDischarge, value: '${s.batteryDischargeKwh.toStringAsFixed(0)} kWh'),
         _KpiCard(label: l.resultsKpiAutarky, value: '${(s.autarkyRate * 100).toStringAsFixed(1)} %'),
         _KpiCard(label: l.resultsKpiSelfConsumptionRate, value: '${(s.selfConsumptionRate * 100).toStringAsFixed(1)} %'),
+        if (s.microInverterDeliveredKwh > 0 || s.microInverterShortfallKwh > 0) ...[
+          _KpiCard(label: l.resultsKpiMicroDelivered, value: '${s.microInverterDeliveredKwh.toStringAsFixed(0)} kWh'),
+          _KpiCard(label: l.resultsKpiMicroShortfall, value: '${s.microInverterShortfallKwh.toStringAsFixed(0)} kWh'),
+        ],
+        if (s.unservedLoadKwh > 0)
+          _KpiCard(label: l.resultsKpiUnservedLoad, value: '${s.unservedLoadKwh.toStringAsFixed(0)} kWh'),
       ]),
       if (batteryCount > 0) ...[
         const SizedBox(height: 24),
@@ -230,7 +245,7 @@ class _ResultsBody extends StatelessWidget {
           onPressed: () => _exportCsv(
             context,
             filename: '${_safe(projectName)}_schritte.csv',
-            content: stepsCsv(result.steps, batteryCount: batteryCount),
+            content: stepsCsv(result.steps, batteryCount: batteryCount, bankCount: bankCount),
           ),
           icon: const Icon(Icons.file_download),
           label: Text(l.resultsCsvSteps),

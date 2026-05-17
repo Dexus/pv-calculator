@@ -4,7 +4,17 @@ import 'package:pv_engine/pv_engine.dart';
 /// tab and friends use this to render the engine's free-form error
 /// message inside the matching section card instead of in a single
 /// top-of-page banner.
-enum ConfigSection { project, arrays, inverters, batteries, load, unknown }
+enum ConfigSection {
+  project,
+  arrays,
+  inverters,
+  batteries,
+  banks,
+  policy,
+  topology,
+  load,
+  unknown,
+}
 
 /// A classified engine-validation failure. Routed to a section so the
 /// user sees the message next to the field they need to fix.
@@ -31,6 +41,13 @@ ConfigSection classifyValidationMessage(String message) {
       m.contains('references missing inverter')) {
     return ConfigSection.arrays;
   }
+  if (m.contains('micro-inverter bank') ||
+      m.contains('microinverterbank') ||
+      m.contains('mininvertereff') ||
+      m.contains('unitratedpower') ||
+      m.contains('minsocshutdown')) {
+    return ConfigSection.banks;
+  }
   if (m.contains('inverter') ||
       m.contains('maxackw') ||
       m.contains('maxdcinputkw') ||
@@ -44,6 +61,17 @@ ConfigSection classifyValidationMessage(String message) {
       m.contains('maxdischargekw') ||
       m.contains('roundtripefficiency')) {
     return ConfigSection.batteries;
+  }
+  if (m.contains('dispatchpolicy') ||
+      m.contains('reserveSocFraction'.toLowerCase()) ||
+      m.contains('reserve soc fraction')) {
+    return ConfigSection.policy;
+  }
+  if (m.contains('topology') ||
+      m.contains('dcbus') ||
+      m.contains('acbus') ||
+      m.contains('mppt')) {
+    return ConfigSection.topology;
   }
   if (m.contains('load ') ||
       m.contains('dailykwh') ||
@@ -145,11 +173,15 @@ class ConfigDraft {
     List<PvArrayDraft>? arrays,
     List<InverterDraft>? inverters,
     List<BatteryDraft>? batteries,
+    List<MicroInverterBankDraft>? microInverterBanks,
+    DispatchPolicyDraft? dispatchPolicy,
     LoadProfileDraft? loadProfile,
   })  : siteIrradiance = siteIrradiance ?? SiteIrradianceDraft(),
         arrays = arrays ?? <PvArrayDraft>[],
         inverters = inverters ?? <InverterDraft>[],
         batteries = batteries ?? <BatteryDraft>[],
+        microInverterBanks = microInverterBanks ?? <MicroInverterBankDraft>[],
+        dispatchPolicy = dispatchPolicy ?? DispatchPolicyDraft.selfConsumption(),
         loadProfile = loadProfile ?? LoadProfileDraft();
 
   int startDayOfYear;
@@ -166,6 +198,14 @@ class ConfigDraft {
   final List<PvArrayDraft> arrays;
   final List<InverterDraft> inverters;
   final List<BatteryDraft> batteries;
+
+  /// Phase-4 micro-inverter banks (battery-coupled AC outputs).
+  final List<MicroInverterBankDraft> microInverterBanks;
+
+  /// Phase-4 dispatch policy. Defaults to SelfConsumptionFirst; the
+  /// engine only persists this in JSON when it isn't the default.
+  DispatchPolicyDraft dispatchPolicy;
+
   LoadProfileDraft loadProfile;
 
   /// Builds the [IrradianceSource] used by the engine, or `null` to fall
@@ -179,20 +219,28 @@ class ConfigDraft {
     return HorizontalToPoaSource(samples);
   }
 
-  SimulationConfig build() => SimulationConfig(
-        arrays: arrays.map((a) => a.build()).toList(growable: false),
-        inverters: inverters.map((i) => i.build()).toList(growable: false),
-        batteries: batteries.map((b) => b.build()).toList(growable: false),
-        loadProfile: loadProfile.build(),
-        startDayOfYear: startDayOfYear,
-        days: days,
-        timeStep: timeStep,
-        preRunDays: preRunDays,
-        gridExportLimitKw: gridExportLimitKw,
-        latitudeDeg: latitudeDeg,
-        longitudeDeg: longitudeDeg,
-        weatherSource: buildWeatherSource(),
-      );
+  SimulationConfig build() {
+    final policy = dispatchPolicy.build();
+    return SimulationConfig(
+      arrays: arrays.map((a) => a.build()).toList(growable: false),
+      inverters: inverters.map((i) => i.build()).toList(growable: false),
+      batteries: batteries.map((b) => b.build()).toList(growable: false),
+      microInverterBanks: microInverterBanks.map((b) => b.build()).toList(growable: false),
+      // Only attach a non-default policy so v1-shaped projects keep
+      // round-tripping through v1 JSON (the engine bumps to v2 only
+      // when one of these new fields is set).
+      dispatchPolicy: policy is SelfConsumptionFirstPolicy ? null : policy,
+      loadProfile: loadProfile.build(),
+      startDayOfYear: startDayOfYear,
+      days: days,
+      timeStep: timeStep,
+      preRunDays: preRunDays,
+      gridExportLimitKw: gridExportLimitKw,
+      latitudeDeg: latitudeDeg,
+      longitudeDeg: longitudeDeg,
+      weatherSource: buildWeatherSource(),
+    );
+  }
 
   /// Returns the first engine-validation failure as a [ValidationIssue]
   /// (classified to its owning [ConfigSection]) or `null` when the
@@ -219,6 +267,8 @@ class ConfigDraft {
         arrays: config.arrays.map(PvArrayDraft.fromArray).toList(),
         inverters: config.inverters.map(InverterDraft.fromInverter).toList(),
         batteries: config.batteries.map(BatteryDraft.fromBattery).toList(),
+        microInverterBanks: config.microInverterBanks.map(MicroInverterBankDraft.fromBank).toList(),
+        dispatchPolicy: DispatchPolicyDraft.fromPolicy(config.dispatchPolicy),
         loadProfile: LoadProfileDraft.fromProfile(config.loadProfile),
       );
 
@@ -376,4 +426,149 @@ class LoadProfileDraft {
 
   static LoadProfileDraft fromProfile(LoadProfile p) =>
       LoadProfileDraft(dailyKwh: p.dailyKwh, hourlyShape: List<double>.from(p.hourlyShape));
+}
+
+/// Mutable working copy of a [MicroInverterBank]. Schedules are stored
+/// in the same simplified form that the UI exposes: either always-on or
+/// a list of time windows.
+class MicroInverterBankDraft {
+  MicroInverterBankDraft({
+    required this.id,
+    this.label = '',
+    this.batteryId = '',
+    this.count = 1,
+    this.unitRatedPowerW = 800.0,
+    this.minSocShutdown = 0.0,
+    this.inverterEfficiency = 0.95,
+    List<TimeWindowDraft>? windows,
+  }) : windows = windows ?? <TimeWindowDraft>[];
+
+  String id;
+  String label;
+  String batteryId;
+  int count;
+  double unitRatedPowerW;
+  double minSocShutdown;
+  double inverterEfficiency;
+
+  /// Empty list = `AlwaysOnSchedule`. Non-empty = `TimeWindowSchedule`.
+  final List<TimeWindowDraft> windows;
+
+  BankSchedule buildSchedule() {
+    if (windows.isEmpty) return const AlwaysOnSchedule();
+    return TimeWindowSchedule(
+      windows.map((w) => TimeWindow(startHour: w.startHour, endHour: w.endHour, factor: w.factor)).toList(growable: false),
+    );
+  }
+
+  MicroInverterBank build() => MicroInverterBank(
+        id: id,
+        label: label,
+        batteryId: batteryId,
+        count: count,
+        unitRatedPowerW: unitRatedPowerW,
+        minSocShutdown: minSocShutdown,
+        inverterEfficiency: inverterEfficiency,
+        schedule: buildSchedule(),
+      );
+
+  static MicroInverterBankDraft fromBank(MicroInverterBank b) {
+    final draft = MicroInverterBankDraft(
+      id: b.id,
+      label: b.label,
+      batteryId: b.batteryId,
+      count: b.count,
+      unitRatedPowerW: b.unitRatedPowerW,
+      minSocShutdown: b.minSocShutdown,
+      inverterEfficiency: b.inverterEfficiency,
+    );
+    final sched = b.schedule;
+    if (sched is TimeWindowSchedule) {
+      draft.windows.addAll(sched.windows.map((w) => TimeWindowDraft(
+            startHour: w.startHour,
+            endHour: w.endHour,
+            factor: w.factor,
+          )));
+    }
+    return draft;
+  }
+}
+
+class TimeWindowDraft {
+  TimeWindowDraft({this.startHour = 18.0, this.endHour = 22.0, this.factor = 1.0});
+
+  double startHour;
+  double endHour;
+  double factor;
+}
+
+/// Mutable working copy of a [DispatchPolicy]. The UI flips between
+/// the five built-in policies via [DispatchPolicyKind]; per-policy
+/// parameters live in dedicated fields so switching kinds doesn't
+/// silently throw away the user's last input for the chosen policy.
+enum DispatchPolicyKind {
+  selfConsumption,
+  batteryReserve,
+  constantFeed24h,
+  timeWindowFeed,
+  gridAssist,
+}
+
+class DispatchPolicyDraft {
+  DispatchPolicyDraft({
+    this.kind = DispatchPolicyKind.selfConsumption,
+    this.reserveSocFraction = 0.5,
+    this.gridAssistAllowImport = false,
+  });
+
+  DispatchPolicyKind kind;
+
+  /// Used by [DispatchPolicyKind.batteryReserve].
+  double reserveSocFraction;
+
+  /// Used by [DispatchPolicyKind.gridAssist].
+  bool gridAssistAllowImport;
+
+  factory DispatchPolicyDraft.selfConsumption() =>
+      DispatchPolicyDraft(kind: DispatchPolicyKind.selfConsumption);
+
+  DispatchPolicy build() {
+    switch (kind) {
+      case DispatchPolicyKind.selfConsumption:
+        return const SelfConsumptionFirstPolicy();
+      case DispatchPolicyKind.batteryReserve:
+        return BatteryReservePolicy(reserveSocFraction: reserveSocFraction);
+      case DispatchPolicyKind.constantFeed24h:
+        return const ConstantFeed24hPolicy();
+      case DispatchPolicyKind.timeWindowFeed:
+        return const TimeWindowFeedPolicy();
+      case DispatchPolicyKind.gridAssist:
+        return GridAssistPolicy(allowGridImport: gridAssistAllowImport);
+    }
+  }
+
+  static DispatchPolicyDraft fromPolicy(DispatchPolicy? policy) {
+    if (policy == null || policy is SelfConsumptionFirstPolicy) {
+      return DispatchPolicyDraft();
+    }
+    if (policy is BatteryReservePolicy) {
+      return DispatchPolicyDraft(
+        kind: DispatchPolicyKind.batteryReserve,
+        reserveSocFraction: policy.reserveSocFraction,
+      );
+    }
+    if (policy is TimeWindowFeedPolicy) {
+      return DispatchPolicyDraft(kind: DispatchPolicyKind.timeWindowFeed);
+    }
+    if (policy is ConstantFeed24hPolicy) {
+      return DispatchPolicyDraft(kind: DispatchPolicyKind.constantFeed24h);
+    }
+    if (policy is GridAssistPolicy) {
+      return DispatchPolicyDraft(
+        kind: DispatchPolicyKind.gridAssist,
+        gridAssistAllowImport: policy.allowGridImport,
+      );
+    }
+    return DispatchPolicyDraft();
+  }
 }
