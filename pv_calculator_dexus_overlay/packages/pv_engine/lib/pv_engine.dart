@@ -56,7 +56,9 @@ enum PreRunMode {
   /// Repeats the full 365-day year until the per-battery start↔end SOC
   /// delta falls below `convergenceToleranceFraction × usableCapacity`
   /// (usable = capacity − minSoc) for every battery, or
-  /// `maxConvergenceIterations` is reached. Pro feature.
+  /// `maxConvergenceIterations` is reached. The engine accepts this
+  /// value unconditionally; any Pro/Free restriction is enforced by the
+  /// calling UI (see Flutter `kProFeatures`), not here.
   cyclicConvergence,
 }
 
@@ -731,9 +733,12 @@ class SimulationSummary {
   /// config for traceability — see PRD §6.2 line 260.
   final PreRunMode preRunMode;
 
-  /// `true` when any pre-run iteration actually executed (warm-up days
-  /// > 0 or cyclic mode ran at least one cycle). `false` for manual
-  /// mode or for singleWarmUp with `preRunDays == 0`.
+  /// `true` when a SOC-settling run was actually executed — i.e. at
+  /// least one battery was configured **and** the chosen mode performed
+  /// pre-run work (`singleWarmUp` with `preRunDays > 0`, or any cyclic
+  /// iteration). `false` for manual mode, for `singleWarmUp` with
+  /// `preRunDays == 0`, and whenever `batteries` is empty (no SOC to
+  /// settle, so no pre-run is meaningful regardless of mode).
   final bool preRunActive;
 
   /// Per-battery SOC at the first reported step (i.e. after the pre-run
@@ -741,10 +746,14 @@ class SimulationSummary {
   /// when no batteries are configured.
   final List<double> startSocsUsedKwh;
 
-  /// Number of full-year cycles executed by the cyclic convergence
-  /// loop. `0` for manual, `1` for singleWarmUp (even with
-  /// `preRunDays == 0`, accounting for the always-executed reported
-  /// year), `N` for cyclic mode.
+  /// Number of pre-run iterations executed. `0` for manual mode and for
+  /// `singleWarmUp` without an effective warm-up (`preRunDays == 0` or
+  /// no batteries). `1` for `singleWarmUp` with `preRunDays > 0` and at
+  /// least one battery. `N ∈ [1, maxConvergenceIterations]` for cyclic
+  /// mode — always ≥ 1 because the convergence check sits at the end of
+  /// the loop body (with no batteries the empty check is trivially
+  /// satisfied after one cycle). The always-executed reported year is
+  /// **not** counted here.
   final int convergenceIterations;
 
   /// `true` unless cyclic convergence hit `maxConvergenceIterations`
