@@ -428,10 +428,15 @@ class LoadProfileDraft {
       LoadProfileDraft(dailyKwh: p.dailyKwh, hourlyShape: List<double>.from(p.hourlyShape));
 }
 
-/// Mutable working copy of a [MicroInverterBank]. The UI only edits
-/// always-on and time-window schedules. Other engine schedule kinds
-/// (e.g. [HourlySchedule]) are preserved verbatim in [preservedSchedule]
-/// so opening and saving a project does not silently rewrite them.
+/// Which schedule kind a [MicroInverterBankDraft] is currently editing.
+/// Maps 1:1 to the engine's three [BankSchedule] implementations.
+enum BankScheduleKind { alwaysOn, timeWindows, hourly }
+
+/// Mutable working copy of a [MicroInverterBank]. [scheduleKind]
+/// selects which of the three engine [BankSchedule] subtypes
+/// [buildSchedule] returns; the per-kind editor state ([windows] for
+/// time windows, [hourlyFactors] for hourly) is kept side-by-side so a
+/// user who flips back and forth doesn't lose the values they typed.
 class MicroInverterBankDraft {
   MicroInverterBankDraft({
     required this.id,
@@ -441,9 +446,11 @@ class MicroInverterBankDraft {
     this.unitRatedPowerW = 800.0,
     this.minSocShutdown = 0.0,
     this.inverterEfficiency = 0.95,
+    this.scheduleKind = BankScheduleKind.alwaysOn,
     List<TimeWindowDraft>? windows,
-    this.preservedSchedule,
-  }) : windows = windows ?? <TimeWindowDraft>[];
+    List<double>? hourlyFactors,
+  })  : windows = windows ?? <TimeWindowDraft>[],
+        hourlyFactors = hourlyFactors ?? List<double>.filled(24, 1.0);
 
   String id;
   String label;
@@ -453,25 +460,29 @@ class MicroInverterBankDraft {
   double minSocShutdown;
   double inverterEfficiency;
 
-  /// Empty list = fall back to [preservedSchedule] or
-  /// [AlwaysOnSchedule]. Non-empty = [TimeWindowSchedule].
+  /// Which engine schedule kind [buildSchedule] returns.
+  BankScheduleKind scheduleKind;
+
+  /// Editor state for [BankScheduleKind.timeWindows].
   final List<TimeWindowDraft> windows;
 
-  /// Engine schedule the draft was loaded from when it is not one of
-  /// the kinds the UI can edit directly (currently: [HourlySchedule]).
-  /// Survives round-trip until the user explicitly adds a window, at
-  /// which point [buildSchedule] returns the new [TimeWindowSchedule].
-  BankSchedule? preservedSchedule;
+  /// Editor state for [BankScheduleKind.hourly]. Length is always 24;
+  /// each entry is the factor (0..1) for the hour starting at that index.
+  final List<double> hourlyFactors;
 
   BankSchedule buildSchedule() {
-    if (windows.isNotEmpty) {
-      return TimeWindowSchedule(
-        windows
-            .map((w) => TimeWindow(startHour: w.startHour, endHour: w.endHour, factor: w.factor))
-            .toList(growable: false),
-      );
+    switch (scheduleKind) {
+      case BankScheduleKind.alwaysOn:
+        return const AlwaysOnSchedule();
+      case BankScheduleKind.timeWindows:
+        return TimeWindowSchedule(
+          windows
+              .map((w) => TimeWindow(startHour: w.startHour, endHour: w.endHour, factor: w.factor))
+              .toList(growable: false),
+        );
+      case BankScheduleKind.hourly:
+        return HourlySchedule(List<double>.unmodifiable(hourlyFactors));
     }
-    return preservedSchedule ?? const AlwaysOnSchedule();
   }
 
   MicroInverterBank build() => MicroInverterBank(
@@ -497,13 +508,17 @@ class MicroInverterBankDraft {
     );
     final sched = b.schedule;
     if (sched is TimeWindowSchedule) {
+      draft.scheduleKind = BankScheduleKind.timeWindows;
       draft.windows.addAll(sched.windows.map((w) => TimeWindowDraft(
             startHour: w.startHour,
             endHour: w.endHour,
             factor: w.factor,
           )));
-    } else if (sched is! AlwaysOnSchedule) {
-      draft.preservedSchedule = sched;
+    } else if (sched is HourlySchedule) {
+      draft.scheduleKind = BankScheduleKind.hourly;
+      for (var i = 0; i < 24 && i < sched.factors.length; i++) {
+        draft.hourlyFactors[i] = sched.factors[i];
+      }
     }
     return draft;
   }

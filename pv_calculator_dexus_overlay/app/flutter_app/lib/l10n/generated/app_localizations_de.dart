@@ -933,11 +933,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get microInverterBankSchedule => 'Zeitplan';
 
   @override
+  String get microInverterBankScheduleKind => 'Zeitplan-Typ';
+
+  @override
+  String get microInverterBankScheduleAlwaysOn => 'Dauerbetrieb';
+
+  @override
+  String get microInverterBankScheduleTimeWindows => 'Zeitfenster';
+
+  @override
+  String get microInverterBankScheduleHourly => 'Stündlich (24 Werte)';
+
+  @override
   String get microInverterBankAddWindow => 'Zeitfenster';
 
   @override
   String get microInverterBankAlwaysOn =>
-      'Ohne Fenster: rund um die Uhr aktiv (gemäß Dispatch-Strategie).';
+      'Dauerbetrieb: rund um die Uhr aktiv (gemäß Dispatch-Strategie).';
 
   @override
   String get microInverterBankWindowStart => 'Start (h)';
@@ -947,6 +959,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get microInverterBankWindowFactor => 'Faktor';
+
+  @override
+  String microInverterBankHourlyHour(int hour) {
+    return '$hour:00';
+  }
+
+  @override
+  String get microInverterBankHourlyHelp =>
+      'Faktor je Stunde (0..1). 1.0 = volle Sollleistung, 0.0 = aus. Wirkt auf die Bank-Sollleistung, nicht direkt auf SOC.';
+
+  @override
+  String get microInverterBankHourlyReset => 'Alles auf 1.0';
 
   @override
   String get resultsKpiMicroDelivered => 'Micro-Inverter geliefert';

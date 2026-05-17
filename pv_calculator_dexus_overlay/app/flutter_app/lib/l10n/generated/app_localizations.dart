@@ -1669,6 +1669,30 @@ abstract class AppLocalizations {
   /// **'Zeitplan'**
   String get microInverterBankSchedule;
 
+  /// No description provided for @microInverterBankScheduleKind.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitplan-Typ'**
+  String get microInverterBankScheduleKind;
+
+  /// No description provided for @microInverterBankScheduleAlwaysOn.
+  ///
+  /// In de, this message translates to:
+  /// **'Dauerbetrieb'**
+  String get microInverterBankScheduleAlwaysOn;
+
+  /// No description provided for @microInverterBankScheduleTimeWindows.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitfenster'**
+  String get microInverterBankScheduleTimeWindows;
+
+  /// No description provided for @microInverterBankScheduleHourly.
+  ///
+  /// In de, this message translates to:
+  /// **'Stündlich (24 Werte)'**
+  String get microInverterBankScheduleHourly;
+
   /// No description provided for @microInverterBankAddWindow.
   ///
   /// In de, this message translates to:
@@ -1678,7 +1702,7 @@ abstract class AppLocalizations {
   /// No description provided for @microInverterBankAlwaysOn.
   ///
   /// In de, this message translates to:
-  /// **'Ohne Fenster: rund um die Uhr aktiv (gemäß Dispatch-Strategie).'**
+  /// **'Dauerbetrieb: rund um die Uhr aktiv (gemäß Dispatch-Strategie).'**
   String get microInverterBankAlwaysOn;
 
   /// No description provided for @microInverterBankWindowStart.
@@ -1698,6 +1722,24 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Faktor'**
   String get microInverterBankWindowFactor;
+
+  /// No description provided for @microInverterBankHourlyHour.
+  ///
+  /// In de, this message translates to:
+  /// **'{hour}:00'**
+  String microInverterBankHourlyHour(int hour);
+
+  /// No description provided for @microInverterBankHourlyHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Faktor je Stunde (0..1). 1.0 = volle Sollleistung, 0.0 = aus. Wirkt auf die Bank-Sollleistung, nicht direkt auf SOC.'**
+  String get microInverterBankHourlyHelp;
+
+  /// No description provided for @microInverterBankHourlyReset.
+  ///
+  /// In de, this message translates to:
+  /// **'Alles auf 1.0'**
+  String get microInverterBankHourlyReset;
 
   /// No description provided for @resultsKpiMicroDelivered.
   ///

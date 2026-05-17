@@ -167,14 +167,68 @@ class _ScheduleEditor extends StatelessWidget {
   final MicroInverterBankDraft bank;
   final VoidCallback onChanged;
 
+  String _kindLabel(AppLocalizations l, BankScheduleKind kind) {
+    switch (kind) {
+      case BankScheduleKind.alwaysOn:
+        return l.microInverterBankScheduleAlwaysOn;
+      case BankScheduleKind.timeWindows:
+        return l.microInverterBankScheduleTimeWindows;
+      case BankScheduleKind.hourly:
+        return l.microInverterBankScheduleHourly;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final hasWindows = bank.windows.isNotEmpty;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: Text(l.microInverterBankSchedule, style: Theme.of(context).textTheme.titleSmall)),
-        TextButton.icon(
+        SizedBox(
+          width: 220,
+          child: DropdownButtonFormField<BankScheduleKind>(
+            key: Key('bank-${bank.id}-schedule-kind'),
+            isExpanded: true,
+            initialValue: bank.scheduleKind,
+            decoration: InputDecoration(labelText: l.microInverterBankScheduleKind, isDense: true),
+            items: [
+              for (final k in BankScheduleKind.values)
+                DropdownMenuItem(value: k, child: Text(_kindLabel(l, k))),
+            ],
+            onChanged: (v) {
+              if (v == null || v == bank.scheduleKind) return;
+              bank.scheduleKind = v;
+              onChanged();
+            },
+          ),
+        ),
+      ]),
+      const SizedBox(height: 8),
+      switch (bank.scheduleKind) {
+        BankScheduleKind.alwaysOn =>
+          Text(l.microInverterBankAlwaysOn, style: Theme.of(context).textTheme.bodySmall),
+        BankScheduleKind.timeWindows =>
+          _TimeWindowsEditor(bank: bank, onChanged: onChanged),
+        BankScheduleKind.hourly =>
+          _HourlyFactorGrid(bank: bank, onChanged: onChanged),
+      },
+    ]);
+  }
+}
+
+class _TimeWindowsEditor extends StatelessWidget {
+  const _TimeWindowsEditor({required this.bank, required this.onChanged});
+
+  final MicroInverterBankDraft bank;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
           key: Key('bank-${bank.id}-add-window'),
           onPressed: () {
             bank.windows.add(TimeWindowDraft());
@@ -183,9 +237,7 @@ class _ScheduleEditor extends StatelessWidget {
           icon: const Icon(Icons.add_alarm),
           label: Text(l.microInverterBankAddWindow),
         ),
-      ]),
-      if (!hasWindows)
-        Text(l.microInverterBankAlwaysOn, style: Theme.of(context).textTheme.bodySmall),
+      ),
       for (var i = 0; i < bank.windows.length; i++)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
@@ -214,6 +266,65 @@ class _ScheduleEditor extends StatelessWidget {
             ),
           ]),
         ),
+    ]);
+  }
+}
+
+/// Renders a 24-cell editor for [MicroInverterBankDraft.hourlyFactors],
+/// one `NumberField` per hour-of-day. Uses [ValueKey] tied to the cell's
+/// current value so Flutter rebuilds the underlying controller after a
+/// "Reset to 1.0" press (otherwise the previously focused field would
+/// keep its stale text).
+class _HourlyFactorGrid extends StatelessWidget {
+  const _HourlyFactorGrid({required this.bank, required this.onChanged});
+
+  final MicroInverterBankDraft bank;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(
+          child: Text(l.microInverterBankHourlyHelp,
+              style: Theme.of(context).textTheme.bodySmall),
+        ),
+        TextButton.icon(
+          key: Key('bank-${bank.id}-hourly-reset'),
+          onPressed: () {
+            for (var i = 0; i < bank.hourlyFactors.length; i++) {
+              bank.hourlyFactors[i] = 1.0;
+            }
+            onChanged();
+          },
+          icon: const Icon(Icons.restart_alt),
+          label: Text(l.microInverterBankHourlyReset),
+        ),
+      ]),
+      const SizedBox(height: 4),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var h = 0; h < 24; h++)
+            SizedBox(
+              width: 96,
+              child: NumberField(
+                key: ValueKey('bank-${bank.id}-hourly-$h-${bank.hourlyFactors[h]}'),
+                label: l.microInverterBankHourlyHour(h),
+                initialValue: bank.hourlyFactors[h],
+                min: 0,
+                max: 1,
+                onChanged: (v) {
+                  if (v == null) return;
+                  bank.hourlyFactors[h] = v;
+                  onChanged();
+                },
+              ),
+            ),
+        ],
+      ),
     ]);
   }
 }

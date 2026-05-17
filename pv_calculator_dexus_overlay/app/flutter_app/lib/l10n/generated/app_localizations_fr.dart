@@ -934,11 +934,23 @@ class AppLocalizationsFr extends AppLocalizations {
   String get microInverterBankSchedule => 'Programmation';
 
   @override
+  String get microInverterBankScheduleKind => 'Type de programmation';
+
+  @override
+  String get microInverterBankScheduleAlwaysOn => 'Toujours actif';
+
+  @override
+  String get microInverterBankScheduleTimeWindows => 'Fenêtres horaires';
+
+  @override
+  String get microInverterBankScheduleHourly => 'Horaire (24 facteurs)';
+
+  @override
   String get microInverterBankAddWindow => 'Fenêtre';
 
   @override
   String get microInverterBankAlwaysOn =>
-      'Sans fenêtres : actif 24 h/24 (selon la stratégie de dispatch).';
+      'Toujours actif : 24 h/24 (selon la stratégie de dispatch).';
 
   @override
   String get microInverterBankWindowStart => 'Début (h)';
@@ -948,6 +960,18 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get microInverterBankWindowFactor => 'Facteur';
+
+  @override
+  String microInverterBankHourlyHour(int hour) {
+    return '$hour:00';
+  }
+
+  @override
+  String get microInverterBankHourlyHelp =>
+      'Facteur par heure (0..1). 1,0 = puissance cible complète, 0,0 = arrêt. S\'applique à la cible du banc, pas directement au SOC.';
+
+  @override
+  String get microInverterBankHourlyReset => 'Tout remettre à 1,0';
 
   @override
   String get resultsKpiMicroDelivered => 'Micro-onduleur livré';
