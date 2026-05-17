@@ -64,13 +64,13 @@ ConfigSection classifyValidationMessage(String message) {
 /// PVGIS radiation databases the Einstrahlung tab offers in the dropdown.
 /// `null` lets PVGIS pick its own default for the requested location,
 /// which is the safe fallback when a specific database does not cover a
-/// region.
+/// region. SARAH2 was retired upstream and NSRDB is North-America-only,
+/// so neither is exposed here — only the two databases PVGIS v5_3 can
+/// actually serve through our proxy today.
 const List<String?> pvgisRadDatabaseOptions = [
   null,
   'PVGIS-SARAH3',
-  'PVGIS-SARAH2',
   'PVGIS-ERA5',
-  'PVGIS-NSRDB',
 ];
 
 /// Year picker default. SARAH3 currently covers 2005-01-01 through
@@ -78,11 +78,11 @@ const List<String?> pvgisRadDatabaseOptions = [
 /// year preselected without the user having to think.
 const int defaultIrradianceYear = 2022;
 
-/// Default radiation database. SARAH2 matches the annual totals reported
-/// by the comparison/reference app the project is calibrated against —
-/// SARAH3 runs ~3% higher on the same site/year, which made our numbers
-/// look "off" against the example. `null` (PVGIS auto) is still selectable.
-const String defaultRadDatabase = 'PVGIS-SARAH2';
+/// Default radiation database. SARAH3 is PVGIS v5_3's primary
+/// satellite-derived database for Europe and Africa and the most
+/// physically accurate option of the two we expose; users who need the
+/// global-coverage fallback can switch to ERA5 in the dropdown.
+const String defaultRadDatabase = 'PVGIS-SARAH3';
 
 /// Site-level horizontal-irradiance request + cached samples for the
 /// Einstrahlung tab.
