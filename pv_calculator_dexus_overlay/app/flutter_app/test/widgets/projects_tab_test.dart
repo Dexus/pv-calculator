@@ -14,11 +14,13 @@ import 'package:pv_calculator_app/state/scenario_comparison_controller.dart';
 /// Hosts [ProjectsTab] inside the minimum scaffold it requires:
 /// `DefaultTabController` (the open-scenario tap calls `animateTo(1)`) and
 /// the provider tree built up in `main.dart`. Each test gets its own
-/// in-memory db so seeded fixtures don't leak.
-Widget _host(AppDatabase db) {
+/// in-memory db so seeded fixtures don't leak. Pass [controller] when the
+/// test wants to observe controller state after a tab action.
+Widget _host(AppDatabase db, {ProjectController? controller}) {
+  final ctrl = controller ?? ProjectController();
   return MultiProvider(
     providers: [
-      ChangeNotifierProvider<ProjectController>(create: (_) => ProjectController()),
+      ChangeNotifierProvider<ProjectController>.value(value: ctrl),
       Provider<AppDatabase>.value(value: db),
       Provider<ProjectRepository>(create: (_) => ProjectRepository(db)),
       Provider<ScenarioRepository>(create: (_) => ScenarioRepository(db)),
@@ -160,5 +162,77 @@ void main() {
 
     // Localized empty-state copy from `projectListEmpty`.
     expect(find.byIcon(Icons.solar_power), findsOneWidget);
+  });
+
+  testWidgets('deleting the active scenario clears it from ProjectController',
+      (tester) async {
+    final project = projects.createProject(name: 'P');
+    final scenario = scenarios.create(
+      projectId: project.id,
+      siteId: projects.defaultSiteFor(project.id)?.id,
+      name: 'Active',
+      config: ConfigDraft.demo().build(),
+    );
+
+    final controller = ProjectController()
+      ..loadDraft(
+        project.name,
+        ConfigDraft.fromConfig(scenario.config),
+        scenarioId: scenario.id,
+        projectId: project.id,
+      );
+    addTearDown(controller.dispose);
+    expect(controller.scenarioId, equals(scenario.id));
+
+    await tester.pumpWidget(_host(db, controller: controller));
+    await tester.pumpAndSettle();
+
+    // Trigger the scenario delete and confirm the dialog.
+    await tester.tap(find.byTooltip('Löschen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Löschen'));
+    await tester.pumpAndSettle();
+
+    expect(controller.scenarioId, isNull,
+        reason: 'controller must drop the now-deleted scenarioId so the next '
+            'Save Current writes a fresh row instead of UPDATE-ing a deleted one');
+    expect(controller.projectId, isNull);
+    expect(scenarios.findById(scenario.id), isNull);
+  });
+
+  testWidgets('deleting the active project clears it from ProjectController',
+      (tester) async {
+    final project = projects.createProject(name: 'P');
+    final scenario = scenarios.create(
+      projectId: project.id,
+      siteId: projects.defaultSiteFor(project.id)?.id,
+      name: 'Active',
+      config: ConfigDraft.demo().build(),
+    );
+
+    final controller = ProjectController()
+      ..loadDraft(
+        project.name,
+        ConfigDraft.fromConfig(scenario.config),
+        scenarioId: scenario.id,
+        projectId: project.id,
+      );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(_host(db, controller: controller));
+    await tester.pumpAndSettle();
+
+    // Open the project-level popup menu and pick "Projekt löschen".
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Projekt löschen').last);
+    await tester.pumpAndSettle();
+    // Confirm dialog uses the existing projectListDeleteTitle copy.
+    await tester.tap(find.widgetWithText(FilledButton, 'Löschen'));
+    await tester.pumpAndSettle();
+
+    expect(controller.projectId, isNull);
+    expect(controller.scenarioId, isNull);
+    expect(projects.findById(project.id), isNull);
   });
 }
