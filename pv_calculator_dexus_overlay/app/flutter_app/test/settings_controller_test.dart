@@ -56,4 +56,37 @@ void main() {
 
     expect(controller.themeMode, ThemeMode.system);
   });
+
+  test('a setThemeMode that beats a slow load() is not overwritten', () async {
+    // Reproduces the race the reviewer flagged: persisted value differs
+    // from the user's in-flight choice. The fix guarantees user wins.
+    SharedPreferences.setMockInitialValues({
+      SettingsController.themeModeKey: 'dark',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController(prefs: prefs);
+
+    // Kick off load without awaiting, then immediately set the
+    // opposite value as if the user tapped before load completed.
+    final loadFuture = controller.load();
+    await controller.setThemeMode(ThemeMode.light);
+    await loadFuture;
+
+    expect(controller.themeMode, ThemeMode.light,
+        reason: 'User choice must win over a late-arriving load.');
+  });
+
+  test('setLocale persists the choice and decodes back on reload', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController(prefs: prefs);
+    await controller.load();
+
+    await controller.setLocale(const Locale('fr'));
+    expect(controller.locale, const Locale('fr'));
+    expect(prefs.getString(SettingsController.localeKey), 'fr');
+
+    await controller.setLocale(null);
+    expect(controller.locale, isNull);
+    expect(prefs.getString(SettingsController.localeKey), isNull);
+  });
 }

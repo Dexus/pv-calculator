@@ -15,10 +15,14 @@ const List<Locale> kSupportedLocales = [
 /// Holds user-facing app preferences (theme mode, language) and persists
 /// them via [SharedPreferences].
 ///
-/// Writes are fire-and-forget: the in-memory value updates and listeners
-/// are notified immediately, so the UI flips before the async `setString`
-/// completes. A failed write leaves the in-memory choice in effect for
-/// the session.
+/// Writes are best-effort: the in-memory value updates and listeners are
+/// notified immediately, so the UI flips before the async `setString`
+/// completes. Persistence errors are caught and logged; the in-memory
+/// choice still applies for the rest of the session.
+///
+/// Race with [load]: if the user changes a setting before the initial
+/// [load] completes, that user choice wins — load() will not overwrite
+/// fields the user has already touched.
 class SettingsController extends ChangeNotifier {
   SettingsController({SharedPreferences? prefs}) : _prefsOverride = prefs;
 
@@ -30,6 +34,12 @@ class SettingsController extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   Locale? _locale;
   bool _loaded = false;
+
+  // Track per-field whether the user has explicitly set the value
+  // during this session. load() respects these so a slow async read
+  // can't clobber a user choice that landed first.
+  bool _themeModeUserSet = false;
+  bool _localeUserSet = false;
 
   ThemeMode get themeMode => _themeMode;
 
@@ -43,35 +53,59 @@ class SettingsController extends ChangeNotifier {
   Future<SharedPreferences> _prefs() async =>
       _prefsOverride ?? await SharedPreferences.getInstance();
 
-  /// Reads persisted preferences. Safe to call multiple times.
+  /// Reads persisted preferences. Safe to call multiple times — only
+  /// the first run flips [loaded]; later runs are no-ops on fields the
+  /// user has already overridden.
   Future<void> load() async {
-    final prefs = await _prefs();
-    final rawTheme = prefs.getString(themeModeKey);
-    _themeMode = _decodeTheme(rawTheme) ?? ThemeMode.system;
-    final rawLocale = prefs.getString(localeKey);
-    _locale = _decodeLocale(rawLocale);
+    final SharedPreferences prefs;
+    try {
+      prefs = await _prefs();
+    } catch (e, st) {
+      // Platform persistence layer unavailable (rare). Keep defaults
+      // and mark loaded so the UI doesn't wait forever on a splash.
+      _loaded = true;
+      debugPrint('SettingsController.load: prefs unavailable: $e\n$st');
+      notifyListeners();
+      return;
+    }
+    if (!_themeModeUserSet) {
+      _themeMode = _decodeTheme(prefs.getString(themeModeKey)) ?? ThemeMode.system;
+    }
+    if (!_localeUserSet) {
+      _locale = _decodeLocale(prefs.getString(localeKey));
+    }
     _loaded = true;
     notifyListeners();
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
+    _themeModeUserSet = true;
     if (_themeMode == mode) return;
     _themeMode = mode;
     notifyListeners();
-    final prefs = await _prefs();
-    await prefs.setString(themeModeKey, _encodeTheme(mode));
+    try {
+      final prefs = await _prefs();
+      await prefs.setString(themeModeKey, _encodeTheme(mode));
+    } catch (e, st) {
+      debugPrint('SettingsController.setThemeMode: persist failed: $e\n$st');
+    }
   }
 
   /// Pass `null` to follow the system locale.
   Future<void> setLocale(Locale? locale) async {
+    _localeUserSet = true;
     if (_locale == locale) return;
     _locale = locale;
     notifyListeners();
-    final prefs = await _prefs();
-    if (locale == null) {
-      await prefs.remove(localeKey);
-    } else {
-      await prefs.setString(localeKey, locale.languageCode);
+    try {
+      final prefs = await _prefs();
+      if (locale == null) {
+        await prefs.remove(localeKey);
+      } else {
+        await prefs.setString(localeKey, locale.languageCode);
+      }
+    } catch (e, st) {
+      debugPrint('SettingsController.setLocale: persist failed: $e\n$st');
     }
   }
 
