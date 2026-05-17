@@ -236,6 +236,16 @@ class ConfigDraft {
     return HorizontalToPoaSource(samples);
   }
 
+  /// `true` when this draft makes use of an editor section that is
+  /// hidden in non-expert mode (topology, micro-inverter banks, or a
+  /// non-default dispatch policy). Drives the auto-detect banner in the
+  /// Auswertung tab so imported expert scenarios do not silently lose
+  /// access to the controls that shape them.
+  bool get usesAdvancedFeatures =>
+      topology.enabled ||
+      microInverterBanks.isNotEmpty ||
+      dispatchPolicy.kind != DispatchPolicyKind.selfConsumption;
+
   SimulationConfig build() {
     final policy = dispatchPolicy.build();
     return SimulationConfig(

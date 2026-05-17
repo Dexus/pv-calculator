@@ -246,6 +246,24 @@ abstract class AppLocalizations {
   /// **'Demo-Anwendung zur PV-Auslegung mit Batteriespeicher und 800-W-Micro-Wechselrichter. Das aktuelle Strahlungsmodell ist synthetisch und stellt keine validierte Ertragsprognose dar.'**
   String get settingsAboutBody;
 
+  /// No description provided for @settingsAdvanced.
+  ///
+  /// In de, this message translates to:
+  /// **'Erweitert'**
+  String get settingsAdvanced;
+
+  /// No description provided for @settingsExpertMode.
+  ///
+  /// In de, this message translates to:
+  /// **'Expertenmodus'**
+  String get settingsExpertMode;
+
+  /// No description provided for @settingsExpertModeDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Blendet Topologie-Editor, Mikro-Wechselrichter-Bänke und alternative Dispatch-Strategien im Auswertung-Tab ein.'**
+  String get settingsExpertModeDesc;
+
   /// No description provided for @projectListTitle.
   ///
   /// In de, this message translates to:
@@ -2280,6 +2298,192 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Einspeisung'**
   String get compareChartGridExport;
+
+  /// No description provided for @resultsEnableExpertHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Erweiterte Einstellungen aktivieren'**
+  String get resultsEnableExpertHint;
+
+  /// No description provided for @resultsEnableExpertHintDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Topologie, Mikro-Wechselrichter-Bänke und Dispatch-Strategien sind im Expertenmodus verfügbar.'**
+  String get resultsEnableExpertHintDesc;
+
+  /// No description provided for @resultsAdvancedScenarioBanner.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieses Szenario nutzt erweiterte Funktionen (Topologie, Mikro-Wechselrichter-Bänke oder ein abweichendes Dispatch). Aktiviere den Expertenmodus, um sie zu sehen und zu bearbeiten.'**
+  String get resultsAdvancedScenarioBanner;
+
+  /// No description provided for @wizardTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Projekt anlegen'**
+  String get wizardTitle;
+
+  /// No description provided for @wizardStepSite.
+  ///
+  /// In de, this message translates to:
+  /// **'Standort'**
+  String get wizardStepSite;
+
+  /// No description provided for @wizardStepArray.
+  ///
+  /// In de, this message translates to:
+  /// **'PV-Modulfeld'**
+  String get wizardStepArray;
+
+  /// No description provided for @wizardStepBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher'**
+  String get wizardStepBattery;
+
+  /// No description provided for @wizardStepLoad.
+  ///
+  /// In de, this message translates to:
+  /// **'Lastprofil'**
+  String get wizardStepLoad;
+
+  /// No description provided for @wizardStepSummary.
+  ///
+  /// In de, this message translates to:
+  /// **'Zusammenfassung'**
+  String get wizardStepSummary;
+
+  /// No description provided for @wizardProjectName.
+  ///
+  /// In de, this message translates to:
+  /// **'Projektname'**
+  String get wizardProjectName;
+
+  /// No description provided for @wizardLatitude.
+  ///
+  /// In de, this message translates to:
+  /// **'Breitengrad'**
+  String get wizardLatitude;
+
+  /// No description provided for @wizardLongitude.
+  ///
+  /// In de, this message translates to:
+  /// **'Längengrad'**
+  String get wizardLongitude;
+
+  /// No description provided for @wizardArrayPeak.
+  ///
+  /// In de, this message translates to:
+  /// **'Spitzenleistung'**
+  String get wizardArrayPeak;
+
+  /// No description provided for @wizardArrayAzimuth.
+  ///
+  /// In de, this message translates to:
+  /// **'Azimut (0 = Nord, 180 = Süd)'**
+  String get wizardArrayAzimuth;
+
+  /// No description provided for @wizardArrayTilt.
+  ///
+  /// In de, this message translates to:
+  /// **'Neigung'**
+  String get wizardArrayTilt;
+
+  /// No description provided for @wizardAddBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher hinzufügen'**
+  String get wizardAddBattery;
+
+  /// No description provided for @wizardBatteryCapacity.
+  ///
+  /// In de, this message translates to:
+  /// **'Kapazität'**
+  String get wizardBatteryCapacity;
+
+  /// No description provided for @wizardBatteryChargeRate.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. Ladeleistung'**
+  String get wizardBatteryChargeRate;
+
+  /// No description provided for @wizardBatteryDischargeRate.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. Entladeleistung'**
+  String get wizardBatteryDischargeRate;
+
+  /// No description provided for @wizardLoadDaily.
+  ///
+  /// In de, this message translates to:
+  /// **'Tagesverbrauch'**
+  String get wizardLoadDaily;
+
+  /// No description provided for @wizardSummaryIntro.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Werte werden für das neue Projekt übernommen. Du kannst sie später jederzeit im Editor anpassen und Einstrahlungsdaten laden.'**
+  String get wizardSummaryIntro;
+
+  /// No description provided for @wizardSummaryName.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt'**
+  String get wizardSummaryName;
+
+  /// No description provided for @wizardSummarySite.
+  ///
+  /// In de, this message translates to:
+  /// **'Standort'**
+  String get wizardSummarySite;
+
+  /// No description provided for @wizardSummaryArray.
+  ///
+  /// In de, this message translates to:
+  /// **'PV: {peak} kWp, {azimuth}°/{tilt}°'**
+  String wizardSummaryArray(String peak, String azimuth, String tilt);
+
+  /// No description provided for @wizardSummaryBatteryNone.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein Speicher'**
+  String get wizardSummaryBatteryNone;
+
+  /// No description provided for @wizardSummaryBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher: {capacity} kWh ({charge}/{discharge} kW)'**
+  String wizardSummaryBattery(String capacity, String charge, String discharge);
+
+  /// No description provided for @wizardSummaryLoad.
+  ///
+  /// In de, this message translates to:
+  /// **'Last: {kwh} kWh/Tag'**
+  String wizardSummaryLoad(String kwh);
+
+  /// No description provided for @wizardCancel.
+  ///
+  /// In de, this message translates to:
+  /// **'Abbrechen'**
+  String get wizardCancel;
+
+  /// No description provided for @wizardBack.
+  ///
+  /// In de, this message translates to:
+  /// **'Zurück'**
+  String get wizardBack;
+
+  /// No description provided for @wizardContinue.
+  ///
+  /// In de, this message translates to:
+  /// **'Weiter'**
+  String get wizardContinue;
+
+  /// No description provided for @wizardFinish.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt anlegen'**
+  String get wizardFinish;
 }
 
 class _AppLocalizationsDelegate

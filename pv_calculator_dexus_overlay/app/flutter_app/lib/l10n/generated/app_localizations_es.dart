@@ -86,6 +86,16 @@ class AppLocalizationsEs extends AppLocalizations {
       'Aplicación de demostración para el dimensionamiento PV con almacenamiento por batería y microinversor de 800 W. El modelo de irradiación actual es sintético y no constituye una previsión de producción validada.';
 
   @override
+  String get settingsAdvanced => 'Avanzado';
+
+  @override
+  String get settingsExpertMode => 'Modo experto';
+
+  @override
+  String get settingsExpertModeDesc =>
+      'Muestra el editor de topología, los bancos de microinversores y estrategias de despacho alternativas en la pestaña Resultados.';
+
+  @override
   String get projectListTitle => 'PV Calculator — Proyectos';
 
   @override
@@ -1275,4 +1285,110 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get compareChartGridExport => 'Inyección';
+
+  @override
+  String get resultsEnableExpertHint => 'Activar ajustes avanzados';
+
+  @override
+  String get resultsEnableExpertHintDesc =>
+      'La topología, los bancos de microinversores y las estrategias de despacho están disponibles en modo experto.';
+
+  @override
+  String get resultsAdvancedScenarioBanner =>
+      'Este escenario usa funciones avanzadas (topología, bancos de microinversores o un despacho personalizado). Activa el modo experto para verlas y editarlas.';
+
+  @override
+  String get wizardTitle => 'Crear un nuevo proyecto';
+
+  @override
+  String get wizardStepSite => 'Ubicación';
+
+  @override
+  String get wizardStepArray => 'Campo FV';
+
+  @override
+  String get wizardStepBattery => 'Batería';
+
+  @override
+  String get wizardStepLoad => 'Perfil de carga';
+
+  @override
+  String get wizardStepSummary => 'Resumen';
+
+  @override
+  String get wizardProjectName => 'Nombre del proyecto';
+
+  @override
+  String get wizardLatitude => 'Latitud';
+
+  @override
+  String get wizardLongitude => 'Longitud';
+
+  @override
+  String get wizardArrayPeak => 'Potencia pico';
+
+  @override
+  String get wizardArrayAzimuth => 'Azimut (0 = norte, 180 = sur)';
+
+  @override
+  String get wizardArrayTilt => 'Inclinación';
+
+  @override
+  String get wizardAddBattery => 'Añadir una batería';
+
+  @override
+  String get wizardBatteryCapacity => 'Capacidad';
+
+  @override
+  String get wizardBatteryChargeRate => 'Pot. carga máx.';
+
+  @override
+  String get wizardBatteryDischargeRate => 'Pot. descarga máx.';
+
+  @override
+  String get wizardLoadDaily => 'Consumo diario';
+
+  @override
+  String get wizardSummaryIntro =>
+      'Estos valores se aplicarán al nuevo proyecto. Puedes ajustarlos más adelante en el editor y cargar después los datos de irradiación.';
+
+  @override
+  String get wizardSummaryName => 'Proyecto';
+
+  @override
+  String get wizardSummarySite => 'Ubicación';
+
+  @override
+  String wizardSummaryArray(String peak, String azimuth, String tilt) {
+    return 'FV: $peak kWp, $azimuth°/$tilt°';
+  }
+
+  @override
+  String get wizardSummaryBatteryNone => 'Sin batería';
+
+  @override
+  String wizardSummaryBattery(
+    String capacity,
+    String charge,
+    String discharge,
+  ) {
+    return 'Batería: $capacity kWh ($charge/$discharge kW)';
+  }
+
+  @override
+  String wizardSummaryLoad(String kwh) {
+    return 'Carga: $kwh kWh/día';
+  }
+
+  @override
+  String get wizardCancel => 'Cancelar';
+
+  @override
+  String get wizardBack => 'Atrás';
+
+  @override
+  String get wizardContinue => 'Continuar';
+
+  @override
+  String get wizardFinish => 'Crear proyecto';
 }

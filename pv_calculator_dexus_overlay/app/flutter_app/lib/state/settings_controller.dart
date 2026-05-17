@@ -28,11 +28,13 @@ class SettingsController extends ChangeNotifier {
 
   static const String themeModeKey = 'pv_theme_mode';
   static const String localeKey = 'pv_locale';
+  static const String expertModeKey = 'pv_expert_mode';
 
   final SharedPreferences? _prefsOverride;
 
   ThemeMode _themeMode = ThemeMode.system;
   Locale? _locale;
+  bool _expertMode = false;
   bool _loaded = false;
 
   // Track per-field whether the user has explicitly set the value
@@ -40,12 +42,19 @@ class SettingsController extends ChangeNotifier {
   // can't clobber a user choice that landed first.
   bool _themeModeUserSet = false;
   bool _localeUserSet = false;
+  bool _expertModeUserSet = false;
 
   ThemeMode get themeMode => _themeMode;
 
   /// `null` means "follow the system locale". Otherwise one of
   /// [kSupportedLocales].
   Locale? get locale => _locale;
+
+  /// When `true`, the Auswertung tab reveals advanced sections
+  /// (topology editor, micro-inverter banks, dispatch policy). Defaults
+  /// to `false` so first-time users see a simpler form — PRD R-04
+  /// mitigation ("Topologie-Editor kann Nutzer überfordern").
+  bool get expertMode => _expertMode;
 
   /// `true` once [load] has read the persisted preferences.
   bool get loaded => _loaded;
@@ -74,6 +83,9 @@ class SettingsController extends ChangeNotifier {
     if (!_localeUserSet) {
       _locale = _decodeLocale(prefs.getString(localeKey));
     }
+    if (!_expertModeUserSet) {
+      _expertMode = prefs.getBool(expertModeKey) ?? false;
+    }
     _loaded = true;
     notifyListeners();
   }
@@ -88,6 +100,19 @@ class SettingsController extends ChangeNotifier {
       await prefs.setString(themeModeKey, _encodeTheme(mode));
     } catch (e, st) {
       debugPrint('SettingsController.setThemeMode: persist failed: $e\n$st');
+    }
+  }
+
+  Future<void> setExpertMode(bool value) async {
+    _expertModeUserSet = true;
+    if (_expertMode == value) return;
+    _expertMode = value;
+    notifyListeners();
+    try {
+      final prefs = await _prefs();
+      await prefs.setBool(expertModeKey, value);
+    } catch (e, st) {
+      debugPrint('SettingsController.setExpertMode: persist failed: $e\n$st');
     }
   }
 

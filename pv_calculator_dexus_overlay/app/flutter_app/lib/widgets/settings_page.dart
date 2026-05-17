@@ -74,6 +74,22 @@ class SettingsPage extends StatelessWidget {
             ]),
           ),
           const Divider(height: 32),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Text(
+              l.settingsAdvanced,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          SwitchListTile(
+            key: const Key('expert-mode-toggle'),
+            secondary: const Icon(Icons.tune),
+            title: Text(l.settingsExpertMode),
+            subtitle: Text(l.settingsExpertModeDesc),
+            value: settings.expertMode,
+            onChanged: (value) => settings.setExpertMode(value),
+          ),
+          const Divider(height: 32),
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: Text(l.settingsAboutApp),

@@ -10,6 +10,7 @@ import '../persistence/scenario_repository.dart';
 import '../state/config_draft.dart';
 import '../state/project_controller.dart';
 import '../state/scenario_comparison_controller.dart';
+import '../widgets/quick_start_wizard.dart';
 import 'scenario_compare_page.dart';
 
 /// Phase-7 projects tab: relational project ▸ scenarios tree backed by
@@ -18,10 +19,15 @@ import 'scenario_compare_page.dart';
 /// new schema once on startup by `SharedPreferencesMigration` and never
 /// reappear here directly.
 class ProjectsTab extends StatefulWidget {
-  const ProjectsTab({super.key, this.fileIo});
+  const ProjectsTab({super.key, this.fileIo, this.wizardLauncher});
 
   /// Injection point for widget tests; production uses the default.
   final FileIo? fileIo;
+
+  /// Injection point for the "+ Neues Projekt" wizard. Tests pass a
+  /// stub that returns a canned [QuickStartResult] (or `null`) without
+  /// pumping the dialog.
+  final QuickStartWizardLauncher? wizardLauncher;
 
   @override
   State<ProjectsTab> createState() => _ProjectsTabState();
@@ -29,6 +35,8 @@ class ProjectsTab extends StatefulWidget {
 
 class _ProjectsTabState extends State<ProjectsTab> {
   late final FileIo _fileIo = widget.fileIo ?? const FileIo();
+  late final QuickStartWizardLauncher _wizardLauncher =
+      widget.wizardLauncher ?? showQuickStartWizard;
   late ProjectRepository _projects;
   late ScenarioRepository _scenarios;
 
@@ -58,15 +66,21 @@ class _ProjectsTabState extends State<ProjectsTab> {
 
   Future<void> _newProject() async {
     final l = AppLocalizations.of(context);
+    final result = await _wizardLauncher(context);
+    if (result == null || !mounted) return;
     final existing = _projectList.map((p) => p.name).toSet();
-    final name = _uniqueName(l.projectListNewDefaultName, existing);
+    final baseName = result.projectName.trim().isEmpty
+        ? l.projectListNewDefaultName
+        : result.projectName.trim();
+    final name = existing.contains(baseName)
+        ? _uniqueName(baseName, existing)
+        : baseName;
     final project = _projects.createProject(name: name);
-    final config = ConfigDraft.demo().build();
     final scenario = _scenarios.create(
       projectId: project.id,
       siteId: _projects.defaultSiteFor(project.id)?.id,
       name: 'Default',
-      config: config,
+      config: result.draft.build(),
     );
     _refresh();
     if (!mounted) return;
@@ -374,6 +388,7 @@ class _ProjectsTabState extends State<ProjectsTab> {
             runSpacing: 8,
             children: [
               FilledButton.icon(
+                key: const Key('projects-new-project'),
                 onPressed: _newProject,
                 icon: const Icon(Icons.add),
                 label: Text(l.projectListCreateButton),
