@@ -41,6 +41,45 @@ void main() {
       expect(url.queryParameters['pvcalculation'], '0');
     });
 
+    test('routes SARAH2 to the v5_2 endpoint when no proxy is set', () {
+      final url = pvgisHorizontalSeriesUrl(
+        latitudeDeg: 52.41,
+        longitudeDeg: 7.976,
+        year: 2022,
+        radDatabase: 'PVGIS-SARAH2',
+      );
+      expect(url.host, 're.jrc.ec.europa.eu');
+      expect(url.path, '/api/v5_2/seriescalc');
+      expect(url.queryParameters['raddatabase'], 'PVGIS-SARAH2');
+    });
+
+    test('keeps SARAH3/ERA5/NSRDB on the v5_3 endpoint', () {
+      for (final db in ['PVGIS-SARAH3', 'PVGIS-ERA5', 'PVGIS-NSRDB']) {
+        final url = pvgisHorizontalSeriesUrl(
+          latitudeDeg: 52.41,
+          longitudeDeg: 7.976,
+          year: 2022,
+          radDatabase: db,
+        );
+        expect(url.path, '/api/v5_3/seriescalc', reason: 'db=$db');
+        expect(url.queryParameters['raddatabase'], db, reason: 'db=$db');
+      }
+    });
+
+    test('a custom endpoint wins over per-database routing (proxy mode)', () {
+      // When a proxy URL is supplied the proxy is responsible for routing
+      // to the right PVGIS version — the URL builder must forward as-is.
+      final url = pvgisHorizontalSeriesUrl(
+        latitudeDeg: 52.41,
+        longitudeDeg: 7.976,
+        year: 2022,
+        radDatabase: 'PVGIS-SARAH2',
+        endpoint: 'https://pv-calculator.example.workers.dev/',
+      );
+      expect(url.host, 'pv-calculator.example.workers.dev');
+      expect(url.queryParameters['raddatabase'], 'PVGIS-SARAH2');
+    });
+
     test('rejects out-of-range coordinates and pre-2005 years', () {
       expect(
         () => pvgisHorizontalSeriesUrl(latitudeDeg: 95, longitudeDeg: 0, year: 2022),

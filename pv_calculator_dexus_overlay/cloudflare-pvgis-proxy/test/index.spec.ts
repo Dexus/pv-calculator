@@ -34,9 +34,18 @@ async function dispatch(url: string, init?: RequestInit): Promise<Response> {
 }
 
 function stubPvgis(times = 1, body: string = SAMPLE_PV_JSON, status = 200): void {
+  stubPvgisVersion('v5_3', times, body, status);
+}
+
+function stubPvgisVersion(
+  apiVersion: 'v5_2' | 'v5_3',
+  times = 1,
+  body: string = SAMPLE_PV_JSON,
+  status = 200,
+): void {
   fetchMock
     .get('https://re.jrc.ec.europa.eu')
-    .intercept({ path: (p) => p.startsWith('/api/v5_3/seriescalc') })
+    .intercept({ path: (p) => p.startsWith(`/api/${apiVersion}/seriescalc`) })
     .reply(status, body, { headers: { 'content-type': 'application/json' } })
     .times(times);
 }
@@ -111,6 +120,42 @@ describe('PVGIS caching proxy', () => {
     const response = await dispatch('https://proxy.test/', { method: 'POST' });
     expect(response.status).toBe(405);
     expect(response.headers.get('Allow')).toContain('GET');
+  });
+
+  it('routes raddatabase=PVGIS-SARAH2 to the v5_2 upstream', async () => {
+    // If the proxy mis-routes SARAH2 to v5_3 the v5_3 stub would absorb the
+    // request and v5_2's "pending interceptor" assertion at the end of the
+    // test would still pass — so stub only v5_2 here. A wrong route would
+    // surface as a network error / 502 from the unstubbed v5_3 fetch.
+    stubPvgisVersion('v5_2', 1);
+
+    const response = await dispatch(
+      'https://proxy.test/?lat=52.41&lon=7.976&angle=0&aspect=0' +
+        '&components=1&pvcalculation=0&raddatabase=PVGIS-SARAH2' +
+        '&startyear=2022&endyear=2022&usehorizon=1',
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-Cache')).toBe('MISS');
+  });
+
+  it('keeps SARAH2 (v5_2) and SARAH3 (v5_3) under separate cache keys', async () => {
+    stubPvgisVersion('v5_2', 1);
+    stubPvgisVersion('v5_3', 1);
+
+    const sarah2 = await dispatch(
+      'https://proxy.test/?lat=52.41&lon=7.976&angle=0&aspect=0' +
+        '&components=1&pvcalculation=0&raddatabase=PVGIS-SARAH2' +
+        '&startyear=2022&endyear=2022&usehorizon=1',
+    );
+    const sarah3 = await dispatch(
+      'https://proxy.test/?lat=52.41&lon=7.976&angle=0&aspect=0' +
+        '&components=1&pvcalculation=0&raddatabase=PVGIS-SARAH3' +
+        '&startyear=2022&endyear=2022&usehorizon=1',
+    );
+
+    expect(sarah2.headers.get('X-Cache-Key')).not.toEqual(
+      sarah3.headers.get('X-Cache-Key'),
+    );
   });
 
   it('propagates upstream 4xx without caching', async () => {

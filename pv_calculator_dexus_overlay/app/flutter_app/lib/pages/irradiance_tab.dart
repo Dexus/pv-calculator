@@ -357,7 +357,9 @@ class _LoadRow extends StatelessWidget {
             items: [
               DropdownMenuItem<String?>(value: null, child: Text(l.projectRadDatabaseAuto)),
               const DropdownMenuItem<String?>(value: 'PVGIS-SARAH3', child: Text('PVGIS-SARAH3')),
+              const DropdownMenuItem<String?>(value: 'PVGIS-SARAH2', child: Text('PVGIS-SARAH2')),
               const DropdownMenuItem<String?>(value: 'PVGIS-ERA5', child: Text('PVGIS-ERA5')),
+              const DropdownMenuItem<String?>(value: 'PVGIS-NSRDB', child: Text('PVGIS-NSRDB')),
             ],
             onChanged: (v) {
               site.radDatabase = v;

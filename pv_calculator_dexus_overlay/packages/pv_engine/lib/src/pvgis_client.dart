@@ -8,9 +8,28 @@ library;
 
 /// Default public PVGIS endpoint. The v5.3 series-calc service is the
 /// one the HTML reference prototype uses; bumping the API version goes
-/// here so adapters don't need to repeat the string.
+/// here so adapters don't need to repeat the string. v5.3 serves
+/// `PVGIS-SARAH3`, `PVGIS-ERA5` and `PVGIS-NSRDB` — see
+/// [pvgisSeriesCalcEndpointFor] for SARAH2, which lives on v5.2.
 const String pvgisSeriesCalcEndpoint =
     'https://re.jrc.ec.europa.eu/api/v5_3/seriescalc';
+
+/// PVGIS v5.2 series-calc service — the only upstream that still serves
+/// the legacy `PVGIS-SARAH2` database. v5.3 dropped SARAH2, so SARAH2
+/// requests must go here or PVGIS returns a "database not available"
+/// error.
+const String pvgisSeriesCalcEndpointV52 =
+    'https://re.jrc.ec.europa.eu/api/v5_2/seriescalc';
+
+/// Picks the PVGIS series-calc endpoint that serves [radDatabase]:
+/// v5.2 for SARAH2, v5.3 for everything else (including the `null`
+/// "PVGIS picks the default" case). Centralised here so the URL
+/// builders, the Flutter HTTP service, and the Cloudflare proxy
+/// agree on one routing rule.
+String pvgisSeriesCalcEndpointFor({String? radDatabase}) {
+  if (radDatabase == 'PVGIS-SARAH2') return pvgisSeriesCalcEndpointV52;
+  return pvgisSeriesCalcEndpoint;
+}
 
 /// Parameters for one PVGIS `seriescalc` request.
 ///
@@ -112,7 +131,9 @@ class PvgisRequest {
 /// for a self-hosted instance or a CORS-relaxing reverse proxy).
 Uri buildPvgisSeriesCalcUrl(PvgisRequest request, {String? endpoint}) {
   request.validate();
-  final base = Uri.parse(endpoint ?? pvgisSeriesCalcEndpoint);
+  final base = Uri.parse(
+    endpoint ?? pvgisSeriesCalcEndpointFor(radDatabase: request.radDatabase),
+  );
   final params = <String, String>{
     'lat': request.latitudeDeg.toStringAsFixed(6),
     'lon': request.longitudeDeg.toStringAsFixed(6),
