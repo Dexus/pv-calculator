@@ -91,22 +91,33 @@ class SettingsController extends ChangeNotifier {
     }
   }
 
-  /// Pass `null` to follow the system locale.
+  /// Pass `null` to follow the system locale. Locales outside
+  /// [kSupportedLocales] are normalised to `null` so the picker never
+  /// ends up displaying a value with no matching radio option.
   Future<void> setLocale(Locale? locale) async {
     _localeUserSet = true;
-    if (_locale == locale) return;
-    _locale = locale;
+    final normalised = _normaliseLocale(locale);
+    if (_locale == normalised) return;
+    _locale = normalised;
     notifyListeners();
     try {
       final prefs = await _prefs();
-      if (locale == null) {
+      if (normalised == null) {
         await prefs.remove(localeKey);
       } else {
-        await prefs.setString(localeKey, locale.languageCode);
+        await prefs.setString(localeKey, normalised.languageCode);
       }
     } catch (e, st) {
       debugPrint('SettingsController.setLocale: persist failed: $e\n$st');
     }
+  }
+
+  static Locale? _normaliseLocale(Locale? input) {
+    if (input == null) return null;
+    for (final l in kSupportedLocales) {
+      if (l.languageCode == input.languageCode) return l;
+    }
+    return null;
   }
 
   static ThemeMode? _decodeTheme(String? raw) {
