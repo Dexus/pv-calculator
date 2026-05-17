@@ -7,12 +7,16 @@ import '../l10n/generated/app_localizations.dart';
 
 /// Stacked daily bar chart for one year of horizontal irradiance.
 ///
-/// 365 bars; each shows the day's peak hour — total height is the maximum
-/// hourly GHI of that day, and the diffuse segment is DHI at that same
-/// hour (so DHI ≤ GHI by construction and the stack reflects one
-/// instant rather than two independent maxima). Values are kW/m². Hover/
-/// tap tooltips are disabled on web because `fl_chart`'s hit-testing
-/// struggles at 365 bars under CanvasKit.
+/// 365 bars; each shows the day's two independent peaks — total height is
+/// the maximum hourly GHI of that day, and the diffuse segment is the
+/// maximum hourly DHI of that day (picked separately, not necessarily at
+/// the same hour). Since DHI(h) ≤ GHI(h) for every hour, the daily DHI
+/// max is always ≤ the daily GHI max so the stack stays well-formed.
+/// Picking diffuse independently gives a smoother blue floor (cloud-cover
+/// envelope) instead of "diffuse at noon on a clear day", which would
+/// flatten to near-zero in summer and hide the diffuse contribution.
+/// Values are kW/m². Hover/tap tooltips are disabled on web because
+/// `fl_chart`'s hit-testing struggles at 365 bars under CanvasKit.
 class IrradianceChart extends StatelessWidget {
   const IrradianceChart({super.key, required this.series});
 
@@ -151,27 +155,30 @@ class IrradianceChart extends StatelessWidget {
     );
   }
 
-  /// For each day finds the hour with maximum GHI and returns that hour's
-  /// GHI and DHI as a paired (total, diffuse) tuple. Both lists are in
-  /// W/m² (divide by 1000 in the caller for kW/m²). Pairing diffuse to
-  /// the same instant as the GHI peak keeps the stacked bar consistent:
-  /// the diffuse segment is always ≤ the total segment.
+  /// For each day picks the maximum hourly GHI and the maximum hourly DHI
+  /// **independently**, returned as a (total, diffuse) tuple in W/m²
+  /// (divide by 1000 in the caller for kW/m²). Independence is safe for
+  /// stacking because DHI(h) ≤ GHI(h) at every hour, so
+  /// `max_h DHI(h) ≤ max_h GHI(h)` — the diffuse segment is always
+  /// ≤ the total segment.
   static ({List<double> total, List<double> diffuse}) _dailyPeak(
     List<HorizontalIrradianceSample> samples,
   ) {
     final total = List<double>.filled(365, 0);
     final diffuse = List<double>.filled(365, 0);
     for (var d = 0; d < 365; d++) {
-      var peakGhi = -1.0;
+      var peakGhi = 0.0;
       var peakDhi = 0.0;
       for (var h = 0; h < 24; h++) {
         final s = samples[d * 24 + h];
         if (s.globalHorizontalWPerM2 > peakGhi) {
           peakGhi = s.globalHorizontalWPerM2;
+        }
+        if (s.diffuseHorizontalWPerM2 > peakDhi) {
           peakDhi = s.diffuseHorizontalWPerM2;
         }
       }
-      total[d] = peakGhi < 0 ? 0 : peakGhi;
+      total[d] = peakGhi;
       diffuse[d] = peakDhi;
     }
     return (total: total, diffuse: diffuse);
