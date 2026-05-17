@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:pv_engine/pv_engine.dart' show kEngineVersion;
 
 import '../app_info.dart';
 import '../l10n/generated/app_localizations.dart';
@@ -106,7 +107,7 @@ void showAppAboutDialog(BuildContext context) {
   showAboutDialog(
     context: context,
     applicationName: 'PV Calculator',
-    applicationVersion: appVersion,
+    applicationVersion: '$appVersion (engine $kEngineVersion)',
     applicationLegalese: '© Dexus — AGPL-3.0',
     children: [
       const SizedBox(height: 12),

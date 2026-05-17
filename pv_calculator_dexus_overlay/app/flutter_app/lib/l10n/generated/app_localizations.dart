@@ -2484,6 +2484,40 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Projekt anlegen'**
   String get wizardFinish;
+
+  /// No description provided for @warningsSectionTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinweise zur Konfiguration'**
+  String get warningsSectionTitle;
+
+  /// No description provided for @warningInverterOversized.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter „{inverter}\" ist mit DC/AC-Verhältnis {ratio} überdimensioniert — chronische Abregelung am Tag wahrscheinlich.'**
+  String warningInverterOversized(String inverter, String ratio);
+
+  /// No description provided for @warningBankExceedsDischarge.
+  ///
+  /// In de, this message translates to:
+  /// **'Bank „{bank}\" zieht {bankKw} kW, der Speicher kann aber nur {dischargeKw} kW liefern — dauerhafter Shortfall.'**
+  String warningBankExceedsDischarge(
+    String bank,
+    String bankKw,
+    String dischargeKw,
+  );
+
+  /// No description provided for @warningBatteryMinSocHigh.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher „{battery}\" reserviert {pct}% der Kapazität als minSOC — nutzbare Energie stark reduziert.'**
+  String warningBatteryMinSocHigh(String battery, String pct);
+
+  /// No description provided for @hintIrradianceMissing.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine Einstrahlungsdaten geladen. Die Simulation läuft mit dem synthetischen Demo-Modell — Lade Daten über den Einstrahlung-Tab für reale Werte.'**
+  String get hintIrradianceMissing;
 }
 
 class _AppLocalizationsDelegate

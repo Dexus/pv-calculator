@@ -488,5 +488,14 @@
   "wizardCancel": "Abbrechen",
   "wizardBack": "Zurück",
   "wizardContinue": "Weiter",
-  "wizardFinish": "Projekt anlegen"
+  "wizardFinish": "Projekt anlegen",
+
+  "warningsSectionTitle": "Hinweise zur Konfiguration",
+  "warningInverterOversized": "Wechselrichter „{inverter}\" ist mit DC/AC-Verhältnis {ratio} überdimensioniert — chronische Abregelung am Tag wahrscheinlich.",
+  "@warningInverterOversized": {"placeholders": {"inverter": {"type": "String"}, "ratio": {"type": "String"}}},
+  "warningBankExceedsDischarge": "Bank „{bank}\" zieht {bankKw} kW, der Speicher kann aber nur {dischargeKw} kW liefern — dauerhafter Shortfall.",
+  "@warningBankExceedsDischarge": {"placeholders": {"bank": {"type": "String"}, "bankKw": {"type": "String"}, "dischargeKw": {"type": "String"}}},
+  "warningBatteryMinSocHigh": "Speicher „{battery}\" reserviert {pct}% der Kapazität als minSOC — nutzbare Energie stark reduziert.",
+  "@warningBatteryMinSocHigh": {"placeholders": {"battery": {"type": "String"}, "pct": {"type": "String"}}},
+  "hintIrradianceMissing": "Noch keine Einstrahlungsdaten geladen. Die Simulation läuft mit dem synthetischen Demo-Modell — Lade Daten über den Einstrahlung-Tab für reale Werte."
 }

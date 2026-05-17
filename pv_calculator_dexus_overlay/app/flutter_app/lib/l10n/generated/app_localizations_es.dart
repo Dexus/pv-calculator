@@ -1391,4 +1391,30 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get wizardFinish => 'Crear proyecto';
+
+  @override
+  String get warningsSectionTitle => 'Avisos de configuración';
+
+  @override
+  String warningInverterOversized(String inverter, String ratio) {
+    return 'El inversor \"$inverter\" tiene una relación DC/CA de $ratio — es probable recortar potencia durante el día.';
+  }
+
+  @override
+  String warningBankExceedsDischarge(
+    String bank,
+    String bankKw,
+    String dischargeKw,
+  ) {
+    return 'El banco \"$bank\" demanda $bankKw kW, pero la batería solo puede entregar $dischargeKw kW — falta crónica.';
+  }
+
+  @override
+  String warningBatteryMinSocHigh(String battery, String pct) {
+    return 'La batería \"$battery\" reserva $pct% de su capacidad como minSOC — la energía utilizable se reduce mucho.';
+  }
+
+  @override
+  String get hintIrradianceMissing =>
+      'No se han cargado datos de irradiación. La simulación usará el modelo sintético de demostración — abre la pestaña Irradiación para cargar valores reales.';
 }

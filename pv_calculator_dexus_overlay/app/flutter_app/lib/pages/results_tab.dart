@@ -42,6 +42,8 @@ class ResultsTab extends StatelessWidget {
     final result = controller.result;
     final io = fileIo ?? const FileIo();
 
+    final warnings = draft.validationWarnings();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -49,6 +51,7 @@ class ResultsTab extends StatelessWidget {
           _ErrorCard(title: l.resultsErrorTitle, message: controller.lastError!),
         if (issue != null && issue.section != ConfigSection.arrays)
           _ErrorCard(title: l.editorValidationTitle, message: issue.message),
+        if (warnings.isNotEmpty) _WarningsSection(warnings: warnings),
         if (!hasIrradiance || !hasArrays)
           Card(
             color: Theme.of(context).colorScheme.tertiaryContainer,
@@ -95,6 +98,7 @@ class ResultsTab extends StatelessWidget {
           bankLabels: [
             for (final b in draft.microInverterBanks) b.label.isEmpty ? b.id : b.label,
           ],
+          arrayIds: [for (final a in draft.arrays) a.id],
           timeStep: draft.timeStep,
           onExportCsv: ({required String filename, required String content}) =>
               io.exportCsv(filename: filename, content: content),
@@ -287,6 +291,83 @@ class _ExpertOffHint extends StatelessWidget {
   }
 }
 
+/// Renders the non-blocking warnings and hints emitted by
+/// [ConfigDraft.validationWarnings]. Hints get a tertiary-coloured info
+/// card; warnings get an amber-tinted card. Each row carries a stable
+/// `Key(warning-<code>)` so widget tests can target individual entries
+/// without matching on translated copy.
+class _WarningsSection extends StatelessWidget {
+  const _WarningsSection({required this.warnings});
+
+  final List<ValidationWarning> warnings;
+
+  String _localize(AppLocalizations l, ValidationWarning w) {
+    switch (w.code) {
+      case 'inverter-oversized':
+        return l.warningInverterOversized(
+            w.args['inverter'] ?? '', w.args['ratio'] ?? '');
+      case 'bank-exceeds-discharge':
+        return l.warningBankExceedsDischarge(
+            w.args['bank'] ?? '',
+            w.args['bankKw'] ?? '',
+            w.args['dischargeKw'] ?? '');
+      case 'battery-min-soc-high':
+        return l.warningBatteryMinSocHigh(
+            w.args['battery'] ?? '', w.args['pct'] ?? '');
+      case 'irradiance-missing':
+        return l.hintIrradianceMissing;
+    }
+    return w.code;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          child: Text(l.warningsSectionTitle,
+              style: Theme.of(context).textTheme.titleSmall),
+        ),
+        for (final w in warnings)
+          _WarningCard(key: Key('warning-${w.code}'), warning: w, message: _localize(l, w)),
+      ]),
+    );
+  }
+}
+
+class _WarningCard extends StatelessWidget {
+  const _WarningCard({super.key, required this.warning, required this.message});
+
+  final ValidationWarning warning;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isHint = warning.severity == WarningSeverity.hint;
+    // Hints reuse the tertiary palette already used by other info cards
+    // (e.g. the "load irradiance" prompt). Warnings get a higher-contrast
+    // amber tint via secondaryContainer to read as "should look at this"
+    // without crossing into errorContainer territory.
+    final bg = isHint ? scheme.tertiaryContainer : scheme.secondaryContainer;
+    final fg = isHint ? scheme.onTertiaryContainer : scheme.onSecondaryContainer;
+    return Card(
+      color: bg,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(
+          isHint ? Icons.info_outline : Icons.warning_amber_outlined,
+          color: fg,
+        ),
+        title: Text(message, style: TextStyle(color: fg)),
+      ),
+    );
+  }
+}
+
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({required this.title, required this.message});
   final String title;
@@ -316,6 +397,7 @@ class _ResultsBody extends StatelessWidget {
     required this.result,
     required this.projectName,
     required this.bankLabels,
+    required this.arrayIds,
     required this.timeStep,
     required this.onExportCsv,
   });
@@ -323,6 +405,7 @@ class _ResultsBody extends StatelessWidget {
   final SimulationResult result;
   final String projectName;
   final List<String> bankLabels;
+  final List<String> arrayIds;
   final TimeStep timeStep;
   final _CsvExportCallback onExportCsv;
 
@@ -420,7 +503,10 @@ class _ResultsBody extends StatelessWidget {
           onPressed: () => _exportCsv(
             context,
             filename: '${_safe(projectName)}_schritte.csv',
-            content: stepsCsv(result.steps, batteryCount: batteryCount, bankCount: bankCount),
+            content: stepsCsv(result.steps,
+                batteryCount: batteryCount,
+                bankCount: bankCount,
+                arrayIds: arrayIds),
           ),
           icon: const Icon(Icons.file_download),
           label: Text(l.resultsCsvSteps),
@@ -515,16 +601,24 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 180,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 8),
-            Text(value, style: Theme.of(context).textTheme.titleLarge),
-          ]),
+    // Combine label + value into one Semantics node so VoiceOver /
+    // TalkBack read "Eigenverbrauch, 1234 Kilowattstunden" instead of
+    // two adjacent unlinked text nodes. PRD NFR-07.
+    return Semantics(
+      container: true,
+      label: '$label: $value',
+      excludeSemantics: true,
+      child: SizedBox(
+        width: 180,
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 8),
+              Text(value, style: Theme.of(context).textTheme.titleLarge),
+            ]),
+          ),
         ),
       ),
     );

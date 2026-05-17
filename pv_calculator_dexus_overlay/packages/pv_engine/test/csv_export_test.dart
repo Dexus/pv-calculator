@@ -61,6 +61,57 @@ void main() {
       expect(csv.split('\r\n').first, contains(','));
       expect(csv.split('\r\n').first, isNot(contains(';')));
     });
+
+    test('arrayIds emits one dcKwh_<id> / acKwh_<id> column per array', () {
+      final result = const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(id: 'south', label: 'South', peakKw: 2.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+          PvArray(id: 'east', label: 'East', peakKw: 1.0, azimuthDeg: 90, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        loadProfile: const LoadProfile(dailyKwh: 3),
+        startDayOfYear: 172,
+        days: 1,
+      ));
+
+      final csv = stepsCsv(result.steps, arrayIds: ['south', 'east']);
+      final headers = csv.split('\r\n').first.split(';');
+      expect(headers, containsAll(['dcKwh_south', 'dcKwh_east', 'acKwh_south', 'acKwh_east']));
+      // DC columns come before AC columns; per-array order is preserved.
+      expect(headers.indexOf('dcKwh_south'), lessThan(headers.indexOf('dcKwh_east')));
+      expect(headers.indexOf('dcKwh_east'), lessThan(headers.indexOf('acKwh_south')));
+    });
+
+    test('per-array DC sums to step.pvDcKwh; per-array AC sums to step.pvAcKwh', () {
+      final result = const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(id: 'south', label: 'South', peakKw: 2.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+          PvArray(id: 'east', label: 'East', peakKw: 1.0, azimuthDeg: 90, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        loadProfile: const LoadProfile(dailyKwh: 3),
+        startDayOfYear: 172,
+        days: 1,
+      ));
+
+      for (final step in result.steps) {
+        final dcSum = step.dcKwhByArray.fold<double>(0, (s, v) => s + v);
+        final acSum = step.acKwhByArray.fold<double>(0, (s, v) => s + v);
+        expect(dcSum, closeTo(step.pvDcKwh, 1e-9));
+        expect(acSum, closeTo(step.pvAcKwh, 1e-9));
+      }
+    });
+
+    test('arrayIds with reserved characters are sanitised into safe column names', () {
+      final csv = stepsCsv(const [], arrayIds: ['south;roof', 'east "wing"']);
+      final headers = csv.split('\r\n').first.split(';');
+      // Reserved chars folded to `_`; column count is still 2 × 2 = 4
+      // (dcKwh + acKwh per array).
+      expect(headers.where((h) => h.startsWith('dcKwh_')), hasLength(2));
+      expect(headers.where((h) => h.startsWith('acKwh_')), hasLength(2));
+      expect(headers.any((h) => h.contains(';')), isFalse,
+          reason: 'delimiter must never appear in a header');
+    });
   });
 
   group('monthlyCsv', () {
