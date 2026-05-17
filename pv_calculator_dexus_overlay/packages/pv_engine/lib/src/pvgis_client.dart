@@ -101,12 +101,15 @@ class PvgisRequest {
   }
 }
 
-/// Builds the `seriescalc` URL for [request].
+/// Builds the `seriescalc` URL for [request] in PV-power mode
+/// (`pvcalculation=1`). Kept for future per-array PV-power requests
+/// (and to validate the cache-key plumbing in the Cloudflare proxy);
+/// the redesigned app's main flow goes through
+/// [pvgisHorizontalSeriesUrl] instead, which fetches once per site
+/// and lets the engine transpose to POA.
 ///
 /// Pass [endpoint] to override the default public PVGIS host (useful
 /// for a self-hosted instance or a CORS-relaxing reverse proxy).
-/// Always forces `outputformat=json` and `pvcalculation=1` so the
-/// response matches what [parsePvgisHourlyJson] expects.
 Uri buildPvgisSeriesCalcUrl(PvgisRequest request, {String? endpoint}) {
   request.validate();
   final base = Uri.parse(endpoint ?? pvgisSeriesCalcEndpoint);
@@ -131,11 +134,10 @@ Uri buildPvgisSeriesCalcUrl(PvgisRequest request, {String? endpoint}) {
   return base.replace(queryParameters: params);
 }
 
-/// Engine 0–360° azimuth → PVGIS −180…+180° (south = 0). Inverse of
-/// [PvgisHourlyData.appAzimuthDeg]. Accepts the closed interval
-/// `[0, 360]` (callers may legitimately pass either endpoint for
-/// north); returns a value in `(-180, 180]` so `180.0` (north via the
-/// `360` end) stays a single canonical north.
+/// Engine 0–360° azimuth → PVGIS −180…+180° (south = 0). Accepts the
+/// closed interval `[0, 360]` (callers may legitimately pass either
+/// endpoint for north); returns a value in `(-180, 180]` so `180.0`
+/// (north via the `360` end) stays a single canonical north.
 double appAzimuthToPvgis(double appAzimuthDeg) {
   // Bring into [-180, +180): subtract south offset, normalise modulo 360.
   final shifted = appAzimuthDeg - 180.0;

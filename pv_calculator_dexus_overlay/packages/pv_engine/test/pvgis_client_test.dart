@@ -15,18 +15,20 @@ void main() {
       expect(appAzimuthToPvgis(270), closeTo(90.0, 1e-9));
     });
 
-    test('inverse of PvgisHourlyData.appAzimuthDeg for sample angles', () {
+    test('round-trips against the PVGIS→engine conversion for sample angles', () {
+      // PVGIS convention: 0 = south, negative = east, positive = west,
+      // range [-180, +180]. Engine convention: 0 = north, 90 = east,
+      // 180 = south, 270 = west, range [0, 360). The inverse
+      // transformation is `(180 + pvgis + 360) % 360`.
+      double pvgisToApp(double pvgis) => (180.0 + pvgis + 360.0) % 360.0;
       for (final pvgisIn in <double>[-180, -135, -90, -45, 0, 45, 90, 135, 180]) {
-        final viaData = PvgisHourlyData(
-          entries: const [], latitudeDeg: 0, longitudeDeg: 0,
-          azimuthDegPvgis: pvgisIn,
-        ).appAzimuthDeg!;
-        final back = appAzimuthToPvgis(viaData);
+        final app = pvgisToApp(pvgisIn);
+        final back = appAzimuthToPvgis(app);
         // ±180 collapse to a single canonical north (+180); compare
         // modulo 360 to accept either representation.
         final delta = ((back - pvgisIn).abs() % 360.0);
         expect(delta < 1e-9 || (360.0 - delta) < 1e-9, isTrue,
-            reason: 'pvgisIn=$pvgisIn → app=$viaData → back=$back');
+            reason: 'pvgisIn=$pvgisIn → app=$app → back=$back');
       }
     });
   });

@@ -726,4 +726,94 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get demoBatteryLabel => 'Batería principal';
+
+  @override
+  String get tabProjects => 'Proyectos';
+
+  @override
+  String get tabIrradiance => 'Irradiancia';
+
+  @override
+  String get tabArrays => 'Campos PV';
+
+  @override
+  String get tabResults => 'Resultados';
+
+  @override
+  String get irradianceTitle => 'Sitio e irradiancia';
+
+  @override
+  String get irradianceMapHint =>
+      'Desplaza el mapa para fijar la ubicación. El pin marca las coordenadas actuales del proyecto.';
+
+  @override
+  String get irradianceYearLabel => 'Periodo';
+
+  @override
+  String get irradianceLoadButton => 'Cargar datos';
+
+  @override
+  String get irradianceLoadingHint => 'Cargando irradiancia PVGIS …';
+
+  @override
+  String get irradianceEmpty =>
+      'Selecciona una ubicación y pulsa «Cargar datos» para obtener la irradiancia anual.';
+
+  @override
+  String get irradianceErrorTitle => 'La solicitud PVGIS falló';
+
+  @override
+  String get irradianceChartTitle => 'Irradiancia global horizontal [ kW/m² ]';
+
+  @override
+  String get irradianceSeriesTotal => 'Total';
+
+  @override
+  String get irradianceSeriesDiffuse => 'Difusa';
+
+  @override
+  String irradianceAnnualSum(String value) {
+    return 'Suma $value kWh/m²';
+  }
+
+  @override
+  String irradianceAverage(String value) {
+    return 'Med. $value W/m²';
+  }
+
+  @override
+  String get irradianceCacheHit => 'desde caché';
+
+  @override
+  String get irradianceCacheMiss => 'fresco desde PVGIS';
+
+  @override
+  String get azimuthCompassTitle => 'Elegir azimut';
+
+  @override
+  String get azimuthCompassHint =>
+      'Toca para fijar el azimut del campo PV seleccionado.';
+
+  @override
+  String get azimuthApply => 'Aplicar';
+
+  @override
+  String get azimuthCancel => 'Cancelar';
+
+  @override
+  String get resultsRun => 'Iniciar simulación';
+
+  @override
+  String get resultsRunMissingData =>
+      'Carga primero los datos de irradiancia y añade al menos un campo PV.';
+
+  @override
+  String get resultsErrorTitle => 'La simulación falló';
+
+  @override
+  String get arraysTabHint =>
+      'Sin llamadas PVGIS por campo: todos los módulos derivan su POA de los datos horizontales del sitio cargados en la pestaña «Irradiancia».';
+
+  @override
+  String get arraysSelectForCompass => 'Seleccionado para la brújula';
 }

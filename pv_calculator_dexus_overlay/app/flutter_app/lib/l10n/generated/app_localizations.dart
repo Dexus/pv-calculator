@@ -1326,6 +1326,168 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Hauptspeicher'**
   String get demoBatteryLabel;
+
+  /// No description provided for @tabProjects.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekte'**
+  String get tabProjects;
+
+  /// No description provided for @tabIrradiance.
+  ///
+  /// In de, this message translates to:
+  /// **'Einstrahlung'**
+  String get tabIrradiance;
+
+  /// No description provided for @tabArrays.
+  ///
+  /// In de, this message translates to:
+  /// **'PV-Arrays'**
+  String get tabArrays;
+
+  /// No description provided for @tabResults.
+  ///
+  /// In de, this message translates to:
+  /// **'Auswertung'**
+  String get tabResults;
+
+  /// No description provided for @irradianceTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Standort & Einstrahlung'**
+  String get irradianceTitle;
+
+  /// No description provided for @irradianceMapHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Karte verschieben, um den Standort zu setzen. Pin = Projektkoordinaten.'**
+  String get irradianceMapHint;
+
+  /// No description provided for @irradianceYearLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitraum'**
+  String get irradianceYearLabel;
+
+  /// No description provided for @irradianceLoadButton.
+  ///
+  /// In de, this message translates to:
+  /// **'Lade Daten'**
+  String get irradianceLoadButton;
+
+  /// No description provided for @irradianceLoadingHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Strahlungsdaten werden geladen …'**
+  String get irradianceLoadingHint;
+
+  /// No description provided for @irradianceEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Standort wählen und „Lade Daten“ drücken, um die jährliche Globalstrahlung zu laden.'**
+  String get irradianceEmpty;
+
+  /// No description provided for @irradianceErrorTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-Abfrage fehlgeschlagen'**
+  String get irradianceErrorTitle;
+
+  /// No description provided for @irradianceChartTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Globalstrahlung [ kW/m² ]'**
+  String get irradianceChartTitle;
+
+  /// No description provided for @irradianceSeriesTotal.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesamte'**
+  String get irradianceSeriesTotal;
+
+  /// No description provided for @irradianceSeriesDiffuse.
+  ///
+  /// In de, this message translates to:
+  /// **'Diffuse'**
+  String get irradianceSeriesDiffuse;
+
+  /// No description provided for @irradianceAnnualSum.
+  ///
+  /// In de, this message translates to:
+  /// **'Abs {value} kWh/m²'**
+  String irradianceAnnualSum(String value);
+
+  /// No description provided for @irradianceAverage.
+  ///
+  /// In de, this message translates to:
+  /// **'Ø {value} W/m²'**
+  String irradianceAverage(String value);
+
+  /// No description provided for @irradianceCacheHit.
+  ///
+  /// In de, this message translates to:
+  /// **'aus Cache geladen'**
+  String get irradianceCacheHit;
+
+  /// No description provided for @irradianceCacheMiss.
+  ///
+  /// In de, this message translates to:
+  /// **'frisch von PVGIS'**
+  String get irradianceCacheMiss;
+
+  /// No description provided for @azimuthCompassTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Azimut auswählen'**
+  String get azimuthCompassTitle;
+
+  /// No description provided for @azimuthCompassHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Tippen, um den Azimut für das ausgewählte PV-Array zu setzen.'**
+  String get azimuthCompassHint;
+
+  /// No description provided for @azimuthApply.
+  ///
+  /// In de, this message translates to:
+  /// **'Übernehmen'**
+  String get azimuthApply;
+
+  /// No description provided for @azimuthCancel.
+  ///
+  /// In de, this message translates to:
+  /// **'Abbrechen'**
+  String get azimuthCancel;
+
+  /// No description provided for @resultsRun.
+  ///
+  /// In de, this message translates to:
+  /// **'Simulation starten'**
+  String get resultsRun;
+
+  /// No description provided for @resultsRunMissingData.
+  ///
+  /// In de, this message translates to:
+  /// **'Bitte zuerst Strahlungsdaten und mindestens ein PV-Array eintragen.'**
+  String get resultsRunMissingData;
+
+  /// No description provided for @resultsErrorTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Simulation fehlgeschlagen'**
+  String get resultsErrorTitle;
+
+  /// No description provided for @arraysTabHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein PVGIS-Aufruf pro Array — alle Module beziehen ihre POA-Werte aus den im Tab „Einstrahlung“ geladenen Standortdaten.'**
+  String get arraysTabHint;
+
+  /// No description provided for @arraysSelectForCompass.
+  ///
+  /// In de, this message translates to:
+  /// **'Für Kompass-Auswahl markiert'**
+  String get arraysSelectForCompass;
 }
 
 class _AppLocalizationsDelegate
