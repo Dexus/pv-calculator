@@ -327,7 +327,8 @@
   "@microInverterBanksWarnSharedPvInverter": {"placeholders": {"inverterId": {"type": "String"}}},
 
   "bankRuntimeSectionTitle": "24h output — daily runtime",
-  "bankRuntimeLegendActive": "Active (hours delivered)",
+  "bankRuntimeLegendFull": "Fully sustained (target met)",
+  "bankRuntimeLegendPartial": "Partial (below target)",
   "bankRuntimeLegendShortfall": "Shortfall (scheduled hours without delivery)",
   "bankRuntimeStatCoverage": "Coverage: {pct} %",
   "@bankRuntimeStatCoverage": {"placeholders": {"pct": {"type": "String"}}},

@@ -1861,11 +1861,17 @@ abstract class AppLocalizations {
   /// **'24h-Ausgang — Laufzeit pro Tag'**
   String get bankRuntimeSectionTitle;
 
-  /// No description provided for @bankRuntimeLegendActive.
+  /// No description provided for @bankRuntimeLegendFull.
   ///
   /// In de, this message translates to:
-  /// **'Aktiv (Liefer-Stunden)'**
-  String get bankRuntimeLegendActive;
+  /// **'Voll gedeckt (Soll erreicht)'**
+  String get bankRuntimeLegendFull;
+
+  /// No description provided for @bankRuntimeLegendPartial.
+  ///
+  /// In de, this message translates to:
+  /// **'Teilweise (Soll unterschritten)'**
+  String get bankRuntimeLegendPartial;
 
   /// No description provided for @bankRuntimeLegendShortfall.
   ///

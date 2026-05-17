@@ -30,7 +30,14 @@ class BankRuntimeChart extends StatelessWidget {
   /// Caption above the chart, typically `bank.label` or `bank.id`.
   final String bankLabel;
 
-  static const Color _activeColor = Color(0xFF66BB6A); // green.400
+  // Three-segment stack so a step that *partially* delivers AC is
+  // visually distinct from a step that delivered the full schedule:
+  // green = fully sustained, orange = partial (some AC, below target),
+  // red = scheduled but zero. Without the orange middle, a rate-capped
+  // bank that ekes out a fraction of the target every hour would look
+  // 100 % covered on the chart despite a non-zero `shortfallKwh`.
+  static const Color _fullColor = Color(0xFF66BB6A); // green.400
+  static const Color _partialColor = Color(0xFFFFA726); // orange.400
   static const Color _shortfallColor = Color(0xFFEF5350); // red.400
 
   @override
@@ -48,8 +55,13 @@ class BankRuntimeChart extends StatelessWidget {
               rodStackItems: [
                 BarChartRodStackItem(
                   0,
+                  daily[d].fullDeliveryHours,
+                  _fullColor.withValues(alpha: 0.9),
+                ),
+                BarChartRodStackItem(
+                  daily[d].fullDeliveryHours,
                   daily[d].activeHours,
-                  _activeColor.withValues(alpha: 0.9),
+                  _partialColor.withValues(alpha: 0.9),
                 ),
                 BarChartRodStackItem(
                   daily[d].activeHours,
@@ -76,9 +88,9 @@ class BankRuntimeChart extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 4),
-        Row(children: [
-          _LegendSwatch(color: _activeColor, label: l.bankRuntimeLegendActive),
-          const SizedBox(width: 16),
+        Wrap(spacing: 16, runSpacing: 4, children: [
+          _LegendSwatch(color: _fullColor, label: l.bankRuntimeLegendFull),
+          _LegendSwatch(color: _partialColor, label: l.bankRuntimeLegendPartial),
           _LegendSwatch(color: _shortfallColor, label: l.bankRuntimeLegendShortfall),
         ]),
         const SizedBox(height: 8),
