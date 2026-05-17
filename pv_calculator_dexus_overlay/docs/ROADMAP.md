@@ -71,15 +71,15 @@ Ziel: Realistische Startzustände; keine künstlich verzerrten Januarwerte (PRD 
 
 ---
 
-## Phase 6 – 24h-Ausgang & Grundlastprofil
+## Phase 6 – 24h-Ausgang & Grundlastprofil ✓
 
 Ziel: Konstante oder zeitgesteuerte AC-Einspeisung aus Speicher (PRD FR-10; Architektur Kap. 5.3).
 
-- [ ] `ConstantFeed24h`- und `TimeWindowFeed`-Policy vollständig implementieren.
-- [ ] SOC-basierte Abschaltung: `minSocShutdown` je Bank, Shortfall-Zeitreihe.
-- [ ] UI: 24h-Ausgang konfigurieren, Laufzeit-Chart (wie lange Einspeisung tragfähig).
-- [ ] Warnung wenn normaler PV-Micro-Inverter als batteriespeisefähig konfiguriert (Architektur Kap. 5.3, NFR FR-16).
-- [ ] Tests: Leerer Speicher schaltet Ausgang korrekt ab, Zeitfenster werden eingehalten.
+- [x] `ConstantFeed24h`- und `TimeWindowFeed`-Policy vollständig implementiert (`packages/pv_engine/lib/src/dispatch_policies.dart`).
+- [x] SOC-basierte Abschaltung: `MicroInverterBank.minSocShutdown` und per-Schritt-Shortfall-Zeitreihe in `SimulationStep.microInverterShortfallsKwh` / `microInverterShortfallKwh` (`packages/pv_engine/lib/src/energy_router.dart`).
+- [x] UI: 24h-Ausgang konfigurierbar (`widgets/forms/micro_inverter_banks_section.dart`), Laufzeit-Chart pro Bank (`widgets/results/bank_runtime_chart.dart` + `SummaryAggregator.bankRuntime` / `bankDaily`) – tägliche Stunden-Aktiv vs. Plan-Stunden, plus Coverage- und Ø-Stunden-Stat im Auswertung-Tab.
+- [x] Warnung im UI, wenn ein als `microInverter800W` deklarierter Wechselrichter gleichzeitig PV-Module trägt und eine Bank konfiguriert ist (Architektur §5.3, PRD R-01/FR-16): roter Banner in der `MicroInverterBanksSection` mit Inverter-Id.
+- [x] Tests: `packages/pv_engine/test/bank_runtime_test.dart` deckt leeren Speicher (zero discharge, voller Shortfall), `minSocShutdown` oberhalb des aktuellen SOC, mittnachtsumschlagendes Zeitfenster (22–06 Uhr) sowie die neuen `bankRuntime` / `bankDaily`-Aggregatoren ab. `app/flutter_app/test/micro_inverter_banks_section_test.dart` deckt die konditionale Warnung (positiv & negativ).
 
 ---
 

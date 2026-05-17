@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:pv_engine/pv_engine.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../../state/config_draft.dart';
@@ -32,6 +33,18 @@ class MicroInverterBanksSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Conditional Phase-6 warning: if the user picked
+              // `InverterRole.microInverter800W` on an inverter that
+              // also has PV arrays attached, that hardware path is for
+              // module-side feed-in only — not a battery output. PRD
+              // R-01, Architektur §5.3.
+              for (final inv in _pvSideMicroInverters(draft))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _WarningBanner(
+                    message: l.microInverterBanksWarnSharedPvInverter(inv.id),
+                  ),
+                ),
               Row(children: [
                 Expanded(
                   child: Text(
@@ -75,6 +88,51 @@ class MicroInverterBanksSection extends StatelessWidget {
                 ),
               ],
             ]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Returns inverters that look like PV-side micro-inverters: declared
+/// role `InverterRole.microInverter800W` *and* at least one array points
+/// at them. Same device cannot legally feed both a PV string and a
+/// battery output (Architektur §5.3, PRD R-01), so we surface a
+/// per-inverter warning whenever the user has bank entries configured.
+List<InverterDraft> _pvSideMicroInverters(ConfigDraft draft) {
+  if (draft.microInverterBanks.isEmpty) return const [];
+  final attachedInverterIds = {for (final a in draft.arrays) a.inverterId};
+  return [
+    for (final inv in draft.inverters)
+      if (inv.role == InverterRole.microInverter800W && attachedInverterIds.contains(inv.id))
+        inv,
+  ];
+}
+
+class _WarningBanner extends StatelessWidget {
+  const _WarningBanner({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_outlined, color: scheme.onErrorContainer, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: scheme.onErrorContainer),
+            ),
           ),
         ],
       ),

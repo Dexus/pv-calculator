@@ -1,5 +1,76 @@
 import '../pv_engine.dart';
 
+/// Per-bank coverage report over the full reporting horizon.
+///
+/// Targets are reconstructed as `delivered + shortfall` so the same
+/// step series used for the KPIs is the single source of truth — no
+/// schedule re-evaluation, which would drift if the bank/schedule were
+/// mutated between simulator runs.
+class BankRuntimeStats {
+  const BankRuntimeStats({
+    required this.bankIndex,
+    required this.targetKwh,
+    required this.deliveredKwh,
+    required this.shortfallKwh,
+    required this.activeHours,
+    required this.scheduledHours,
+    required this.fullDeliveryHours,
+  });
+
+  /// Index into `SimulationConfig.microInverterBanks`.
+  final int bankIndex;
+
+  /// AC kWh the bank was *asked* to deliver (delivered + shortfall).
+  final double targetKwh;
+
+  /// AC kWh the bank actually delivered.
+  final double deliveredKwh;
+
+  /// AC kWh the bank failed to deliver (SOC shutdown, rate cap, empty
+  /// source battery).
+  final double shortfallKwh;
+
+  /// Hours during which the bank delivered any positive AC energy.
+  /// Useful as a "is the output sustained?" indicator distinct from the
+  /// schedule itself.
+  final double activeHours;
+
+  /// Hours during which the schedule asked for any positive AC
+  /// (`target > 0`). `scheduledHours − activeHours` is the time the
+  /// bank was scheduled to feed but couldn't.
+  final double scheduledHours;
+
+  /// Hours during which delivery met the requested target within 0.1 %
+  /// of the target (so floating-point drift doesn't disqualify steps).
+  final double fullDeliveryHours;
+
+  /// Fraction of the target that was actually delivered. `0..1`. Equal
+  /// to `1` when the bank had no schedule (target = 0) — there was
+  /// nothing to miss.
+  double get coverageRate => targetKwh <= 0 ? 1.0 : deliveredKwh / targetKwh;
+}
+
+/// One day's worth of per-bank delivery + shortfall + active hours.
+/// Used by the Flutter "runtime chart" to plot how long a 24h output
+/// can be sustained across the year.
+class BankDayStats {
+  const BankDayStats({
+    required this.dayOfYear,
+    required this.targetKwh,
+    required this.deliveredKwh,
+    required this.shortfallKwh,
+    required this.activeHours,
+    required this.scheduledHours,
+  });
+
+  final int dayOfYear;
+  final double targetKwh;
+  final double deliveredKwh;
+  final double shortfallKwh;
+  final double activeHours;
+  final double scheduledHours;
+}
+
 class MonthlyBucket {
   const MonthlyBucket({
     required this.month,
@@ -91,6 +162,102 @@ class SummaryAggregator {
         curtailedDcKwh: curtailedDc[i],
         curtailedAcKwh: curtailedAc[i],
         curtailedExportKwh: curtailedExport[i],
+      ),
+    );
+  }
+
+  /// Per-bank coverage report for `bankCount` banks. `bankCount` is
+  /// passed in (rather than inferred) so callers can pass the value
+  /// from `SimulationConfig.microInverterBanks.length` even when the
+  /// reported steps would be empty (e.g. days=0). Returns an empty list
+  /// when `bankCount` is `0`.
+  static List<BankRuntimeStats> bankRuntime(
+    List<SimulationStep> steps, {
+    required int bankCount,
+    required TimeStep timeStep,
+  }) {
+    if (bankCount == 0) return const <BankRuntimeStats>[];
+    final delivered = List<double>.filled(bankCount, 0.0);
+    final shortfall = List<double>.filled(bankCount, 0.0);
+    final activeHours = List<double>.filled(bankCount, 0.0);
+    final scheduledHours = List<double>.filled(bankCount, 0.0);
+    final fullDeliveryHours = List<double>.filled(bankCount, 0.0);
+    final stepHours = timeStep.hours;
+
+    for (final step in steps) {
+      for (var i = 0; i < bankCount; i++) {
+        final d = i < step.microInverterDeliveriesKwh.length
+            ? step.microInverterDeliveriesKwh[i]
+            : 0.0;
+        final s = i < step.microInverterShortfallsKwh.length
+            ? step.microInverterShortfallsKwh[i]
+            : 0.0;
+        final target = d + s;
+        delivered[i] += d;
+        shortfall[i] += s;
+        if (d > 0) activeHours[i] += stepHours;
+        if (target > 0) {
+          scheduledHours[i] += stepHours;
+          // 0.1 % tolerance — bank-internal eta and battery rate caps
+          // can shave delivered by less than that without it being a
+          // meaningful shortfall.
+          if (d >= target * 0.999) fullDeliveryHours[i] += stepHours;
+        }
+      }
+    }
+
+    return List<BankRuntimeStats>.generate(
+      bankCount,
+      (i) => BankRuntimeStats(
+        bankIndex: i,
+        targetKwh: delivered[i] + shortfall[i],
+        deliveredKwh: delivered[i],
+        shortfallKwh: shortfall[i],
+        activeHours: activeHours[i],
+        scheduledHours: scheduledHours[i],
+        fullDeliveryHours: fullDeliveryHours[i],
+      ),
+    );
+  }
+
+  /// Per-day breakdown for a single bank. Returns a 365-entry list
+  /// (one per `dayOfYear` 1..365). Days with no steps for the requested
+  /// bank are returned as zeroes. Drives the Flutter runtime/coverage
+  /// chart on the Auswertung tab.
+  static List<BankDayStats> bankDaily(
+    List<SimulationStep> steps, {
+    required int bankIndex,
+    required TimeStep timeStep,
+  }) {
+    final delivered = List<double>.filled(365, 0.0);
+    final shortfall = List<double>.filled(365, 0.0);
+    final active = List<double>.filled(365, 0.0);
+    final scheduled = List<double>.filled(365, 0.0);
+    final stepHours = timeStep.hours;
+
+    for (final step in steps) {
+      final d = bankIndex < step.microInverterDeliveriesKwh.length
+          ? step.microInverterDeliveriesKwh[bankIndex]
+          : 0.0;
+      final s = bankIndex < step.microInverterShortfallsKwh.length
+          ? step.microInverterShortfallsKwh[bankIndex]
+          : 0.0;
+      final dayIdx = (step.dayOfYear - 1).clamp(0, 364);
+      delivered[dayIdx] += d;
+      shortfall[dayIdx] += s;
+      if (d > 0) active[dayIdx] += stepHours;
+      if (d + s > 0) scheduled[dayIdx] += stepHours;
+    }
+
+    return List<BankDayStats>.generate(
+      365,
+      (i) => BankDayStats(
+        dayOfYear: i + 1,
+        targetKwh: delivered[i] + shortfall[i],
+        deliveredKwh: delivered[i],
+        shortfallKwh: shortfall[i],
+        activeHours: active[i],
+        scheduledHours: scheduled[i],
       ),
     );
   }

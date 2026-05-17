@@ -1031,6 +1031,41 @@ class AppLocalizationsFr extends AppLocalizations {
   String get resultsKpiUnservedLoad => 'Charge non servie';
 
   @override
+  String microInverterBanksWarnSharedPvInverter(String inverterId) {
+    return 'Attention : l\'onduleur « $inverterId » est configuré comme micro-onduleur PV 800 W avec des modules PV raccordés. Les micro-onduleurs PV classiques ne doivent pas être alimentés par une batterie — la sortie batterie nécessite un appareil distinct certifié par son fabricant pour cet usage.';
+  }
+
+  @override
+  String get bankRuntimeSectionTitle => 'Sortie 24h — autonomie journalière';
+
+  @override
+  String get bankRuntimeLegendActive => 'Actif (heures livrées)';
+
+  @override
+  String get bankRuntimeLegendShortfall =>
+      'Manque (heures programmées sans livraison)';
+
+  @override
+  String bankRuntimeStatCoverage(String pct) {
+    return 'Couverture : $pct %';
+  }
+
+  @override
+  String bankRuntimeStatAvgHours(String hours) {
+    return 'Moy. $hours h/jour actif';
+  }
+
+  @override
+  String bankRuntimeStatDelivered(String kwh) {
+    return 'Livré : $kwh kWh';
+  }
+
+  @override
+  String bankRuntimeStatShortfall(String kwh) {
+    return 'Manque : $kwh kWh';
+  }
+
+  @override
   String get topologyTitle => 'Topologie';
 
   @override

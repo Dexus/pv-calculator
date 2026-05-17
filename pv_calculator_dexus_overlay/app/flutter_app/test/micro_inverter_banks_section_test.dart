@@ -82,6 +82,62 @@ void main() {
         everyElement(equals(1.0)));
   });
 
+  testWidgets('Phase 6: warns when a PV-side micro-inverter is shared with a bank', (tester) async {
+    // Setup: an inverter declared as 800 W micro AND fed by a PV array
+    // — the demo `ConfigDraft.demo()` already has one array pointing at
+    // its single inverter, so flipping that inverter's role to
+    // `microInverter800W` plus adding a bank should surface the per-
+    // inverter warning.
+    final controller = ProjectController();
+    controller.draft.inverters.first.role = InverterRole.microInverter800W;
+    controller.draft.microInverterBanks.add(MicroInverterBankDraft(
+      id: 'bank-1',
+      batteryId: controller.draft.batteries.first.id,
+    ));
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: germanMaterialApp(
+          home: const Scaffold(
+            body: SingleChildScrollView(child: MicroInverterBanksSection()),
+          ),
+        ),
+      ),
+    );
+
+    // Section opens automatically because the bank list is non-empty.
+    // Warning text mentions the inverter id from the demo draft ("main").
+    expect(find.textContaining('main'), findsWidgets);
+    expect(find.byIcon(Icons.warning_amber_outlined), findsOneWidget);
+  });
+
+  testWidgets('Phase 6: no warning when no PV array points at the 800 W inverter', (tester) async {
+    // Same role flip, but the demo array's inverterId is rewritten so
+    // no PV path lands on this inverter. The warning must not appear
+    // because the inverter is unused by PV.
+    final controller = ProjectController();
+    controller.draft.inverters.first.role = InverterRole.microInverter800W;
+    controller.draft.arrays.first.inverterId = 'detached';
+    controller.draft.microInverterBanks.add(MicroInverterBankDraft(
+      id: 'bank-1',
+      batteryId: controller.draft.batteries.first.id,
+    ));
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: germanMaterialApp(
+          home: const Scaffold(
+            body: SingleChildScrollView(child: MicroInverterBanksSection()),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.warning_amber_outlined), findsNothing);
+  });
+
   testWidgets('hourly factors round-trip when bank loaded with HourlySchedule', (tester) async {
     final controller = ProjectController();
     final factors = List<double>.generate(24, (i) => i < 12 ? 0.0 : 1.0);
