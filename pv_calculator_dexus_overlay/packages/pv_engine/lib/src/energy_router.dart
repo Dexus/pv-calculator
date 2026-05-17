@@ -64,6 +64,7 @@ class EnergyRouter {
     required double loadKwh,
     required double stepHours,
     required double? gridExportLimitKw,
+    List<double>? batteryAcCapKwh,
   }) {
     final n = batteryIds.length;
     final batteryById = {for (var i = 0; i < n; i++) batteryIds[i]: i};
@@ -92,6 +93,10 @@ class EnergyRouter {
     }
 
     // Step 2: Direct (non-bank) discharge → remaining load.
+    // Cap by the battery's AC envelope per Architektur §5.3 — the
+    // inverter limit (when topology supplies one) is the AC ceiling
+    // shared by direct discharge and banks; otherwise fall back to
+    // `maxDischargeKw` so legacy projects keep their numbers.
     for (var i = 0; i < n; i++) {
       if (remainingLoad <= 0) break;
       if (i >= plan.batteryDirectDischargeRequestsKwh.length) break;
@@ -99,8 +104,10 @@ class EnergyRouter {
       if (requested <= 0) continue;
       final usableStored = math.max(0.0, socs[i] - minSocsKwh[i]);
       final usableAc = usableStored * dischargeEfficiency[i];
-      final rateCap = maxDischargeKw[i] * stepHours;
-      final acKwh = math.min(requested, math.min(math.min(remainingLoad, rateCap), usableAc));
+      final acCap = batteryAcCapKwh != null && i < batteryAcCapKwh.length
+          ? batteryAcCapKwh[i]
+          : maxDischargeKw[i] * stepHours;
+      final acKwh = math.min(requested, math.min(math.min(remainingLoad, acCap), usableAc));
       if (acKwh <= 0) continue;
       actualDirectDischarge[i] = acKwh;
       socs[i] -= dischargeEfficiency[i] == 0 ? 0 : acKwh / dischargeEfficiency[i];
@@ -142,10 +149,18 @@ class EnergyRouter {
       final acFromStored = usableStored *
           dischargeEfficiency[battIdx] *
           bank.inverterEfficiency;
-      // Remaining headroom on this battery's discharge cap, after
+      // Remaining headroom on this battery's AC discharge cap, after
       // direct-discharge and any earlier banks in declared order.
+      // When `batteryAcCapKwh` is supplied (Phase-4 topology with an
+      // explicit battery inverter) it overrides `maxDischargeKw` per
+      // Architektur §5.3 `inverterLimitW`; otherwise fall back to the
+      // legacy battery-rate cap so pre-topology projects keep their
+      // existing dispatch numbers.
+      final acCap = batteryAcCapKwh != null && battIdx < batteryAcCapKwh.length
+          ? batteryAcCapKwh[battIdx]
+          : maxDischargeKw[battIdx] * stepHours;
       final battAcRemaining =
-          math.max(0.0, maxDischargeKw[battIdx] * stepHours - batteryAcUsed[battIdx]);
+          math.max(0.0, acCap - batteryAcUsed[battIdx]);
       final battRateAc = battAcRemaining * bank.inverterEfficiency;
       final delivered = math.min(targetKwh, math.min(math.min(acRateCap, acFromStored), battRateAc));
       if (delivered <= 0) {

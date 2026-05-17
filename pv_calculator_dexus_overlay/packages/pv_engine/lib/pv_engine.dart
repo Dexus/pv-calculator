@@ -753,6 +753,24 @@ class PvSimulator {
     );
 
     final plan = policy.plan(ctx);
+
+    // Per-battery AC envelope (Architektur §5.3 `inverterLimitW`). When
+    // a battery's topology coupling names an `inverterId`, use that
+    // inverter's effective AC cap (already 800-W-clamped for the
+    // `microInverter800W` role); otherwise fall back to the legacy
+    // `maxDischargeKw` cap so pre-Phase-4 projects keep their numbers.
+    final acCapKwh = <double>[
+      for (var i = 0; i < config.batteries.length; i++)
+        () {
+          final coupling = topology.couplingFor(config.batteries[i].id);
+          final invId = coupling.inverterId;
+          if (invId == null) return maxDischarge[i] * stepHours;
+          final inv = inverterById[invId];
+          if (inv == null) return maxDischarge[i] * stepHours;
+          return inv.effectiveMaxAcKw * stepHours;
+        }(),
+    ];
+
     final flows = const EnergyRouter().apply(
       plan: plan,
       socs: socs,
@@ -768,6 +786,7 @@ class PvSimulator {
       loadKwh: loadKwh,
       stepHours: stepHours,
       gridExportLimitKw: config.gridExportLimitKw,
+      batteryAcCapKwh: acCapKwh,
     );
 
     final aggregateSoc = socs.fold<double>(0.0, (a, b) => a + b);
