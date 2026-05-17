@@ -29,13 +29,14 @@ enum DbStorageTier {
 /// the conditional imports of `connection_io.dart` / `connection_web.dart`
 /// — this file is platform-neutral and safe to import from both targets.
 class AppDatabase {
-  AppDatabase._(this._db, this.storageTier) {
+  AppDatabase._(this._db, this.storageTier, this._flushImpl) {
     _db.execute('PRAGMA foreign_keys = ON');
     _ensureSchema();
   }
 
   final CommonDatabase _db;
   final DbStorageTier storageTier;
+  final Future<void> Function() _flushImpl;
 
   CommonDatabase get db => _db;
 
@@ -43,23 +44,35 @@ class AppDatabase {
   ///
   /// - Native: a file under the platform's app-documents directory.
   /// - Web: loads `sqlite3.wasm` from the same origin (`web/sqlite3.wasm`)
-  ///   and stores the sqlite file in an `IndexedDbFileSystem` keyed by
-  ///   [fileName]. OPFS (which removes the async-flush window) is still
-  ///   deferred — see ROADMAP §Phase 7 Verschoben.
+  ///   and stores sqlite files inside a single IDB store, with [fileName]
+  ///   as the path within the `IndexedDbFileSystem` VFS. OPFS (which
+  ///   removes the async-flush window) is still deferred — see ROADMAP
+  ///   §Phase 7 Verschoben.
   static Future<AppDatabase> open({String fileName = 'pv_calculator.sqlite'}) async {
     final result = await conn.openFile(fileName);
     if (result.created) {
       debugPrint('AppDatabase: created new sqlite store at ${result.path}.');
     }
     final tier = kIsWeb ? DbStorageTier.indexedDb : DbStorageTier.native;
-    return AppDatabase._(result.db, tier);
+    return AppDatabase._(result.db, tier, result.flush);
   }
 
   /// In-memory database used by the VM-side test suite. The web shim's
   /// synchronous entry point throws — call [open] instead from web code.
   factory AppDatabase.memory() {
-    return AppDatabase._(conn.openInMemorySync(), DbStorageTier.memory);
+    return AppDatabase._(conn.openInMemorySync(), DbStorageTier.memory, () async {});
   }
+
+  /// Awaits any pending writes from the underlying VFS to durable storage.
+  ///
+  /// - Native / in-memory: completes immediately (no buffering layer).
+  /// - Web: awaits the `IndexedDbFileSystem`'s pending IDB transactions so
+  ///   the most recent save survives an immediate reload. A
+  ///   `visibilitychange` listener registered by `connection_web.dart`
+  ///   already calls this best-effort when the tab goes hidden; explicit
+  ///   callers (tests, "Save & quit" buttons) can await it for hard
+  ///   durability.
+  Future<void> flush() => _flushImpl();
 
   void close() => _db.close();
 

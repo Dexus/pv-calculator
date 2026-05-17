@@ -14,11 +14,26 @@ CommonDatabase openInMemorySync() => native.sqlite3.openInMemory();
 
 Future<CommonDatabase> openInMemoryAsync() async => native.sqlite3.openInMemory();
 
-Future<({CommonDatabase db, String path, bool created})> openFile(String fileName) async {
+Future<
+  ({
+    CommonDatabase db,
+    String path,
+    bool created,
+    Future<void> Function() flush,
+  })
+>
+openFile(String fileName) async {
   final docs = await getApplicationDocumentsDirectory();
   final dir = Directory(docs.path);
   if (!dir.existsSync()) dir.createSync(recursive: true);
   final path = p.join(docs.path, fileName);
   final created = !File(path).existsSync();
-  return (db: native.sqlite3.open(path), path: path, created: created);
+  return (
+    db: native.sqlite3.open(path),
+    path: path,
+    created: created,
+    // Native sqlite writes go straight through `dart:ffi` to the OS file
+    // descriptor — no async commit window to wait on.
+    flush: () async {},
+  );
 }
