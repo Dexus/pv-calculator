@@ -46,12 +46,13 @@ The engine itself remains zero-runtime-dep; sqlite3 only enters here.
 ### Browser persistence
 
 On web, `connection_web.dart` loads `web/sqlite3.wasm` (bundled in this
-repo — pinned to the version that matches `package:sqlite3`) and opens
-an **in-memory** database on top. The page compiles and runs, but the
-project list resets on every reload — there is no OPFS/IndexedDB VFS
-wired up yet. The plumbing is in place (`SimpleOpfsFileSystem` and
-`IndexedDbFileSystem` are exported from `package:sqlite3/wasm.dart`); a
-follow-up needs to add a worker bootstrap. Tracked under
+repo — pinned to the version that matches `package:sqlite3`) and stores
+the sqlite file in an `IndexedDbFileSystem` keyed by the same
+`pv_calculator.sqlite` name used on native. Project data survives
+reloads on the same origin; browsers may evict it under storage
+pressure, the same way they evict any other IndexedDB content. OPFS
+(which would close the async-flush window between sqlite writes and IDB
+commits) still needs a worker bootstrap and stays deferred — see
 `docs/ROADMAP.md` §Phase 7 Verschoben.
 
 Native (mobile/desktop) builds keep a real file under
@@ -60,7 +61,7 @@ Native (mobile/desktop) builds keep a real file under
 To verify which tier was chosen at runtime, inspect the startup log line:
 
 ```
-main: AppDatabase storage tier = native|memory.
+main: AppDatabase storage tier = native|indexedDb|memory.
 ```
 
 ### Updating sqlite3

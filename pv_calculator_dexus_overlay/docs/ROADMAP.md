@@ -96,7 +96,7 @@ Ziel: Projekte, Standorte, Szenarien anlegen, duplizieren, vergleichen (PRD FR-0
 ### Verschoben
 
 - **Persistierte Zeitreihen** (Architektur §7 `result_points`): aktuell speichern wir nur `SimulationSummary` als JSON-Blob in `simulation_runs.summary_json`. Per-Step-Reihen würden auf 365×24×N(scenarios) Floats wachsen; Architektur-Empfehlung war ohnehin „bei Bedarf rekonstruieren". Frühestens Phase 9 (Performance / 15-Minuten-Mode), wenn ein Float64List-basierter Streaming-Speicher steht.
-- **OPFS-/IndexedDB-Persistenz im Web**: Web-Builds laden `web/sqlite3.wasm` und nutzen eine In-Memory-Datenbank — alle Projekt-/Szenario-Daten verschwinden bei jedem Reload. `connection_web.dart` ist auf den Wechsel auf eine VFS-basierte persistente Implementation (`SimpleOpfsFileSystem` / `IndexedDbFileSystem` aus `package:sqlite3/wasm.dart`) vorbereitet, der Worker-Bootstrap fehlt noch. Trigger: nächster ernsthafter Pages-Deploy des Flutter-Clients (heutige Pages-Verteilung ist die HTML-Referenz, nicht die Flutter-App).
+- **OPFS-Persistenz im Web**: IndexedDB-VFS (`IndexedDbFileSystem`) ist in `connection_web.dart` aktiv — Projekt-/Szenario-Daten überleben Reloads auf derselben Origin. Offen bleibt der Wechsel auf OPFS (`SimpleOpfsFileSystem`), der das asynchrone Flush-Fenster zwischen sqlite-Write und IDB-Commit schließt und größere Datenbanken effizienter schreibt; er braucht einen Worker-Bootstrap, der noch fehlt. Trigger: wenn der Datenverlust im Reload-Edge-Case (Tab-Close direkt nach Write) in Praxis auftritt oder die Datenbank > ~50 MB wächst.
 
 ---
 
