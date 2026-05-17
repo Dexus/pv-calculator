@@ -1,13 +1,23 @@
 import 'dart:math' as math;
 
+import 'src/dispatch_policies.dart';
+import 'src/dispatch_policy.dart';
+import 'src/energy_router.dart';
+import 'src/micro_inverter_bank.dart';
 import 'src/temperature_model.dart';
+import 'src/topology.dart';
 import 'src/weather.dart';
 
 export 'src/csv_export.dart';
+export 'src/dispatch_policies.dart';
+export 'src/dispatch_policy.dart';
+export 'src/energy_router.dart';
+export 'src/micro_inverter_bank.dart';
 export 'src/pvgis.dart';
 export 'src/pvgis_client.dart';
 export 'src/summary_aggregator.dart';
 export 'src/temperature_model.dart';
+export 'src/topology.dart';
 export 'src/transposition.dart';
 export 'src/weather.dart';
 
@@ -267,6 +277,9 @@ class SimulationConfig {
     required this.inverters,
     required this.loadProfile,
     this.batteries = const [],
+    this.microInverterBanks = const [],
+    this.topology,
+    this.dispatchPolicy,
     this.startDayOfYear = 1,
     this.days = 365,
     this.timeStep = TimeStep.hourly,
@@ -281,6 +294,20 @@ class SimulationConfig {
   final List<PvArray> arrays;
   final List<Inverter> inverters;
   final List<BatteryConfig> batteries;
+
+  /// Optional explicit topology. When `null` the simulator derives a
+  /// default graph from `arrays`/`inverters`/`batteries`/`microInverterBanks`
+  /// via [TopologyGraph.fromLegacy], preserving pre-Phase-4 behaviour.
+  final TopologyGraph? topology;
+
+  /// Pluggable dispatch strategy. Defaults to
+  /// [SelfConsumptionFirstPolicy] when `null`, which reproduces the
+  /// pre-Phase-4 dispatch order.
+  final DispatchPolicy? dispatchPolicy;
+
+  /// Battery-coupled AC outputs (e.g. 800-W class). Empty by default.
+  final List<MicroInverterBank> microInverterBanks;
+
   final LoadProfile loadProfile;
   final int startDayOfYear;
   final int days;
@@ -307,6 +334,24 @@ class SimulationConfig {
   final TemperatureModel temperatureModel;
 
   IrradianceSource get effectiveWeatherSource => weatherSource ?? const SyntheticIrradianceSource();
+
+  /// Topology used by the simulator: explicit if given, otherwise an
+  /// auto-built one derived from the flat fields.
+  TopologyGraph get effectiveTopology => topology ?? TopologyGraph.fromLegacy(
+        arrayIds: arrays.map((a) => a.id),
+        inverterIds: inverters.map((i) => i.id),
+        batteryIds: batteries.map((b) => b.id),
+        bankIds: microInverterBanks.map((b) => b.id),
+        arrayToInverter: arrays.map((a) => MapEntry(a.id, a.inverterId)),
+        inverterMaxAc: inverters.map((i) => MapEntry(i.id, i.effectiveMaxAcKw)),
+        inverterMaxDcInput: inverters.map((i) => MapEntry(i.id, i.maxDcInputKw)),
+        inverterEfficiency: inverters.map((i) => MapEntry(i.id, i.efficiency)),
+      );
+
+  /// Dispatch policy used by the simulator: explicit if given,
+  /// otherwise [SelfConsumptionFirstPolicy].
+  DispatchPolicy get effectiveDispatchPolicy =>
+      dispatchPolicy ?? const SelfConsumptionFirstPolicy();
 
   void validate() {
     _require(arrays.isNotEmpty, 'At least one PV array is required.');
@@ -340,27 +385,62 @@ class SimulationConfig {
       battery.validate();
       _require(batteryIds.add(battery.id), 'Duplicate battery id: ${battery.id}.');
     }
+    final bankIds = <String>{};
+    for (final bank in microInverterBanks) {
+      bank.validate();
+      _require(bankIds.add(bank.id), 'Duplicate micro-inverter bank id: ${bank.id}.');
+      _require(batteryIds.contains(bank.batteryId),
+          'Micro-inverter bank ${bank.id} references missing battery ${bank.batteryId}.');
+    }
+    final explicitTopology = topology;
+    if (explicitTopology != null) {
+      explicitTopology.validate(
+        arrayIds: arrayIds,
+        inverterIds: inverterIds,
+        batteryIds: batteryIds,
+        bankIds: bankIds,
+      );
+    }
     loadProfile.validate();
   }
 
-  Map<String, dynamic> toJson() => {
-        'schemaVersion': 1,
-        'arrays': arrays.map((a) => a.toJson()).toList(),
-        'inverters': inverters.map((i) => i.toJson()).toList(),
-        'batteries': batteries.map((b) => b.toJson()).toList(),
-        'loadProfile': loadProfile.toJson(),
-        'startDayOfYear': startDayOfYear,
-        'days': days,
-        'timeStep': timeStep.name,
-        'preRunDays': preRunDays,
-        'gridExportLimitKw': gridExportLimitKw,
-        'latitudeDeg': latitudeDeg,
-        'longitudeDeg': longitudeDeg,
-      };
+  Map<String, dynamic> toJson() {
+    // Bump to schema v2 only when one of the new Phase-4 fields is
+    // actually set, so legacy consumers continue to see v1 JSON.
+    final hasPhase4 = topology != null ||
+        dispatchPolicy != null ||
+        microInverterBanks.isNotEmpty;
+    final json = <String, dynamic>{
+      'schemaVersion': hasPhase4 ? 2 : 1,
+      'arrays': arrays.map((a) => a.toJson()).toList(),
+      'inverters': inverters.map((i) => i.toJson()).toList(),
+      'batteries': batteries.map((b) => b.toJson()).toList(),
+      'loadProfile': loadProfile.toJson(),
+      'startDayOfYear': startDayOfYear,
+      'days': days,
+      'timeStep': timeStep.name,
+      'preRunDays': preRunDays,
+      'gridExportLimitKw': gridExportLimitKw,
+      'latitudeDeg': latitudeDeg,
+      'longitudeDeg': longitudeDeg,
+    };
+    if (hasPhase4) {
+      if (microInverterBanks.isNotEmpty) {
+        json['microInverterBanks'] = microInverterBanks.map((b) => b.toJson()).toList();
+      }
+      if (topology != null) {
+        json['topology'] = topology!.toJson();
+      }
+      if (dispatchPolicy != null) {
+        json['dispatchPolicy'] = dispatchPolicy!.toJson();
+      }
+    }
+    return json;
+  }
 
   static SimulationConfig fromJson(Map<String, dynamic> json) {
     final version = json['schemaVersion'] as int? ?? 1;
-    if (version != 1) {
+    if (version != 1 && version != 2) {
       throw ArgumentError('Unknown SimulationConfig schemaVersion: $version');
     }
     final batteries = <BatteryConfig>[];
@@ -380,6 +460,26 @@ class SimulationConfig {
       ));
     }
 
+    final banks = <MicroInverterBank>[];
+    final rawBanks = json['microInverterBanks'];
+    if (rawBanks is List) {
+      for (final e in rawBanks) {
+        banks.add(MicroInverterBank.fromJson((e as Map).cast<String, dynamic>()));
+      }
+    }
+
+    TopologyGraph? topo;
+    final rawTopo = json['topology'];
+    if (rawTopo is Map) {
+      topo = TopologyGraph.fromJson(rawTopo.cast<String, dynamic>());
+    }
+
+    DispatchPolicy? policy;
+    final rawPolicy = json['dispatchPolicy'];
+    if (rawPolicy is Map) {
+      policy = dispatchPolicyFromJson(rawPolicy.cast<String, dynamic>());
+    }
+
     return SimulationConfig(
       arrays: (json['arrays'] as List)
           .map((e) => PvArray.fromJson((e as Map).cast<String, dynamic>()))
@@ -388,6 +488,9 @@ class SimulationConfig {
           .map((e) => Inverter.fromJson((e as Map).cast<String, dynamic>()))
           .toList(growable: false),
       batteries: batteries,
+      microInverterBanks: banks,
+      topology: topo,
+      dispatchPolicy: policy,
       loadProfile: LoadProfile.fromJson((json['loadProfile'] as Map).cast<String, dynamic>()),
       startDayOfYear: (json['startDayOfYear'] as num?)?.toInt() ?? 1,
       days: (json['days'] as num?)?.toInt() ?? 365,
@@ -421,6 +524,11 @@ class SimulationStep {
     required this.curtailedDcKwh,
     required this.curtailedAcKwh,
     required this.curtailedExportKwh,
+    this.microInverterDeliveredKwh = 0.0,
+    this.microInverterShortfallKwh = 0.0,
+    this.microInverterDeliveriesKwh = const [],
+    this.microInverterShortfallsKwh = const [],
+    this.unservedLoadKwh = 0.0,
   });
 
   final int dayIndex;
@@ -454,6 +562,29 @@ class SimulationStep {
   /// **AC kWh**. Energy was successfully converted to AC but exceeded
   /// the export ceiling.
   final double curtailedExportKwh;
+
+  /// AC energy delivered by all micro-inverter banks combined, in
+  /// **AC kWh**. Already included in [selfConsumptionKwh] (when it
+  /// covers load) and [gridExportKwh] (when it spills).
+  final double microInverterDeliveredKwh;
+
+  /// AC energy the banks tried but failed to deliver this step (SOC
+  /// shutdown, rate cap, empty battery), in **AC kWh**.
+  final double microInverterShortfallKwh;
+
+  /// Per-bank breakdown of [microInverterDeliveredKwh]. Same order as
+  /// `SimulationConfig.microInverterBanks`. Empty when no banks are
+  /// configured.
+  final List<double> microInverterDeliveriesKwh;
+
+  /// Per-bank breakdown of [microInverterShortfallKwh].
+  final List<double> microInverterShortfallsKwh;
+
+  /// Load that remained uncovered after PV, batteries and banks when
+  /// the dispatch policy disabled grid import (e.g. islanded
+  /// [GridAssistPolicy] with `allowGridImport: false`). `0` for grid-
+  /// connected scenarios.
+  final double unservedLoadKwh;
 }
 
 class SimulationSummary {
@@ -471,6 +602,9 @@ class SimulationSummary {
     required this.curtailedExportKwh,
     required this.finalBatterySocKwh,
     required this.finalBatterySocsKwh,
+    this.microInverterDeliveredKwh = 0.0,
+    this.microInverterShortfallKwh = 0.0,
+    this.unservedLoadKwh = 0.0,
   });
 
   final double pvDcKwh;
@@ -493,6 +627,16 @@ class SimulationSummary {
 
   final double finalBatterySocKwh;
   final List<double> finalBatterySocsKwh;
+
+  /// Sum of AC energy delivered by all micro-inverter banks over the
+  /// reporting horizon.
+  final double microInverterDeliveredKwh;
+
+  /// Sum of AC energy the banks could not deliver.
+  final double microInverterShortfallKwh;
+
+  /// Load left uncovered when grid import was disabled by the policy.
+  final double unservedLoadKwh;
 
   double get selfConsumptionRate => pvAcKwh <= 0 ? 0 : selfConsumptionKwh / pvAcKwh;
   double get autarkyRate => loadKwh <= 0 ? 0 : selfConsumptionKwh / loadKwh;
@@ -575,59 +719,62 @@ class PvSimulator {
     }
 
     final loadKwh = config.loadProfile.energyKwhForStep(hourOfDay: hourOfDay, timeStep: config.timeStep);
-    var selfConsumptionKwh = math.min(pvAcKwh, loadKwh);
-    var surplusKwh = math.max(0.0, pvAcKwh - loadKwh);
-    var remainingLoadKwh = math.max(0.0, loadKwh - pvAcKwh);
-    var batteryChargeKwh = 0.0;
-    var batteryDischargeKwh = 0.0;
-    final perBatteryCharge = List<double>.filled(config.batteries.length, 0.0);
-    final perBatteryDischarge = List<double>.filled(config.batteries.length, 0.0);
 
-    for (var i = 0; i < config.batteries.length; i++) {
-      if (surplusKwh <= 0) break;
-      final battery = config.batteries[i];
-      if (battery.capacityKwh <= 0 || battery.maxChargeKw <= 0) continue;
-      final capacityLeft = math.max(0.0, battery.capacityKwh - socs[i]);
-      final maxInput = math.min(surplusKwh, battery.maxChargeKw * stepHours);
-      final input = math.min(maxInput, capacityLeft / battery.chargeEfficiency);
-      if (input <= 0) continue;
-      socs[i] += input * battery.chargeEfficiency;
-      perBatteryCharge[i] = input;
-      batteryChargeKwh += input;
-      surplusKwh -= input;
-    }
+    // Dispatch-policy pipeline. The legacy battery dispatch + grid
+    // import/export logic now lives in the router; the policy decides
+    // *what to request*, the router enforces hard limits.
+    final batteryIds = [for (final b in config.batteries) b.id];
+    final capacities = [for (final b in config.batteries) b.capacityKwh];
+    final minSocs = [for (final b in config.batteries) b.minSocKwh];
+    final maxCharge = [for (final b in config.batteries) b.maxChargeKw];
+    final maxDischarge = [for (final b in config.batteries) b.maxDischargeKw];
+    final chargeEta = [for (final b in config.batteries) b.chargeEfficiency];
+    final dischargeEta = [for (final b in config.batteries) b.dischargeEfficiency];
 
-    for (var i = 0; i < config.batteries.length; i++) {
-      if (remainingLoadKwh <= 0) break;
-      final battery = config.batteries[i];
-      if (battery.capacityKwh <= 0 || battery.maxDischargeKw <= 0) continue;
-      final usableSoc = math.max(0.0, socs[i] - battery.minSocKwh);
-      final maxOutput = math.min(remainingLoadKwh, battery.maxDischargeKw * stepHours);
-      final output = math.min(maxOutput, usableSoc * battery.dischargeEfficiency);
-      if (output <= 0) continue;
-      socs[i] -= output / battery.dischargeEfficiency;
-      perBatteryDischarge[i] = output;
-      batteryDischargeKwh += output;
-      selfConsumptionKwh += output;
-      remainingLoadKwh -= output;
-    }
+    final policy = config.effectiveDispatchPolicy;
+    final topology = config.effectiveTopology;
+    final ctx = DispatchContext(
+      hourOfDay: hourOfDay,
+      dayOfYear: dayOfYear,
+      stepHours: stepHours,
+      pvAcKwh: pvAcKwh,
+      loadKwh: loadKwh,
+      batteryStates: List<double>.unmodifiable(socs),
+      batteryCapacitiesKwh: capacities,
+      batteryMinSocsKwh: minSocs,
+      batteryMaxChargeKw: maxCharge,
+      batteryMaxDischargeKw: maxDischarge,
+      batteryChargeEfficiency: chargeEta,
+      batteryDischargeEfficiency: dischargeEta,
+      batteryIds: batteryIds,
+      banks: config.microInverterBanks,
+      topology: topology,
+      gridExportLimitKw: config.gridExportLimitKw,
+    );
 
-    for (var i = 0; i < config.batteries.length; i++) {
-      socs[i] = socs[i].clamp(config.batteries[i].minSocKwh, config.batteries[i].capacityKwh).toDouble();
-    }
-
-    var gridExportKwh = surplusKwh;
-    var curtailedExportKwh = 0.0;
-    final exportLimitKw = config.gridExportLimitKw;
-    if (exportLimitKw != null) {
-      final maxExport = exportLimitKw * stepHours;
-      if (gridExportKwh > maxExport) {
-        curtailedExportKwh = gridExportKwh - maxExport;
-        gridExportKwh = maxExport;
-      }
-    }
+    final plan = policy.plan(ctx);
+    final flows = const EnergyRouter().apply(
+      plan: plan,
+      socs: socs,
+      capacitiesKwh: capacities,
+      minSocsKwh: minSocs,
+      maxChargeKw: maxCharge,
+      maxDischargeKw: maxDischarge,
+      chargeEfficiency: chargeEta,
+      dischargeEfficiency: dischargeEta,
+      batteryIds: batteryIds,
+      banks: config.microInverterBanks,
+      pvAcKwh: pvAcKwh,
+      loadKwh: loadKwh,
+      stepHours: stepHours,
+      gridExportLimitKw: config.gridExportLimitKw,
+    );
 
     final aggregateSoc = socs.fold<double>(0.0, (a, b) => a + b);
+    final totalCharge = flows.batteryChargesKwh.fold<double>(0.0, (a, b) => a + b);
+    final totalDischarge = flows.batteryDischargesKwh.fold<double>(0.0, (a, b) => a + b);
+    final totalDelivered = flows.bankDeliveriesKwh.fold<double>(0.0, (a, b) => a + b);
+    final totalShortfall = flows.bankShortfallsKwh.fold<double>(0.0, (a, b) => a + b);
 
     return SimulationStep(
       dayIndex: dayIndex,
@@ -637,18 +784,23 @@ class PvSimulator {
       pvDcKwh: pvDcKwh,
       pvAcKwh: pvAcKwh,
       loadKwh: loadKwh,
-      selfConsumptionKwh: selfConsumptionKwh,
-      batteryChargeKwh: batteryChargeKwh,
-      batteryDischargeKwh: batteryDischargeKwh,
+      selfConsumptionKwh: flows.selfConsumptionKwh,
+      batteryChargeKwh: totalCharge,
+      batteryDischargeKwh: totalDischarge,
       batterySocKwh: aggregateSoc,
-      batteryChargesKwh: List<double>.unmodifiable(perBatteryCharge),
-      batteryDischargesKwh: List<double>.unmodifiable(perBatteryDischarge),
-      batterySocsKwh: List<double>.unmodifiable(socs),
-      gridImportKwh: remainingLoadKwh,
-      gridExportKwh: gridExportKwh,
+      batteryChargesKwh: flows.batteryChargesKwh,
+      batteryDischargesKwh: flows.batteryDischargesKwh,
+      batterySocsKwh: flows.batterySocsKwh,
+      gridImportKwh: flows.gridImportKwh,
+      gridExportKwh: flows.gridExportKwh,
       curtailedDcKwh: curtailedDcKwh,
       curtailedAcKwh: curtailedAcKwh,
-      curtailedExportKwh: curtailedExportKwh,
+      curtailedExportKwh: flows.curtailedExportKwh,
+      microInverterDeliveredKwh: totalDelivered,
+      microInverterShortfallKwh: totalShortfall,
+      microInverterDeliveriesKwh: flows.bankDeliveriesKwh,
+      microInverterShortfallsKwh: flows.bankShortfallsKwh,
+      unservedLoadKwh: flows.unservedLoadKwh,
     );
   }
 
@@ -679,6 +831,9 @@ class PvSimulator {
       curtailedExportKwh: sum((s) => s.curtailedExportKwh),
       finalBatterySocKwh: finalSocs.fold<double>(0.0, (a, b) => a + b),
       finalBatterySocsKwh: List<double>.unmodifiable(finalSocs),
+      microInverterDeliveredKwh: sum((s) => s.microInverterDeliveredKwh),
+      microInverterShortfallKwh: sum((s) => s.microInverterShortfallKwh),
+      unservedLoadKwh: sum((s) => s.unservedLoadKwh),
     );
   }
 
