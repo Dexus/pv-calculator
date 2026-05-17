@@ -54,6 +54,16 @@ ConfigSection classifyValidationMessage(String message) {
       m.contains('efficiency') && !m.contains('roundtrip')) {
     return ConfigSection.inverters;
   }
+  // Topology messages mention 'battery' too (e.g. "Topology coupling for
+  // battery X..."), so route them before the battery section.
+  if (m.contains('topology') ||
+      m.contains('dcbus') ||
+      m.contains('acbus') ||
+      m.contains('mppt') ||
+      m.contains('coupling') ||
+      m.contains('edge')) {
+    return ConfigSection.topology;
+  }
   if (m.contains('battery') ||
       m.contains('socKwh'.toLowerCase()) ||
       m.contains('capacitykwh') ||
@@ -66,12 +76,6 @@ ConfigSection classifyValidationMessage(String message) {
       m.contains('reserveSocFraction'.toLowerCase()) ||
       m.contains('reserve soc fraction')) {
     return ConfigSection.policy;
-  }
-  if (m.contains('topology') ||
-      m.contains('dcbus') ||
-      m.contains('acbus') ||
-      m.contains('mppt')) {
-    return ConfigSection.topology;
   }
   if (m.contains('load ') ||
       m.contains('dailykwh') ||
@@ -176,13 +180,15 @@ class ConfigDraft {
     List<MicroInverterBankDraft>? microInverterBanks,
     DispatchPolicyDraft? dispatchPolicy,
     LoadProfileDraft? loadProfile,
+    TopologyGraphDraft? topology,
   })  : siteIrradiance = siteIrradiance ?? SiteIrradianceDraft(),
         arrays = arrays ?? <PvArrayDraft>[],
         inverters = inverters ?? <InverterDraft>[],
         batteries = batteries ?? <BatteryDraft>[],
         microInverterBanks = microInverterBanks ?? <MicroInverterBankDraft>[],
         dispatchPolicy = dispatchPolicy ?? DispatchPolicyDraft.selfConsumption(),
-        loadProfile = loadProfile ?? LoadProfileDraft();
+        loadProfile = loadProfile ?? LoadProfileDraft(),
+        topology = topology ?? TopologyGraphDraft();
 
   int startDayOfYear;
   int days;
@@ -205,6 +211,11 @@ class ConfigDraft {
   /// Phase-4 dispatch policy. Defaults to SelfConsumptionFirst; the
   /// engine only persists this in JSON when it isn't the default.
   DispatchPolicyDraft dispatchPolicy;
+
+  /// Phase-4 explicit topology. When [TopologyGraphDraft.enabled] is
+  /// `false`, the engine falls back to `TopologyGraph.fromLegacy` which
+  /// reproduces pre-Phase-4 behaviour.
+  TopologyGraphDraft topology;
 
   LoadProfileDraft loadProfile;
 
@@ -230,6 +241,7 @@ class ConfigDraft {
       // round-tripping through v1 JSON (the engine bumps to v2 only
       // when one of these new fields is set).
       dispatchPolicy: policy is SelfConsumptionFirstPolicy ? null : policy,
+      topology: topology.enabled ? topology.build() : null,
       loadProfile: loadProfile.build(),
       startDayOfYear: startDayOfYear,
       days: days,
@@ -270,6 +282,9 @@ class ConfigDraft {
         microInverterBanks: config.microInverterBanks.map(MicroInverterBankDraft.fromBank).toList(),
         dispatchPolicy: DispatchPolicyDraft.fromPolicy(config.dispatchPolicy),
         loadProfile: LoadProfileDraft.fromProfile(config.loadProfile),
+        topology: config.topology == null
+            ? TopologyGraphDraft()
+            : TopologyGraphDraft.fromGraph(config.topology!),
       );
 
   static ConfigDraft demo() => ConfigDraft(
@@ -600,5 +615,187 @@ class DispatchPolicyDraft {
       );
     }
     return DispatchPolicyDraft();
+  }
+}
+
+/// Mutable working copy of an engine [DcBus].
+class DcBusDraft {
+  DcBusDraft({required this.id, this.label = ''});
+  String id;
+  String label;
+
+  DcBus build() => DcBus(id: id, label: label);
+  static DcBusDraft fromBus(DcBus b) => DcBusDraft(id: b.id, label: b.label);
+}
+
+/// Mutable working copy of an engine [AcBus].
+class AcBusDraft {
+  AcBusDraft({required this.id, this.label = ''});
+  String id;
+  String label;
+
+  AcBus build() => AcBus(id: id, label: label);
+  static AcBusDraft fromBus(AcBus b) => AcBusDraft(id: b.id, label: b.label);
+}
+
+/// Mutable working copy of an engine [MpptNode]. The editor renders MPPTs
+/// as read-only; they are auto-synced from the project's inverter list
+/// when [TopologyGraphDraft.seedFromConfig] is called.
+class MpptNodeDraft {
+  MpptNodeDraft({required this.id, required this.inverterId, this.label = ''});
+  String id;
+  String inverterId;
+  String label;
+
+  MpptNode build() => MpptNode(id: id, inverterId: inverterId, label: label);
+  static MpptNodeDraft fromNode(MpptNode m) =>
+      MpptNodeDraft(id: m.id, inverterId: m.inverterId, label: m.label);
+}
+
+/// Mutable working copy of an engine [BusEdge]. Edges declare directed
+/// flows with optional efficiency, max power and standby load, per
+/// Architektur §4.
+class BusEdgeDraft {
+  BusEdgeDraft({
+    required this.fromId,
+    required this.toId,
+    this.efficiency = 1.0,
+    this.maxPowerKw,
+    this.standbyW = 0.0,
+  });
+
+  String fromId;
+  String toId;
+  double efficiency;
+  double? maxPowerKw;
+  double standbyW;
+
+  BusEdge build() => BusEdge(
+        fromId: fromId,
+        toId: toId,
+        efficiency: efficiency,
+        maxPowerKw: maxPowerKw,
+        standbyW: standbyW,
+      );
+  static BusEdgeDraft fromEdge(BusEdge e) => BusEdgeDraft(
+        fromId: e.fromId,
+        toId: e.toId,
+        efficiency: e.efficiency,
+        maxPowerKw: e.maxPowerKw,
+        standbyW: e.standbyW,
+      );
+}
+
+/// Mutable working copy of an engine [BatteryCouplingSpec]. The `acCoupled`
+/// flag mirrors the engine enum (true = AC, false = DC); `dcBusId` is
+/// required when DC-coupled, `inverterId` is only meaningful for AC.
+class BatteryCouplingDraft {
+  BatteryCouplingDraft({
+    required this.batteryId,
+    this.acCoupled = true,
+    this.dcBusId,
+    this.inverterId,
+  });
+
+  String batteryId;
+  bool acCoupled;
+  String? dcBusId;
+  String? inverterId;
+
+  BatteryCouplingSpec build() => BatteryCouplingSpec(
+        batteryId: batteryId,
+        coupling: acCoupled ? BatteryCoupling.ac : BatteryCoupling.dc,
+        dcBusId: dcBusId,
+        inverterId: inverterId,
+      );
+
+  static BatteryCouplingDraft fromSpec(BatteryCouplingSpec spec) =>
+      BatteryCouplingDraft(
+        batteryId: spec.batteryId,
+        acCoupled: spec.coupling == BatteryCoupling.ac,
+        dcBusId: spec.dcBusId,
+        inverterId: spec.inverterId,
+      );
+}
+
+/// Mutable working copy of a [TopologyGraph]. While [enabled] is `false`
+/// the engine falls back to `TopologyGraph.fromLegacy` and the draft is
+/// not persisted. Toggling `enabled` to `true` typically triggers
+/// [seedFromConfig] so the user starts from a working baseline they can
+/// edit, rather than an empty graph that would fail validation.
+class TopologyGraphDraft {
+  TopologyGraphDraft({
+    this.enabled = false,
+    List<DcBusDraft>? dcBuses,
+    List<AcBusDraft>? acBuses,
+    List<MpptNodeDraft>? mppts,
+    List<BusEdgeDraft>? edges,
+    List<BatteryCouplingDraft>? couplings,
+  })  : dcBuses = dcBuses ?? <DcBusDraft>[],
+        acBuses = acBuses ?? <AcBusDraft>[],
+        mppts = mppts ?? <MpptNodeDraft>[],
+        edges = edges ?? <BusEdgeDraft>[],
+        couplings = couplings ?? <BatteryCouplingDraft>[];
+
+  bool enabled;
+  final List<DcBusDraft> dcBuses;
+  final List<AcBusDraft> acBuses;
+  final List<MpptNodeDraft> mppts;
+  final List<BusEdgeDraft> edges;
+  final List<BatteryCouplingDraft> couplings;
+
+  /// Replaces the draft contents with [TopologyGraph.fromLegacy] derived
+  /// from the current flat lists in [ConfigDraft]. Used when the user
+  /// flips the master switch on, or clicks "Seed from current setup"
+  /// after adding/removing inverters or batteries.
+  void seedFromConfig(ConfigDraft draft) {
+    final legacy = TopologyGraph.fromLegacy(
+      arrayIds: draft.arrays.map((a) => a.id),
+      inverterIds: draft.inverters.map((i) => i.id),
+      batteryIds: draft.batteries.map((b) => b.id),
+      bankIds: draft.microInverterBanks.map((b) => b.id),
+      arrayToInverter: draft.arrays.map((a) => MapEntry(a.id, a.inverterId)),
+      inverterMaxAc: draft.inverters.map((i) {
+        final cap = i.role == InverterRole.microInverter800W
+            ? (i.maxAcKw < 0.8 ? i.maxAcKw : 0.8)
+            : i.maxAcKw;
+        return MapEntry(i.id, cap);
+      }),
+      inverterMaxDcInput: draft.inverters.map((i) => MapEntry(i.id, i.maxDcInputKw)),
+      inverterEfficiency: draft.inverters.map((i) => MapEntry(i.id, i.efficiency)),
+    );
+    _replaceWith(legacy);
+  }
+
+  void _replaceWith(TopologyGraph graph) {
+    dcBuses
+      ..clear()
+      ..addAll(graph.dcBuses.map(DcBusDraft.fromBus));
+    acBuses
+      ..clear()
+      ..addAll(graph.acBuses.map(AcBusDraft.fromBus));
+    mppts
+      ..clear()
+      ..addAll(graph.mppts.map(MpptNodeDraft.fromNode));
+    edges
+      ..clear()
+      ..addAll(graph.edges.map(BusEdgeDraft.fromEdge));
+    couplings
+      ..clear()
+      ..addAll(graph.batteryCouplings.map(BatteryCouplingDraft.fromSpec));
+  }
+
+  TopologyGraph build() => TopologyGraph(
+        dcBuses: dcBuses.map((b) => b.build()).toList(growable: false),
+        acBuses: acBuses.map((b) => b.build()).toList(growable: false),
+        mppts: mppts.map((m) => m.build()).toList(growable: false),
+        edges: edges.map((e) => e.build()).toList(growable: false),
+        batteryCouplings: couplings.map((c) => c.build()).toList(growable: false),
+      );
+
+  static TopologyGraphDraft fromGraph(TopologyGraph graph) {
+    final draft = TopologyGraphDraft(enabled: true);
+    draft._replaceWith(graph);
+    return draft;
   }
 }

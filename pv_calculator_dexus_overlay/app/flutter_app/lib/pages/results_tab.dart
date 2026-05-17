@@ -13,6 +13,7 @@ import '../widgets/forms/dispatch_policy_section.dart';
 import '../widgets/forms/inverters_section.dart';
 import '../widgets/forms/load_section.dart';
 import '../widgets/forms/micro_inverter_banks_section.dart';
+import '../widgets/forms/topology_section.dart';
 import '../widgets/results/monthly_table.dart';
 
 /// Auswertung tab — system definition (inverters + batteries + load
@@ -62,6 +63,8 @@ class ResultsTab extends StatelessWidget {
         const InvertersSection(),
         const SizedBox(height: 12),
         const BatteriesSection(),
+        const SizedBox(height: 12),
+        const TopologySection(),
         const SizedBox(height: 12),
         const MicroInverterBanksSection(),
         const SizedBox(height: 12),

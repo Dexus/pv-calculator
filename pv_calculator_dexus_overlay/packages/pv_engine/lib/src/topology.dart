@@ -107,28 +107,44 @@ class BusEdge {
 
 /// Per-battery coupling: AC-coupled (legacy, charged from the AC bus)
 /// or DC-coupled to a specific inverter's DC bus.
+///
+/// [inverterId] (optional, only meaningful for AC-coupled batteries)
+/// names the inverter that sits between this battery and the AC bus.
+/// When set, [EnergyRouter] uses that inverter's `effectiveMaxAcKw` as
+/// the AC discharge cap shared across all banks fed from this battery,
+/// per Architektur §5.3 `min(targetPowerW, battery.maxDischargeW,
+/// inverterLimitW)`. When `null` the router falls back to the legacy
+/// behaviour of using `BatteryConfig.maxDischargeKw` as the AC cap.
 class BatteryCouplingSpec {
   const BatteryCouplingSpec({
     required this.batteryId,
     this.coupling = BatteryCoupling.ac,
     this.dcBusId,
+    this.inverterId,
   });
 
   final String batteryId;
   final BatteryCoupling coupling;
   final String? dcBusId;
+  final String? inverterId;
 
   void validate() {
     if (coupling == BatteryCoupling.dc && (dcBusId == null || dcBusId!.isEmpty)) {
-      throw ArgumentError('Battery $batteryId is DC-coupled but no dcBusId is set.');
+      throw ArgumentError('Topology coupling for battery $batteryId is DC-coupled but no dcBusId is set.');
     }
   }
 
-  Map<String, dynamic> toJson() => {
-        'batteryId': batteryId,
-        'coupling': coupling.name,
-        'dcBusId': dcBusId,
-      };
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'batteryId': batteryId,
+      'coupling': coupling.name,
+      'dcBusId': dcBusId,
+    };
+    if (inverterId != null) {
+      json['inverterId'] = inverterId;
+    }
+    return json;
+  }
 
   static BatteryCouplingSpec fromJson(Map<String, dynamic> json) {
     final name = json['coupling'] as String? ?? 'ac';
@@ -140,6 +156,7 @@ class BatteryCouplingSpec {
       batteryId: (json['batteryId'] as String).trim(),
       coupling: coupling,
       dcBusId: json['dcBusId'] as String?,
+      inverterId: json['inverterId'] as String?,
     );
   }
 }
@@ -301,6 +318,9 @@ class TopologyGraph {
       }
       if (c.coupling == BatteryCoupling.dc && !dcIds.contains(c.dcBusId)) {
         throw ArgumentError('Topology coupling for ${c.batteryId} references unknown dcBus ${c.dcBusId}.');
+      }
+      if (c.inverterId != null && !inverterIds.contains(c.inverterId)) {
+        throw ArgumentError('Topology coupling for ${c.batteryId} references unknown inverter ${c.inverterId}.');
       }
     }
   }
