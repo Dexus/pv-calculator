@@ -1030,6 +1030,41 @@ class AppLocalizationsDe extends AppLocalizations {
   String get resultsKpiUnservedLoad => 'Unversorgte Last';
 
   @override
+  String microInverterBanksWarnSharedPvInverter(String inverterId) {
+    return 'Achtung: Wechselrichter „$inverterId“ ist als „800-W-Micro-Inverter“ mit angeschlossenen PV-Modulen konfiguriert. Reguläre PV-Micro-Inverter dürfen nicht aus einem Speicher gespeist werden — der Batterieausgang braucht ein eigenes, vom Hersteller dafür freigegebenes Gerät.';
+  }
+
+  @override
+  String get bankRuntimeSectionTitle => '24h-Ausgang — Laufzeit pro Tag';
+
+  @override
+  String get bankRuntimeLegendActive => 'Aktiv (Liefer-Stunden)';
+
+  @override
+  String get bankRuntimeLegendShortfall =>
+      'Fehlbetrag (geplante Stunden ohne Lieferung)';
+
+  @override
+  String bankRuntimeStatCoverage(String pct) {
+    return 'Abdeckung: $pct %';
+  }
+
+  @override
+  String bankRuntimeStatAvgHours(String hours) {
+    return 'Ø $hours h/Tag aktiv';
+  }
+
+  @override
+  String bankRuntimeStatDelivered(String kwh) {
+    return 'Geliefert: $kwh kWh';
+  }
+
+  @override
+  String bankRuntimeStatShortfall(String kwh) {
+    return 'Fehlbetrag: $kwh kWh';
+  }
+
+  @override
   String get topologyTitle => 'Topologie';
 
   @override

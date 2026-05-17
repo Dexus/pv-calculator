@@ -15,6 +15,7 @@ import '../widgets/forms/inverters_section.dart';
 import '../widgets/forms/load_section.dart';
 import '../widgets/forms/micro_inverter_banks_section.dart';
 import '../widgets/forms/topology_section.dart';
+import '../widgets/results/bank_runtime_chart.dart';
 import '../widgets/results/monthly_table.dart';
 
 /// Auswertung tab — system definition (inverters + batteries + load
@@ -87,6 +88,10 @@ class ResultsTab extends StatelessWidget {
         if (result != null) _ResultsBody(
           result: result,
           projectName: controller.projectName,
+          bankLabels: [
+            for (final b in draft.microInverterBanks) b.label.isEmpty ? b.id : b.label,
+          ],
+          timeStep: draft.timeStep,
           onExportCsv: ({required String filename, required String content}) =>
               io.exportCsv(filename: filename, content: content),
         ),
@@ -259,11 +264,15 @@ class _ResultsBody extends StatelessWidget {
   const _ResultsBody({
     required this.result,
     required this.projectName,
+    required this.bankLabels,
+    required this.timeStep,
     required this.onExportCsv,
   });
 
   final SimulationResult result;
   final String projectName;
+  final List<String> bankLabels;
+  final TimeStep timeStep;
   final _CsvExportCallback onExportCsv;
 
   @override
@@ -339,6 +348,16 @@ class _ResultsBody extends StatelessWidget {
             ),
         ]),
       ],
+      if (bankCount > 0) ...[
+        const SizedBox(height: 24),
+        Text(l.bankRuntimeSectionTitle, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 12),
+        _BankRuntimeSection(
+          steps: result.steps,
+          bankLabels: bankLabels,
+          timeStep: timeStep,
+        ),
+      ],
       const SizedBox(height: 24),
       Text(l.resultsMonthly, style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 12),
@@ -395,6 +414,46 @@ String _preRunModeLabel(AppLocalizations l, PreRunMode mode) {
       return l.projectPreRunModeSingle;
     case PreRunMode.cyclicConvergence:
       return l.projectPreRunModeCyclic;
+  }
+}
+
+class _BankRuntimeSection extends StatelessWidget {
+  const _BankRuntimeSection({
+    required this.steps,
+    required this.bankLabels,
+    required this.timeStep,
+  });
+
+  final List<SimulationStep> steps;
+  final List<String> bankLabels;
+  final TimeStep timeStep;
+
+  @override
+  Widget build(BuildContext context) {
+    final runtime = SummaryAggregator.bankRuntime(
+      steps,
+      bankCount: bankLabels.length,
+      timeStep: timeStep,
+    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (var i = 0; i < bankLabels.length; i++) ...[
+        if (i > 0) const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: BankRuntimeChart(
+              bankLabel: bankLabels[i],
+              daily: SummaryAggregator.bankDaily(
+                steps,
+                bankIndex: i,
+                timeStep: timeStep,
+              ),
+              stats: runtime[i],
+            ),
+          ),
+        ),
+      ],
+    ]);
   }
 }
 

@@ -1849,6 +1849,54 @@ abstract class AppLocalizations {
   /// **'Unversorgte Last'**
   String get resultsKpiUnservedLoad;
 
+  /// No description provided for @microInverterBanksWarnSharedPvInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'Achtung: Wechselrichter „{inverterId}“ ist als „800-W-Micro-Inverter“ mit angeschlossenen PV-Modulen konfiguriert. Reguläre PV-Micro-Inverter dürfen nicht aus einem Speicher gespeist werden — der Batterieausgang braucht ein eigenes, vom Hersteller dafür freigegebenes Gerät.'**
+  String microInverterBanksWarnSharedPvInverter(String inverterId);
+
+  /// No description provided for @bankRuntimeSectionTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'24h-Ausgang — Laufzeit pro Tag'**
+  String get bankRuntimeSectionTitle;
+
+  /// No description provided for @bankRuntimeLegendActive.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktiv (Liefer-Stunden)'**
+  String get bankRuntimeLegendActive;
+
+  /// No description provided for @bankRuntimeLegendShortfall.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlbetrag (geplante Stunden ohne Lieferung)'**
+  String get bankRuntimeLegendShortfall;
+
+  /// No description provided for @bankRuntimeStatCoverage.
+  ///
+  /// In de, this message translates to:
+  /// **'Abdeckung: {pct} %'**
+  String bankRuntimeStatCoverage(String pct);
+
+  /// No description provided for @bankRuntimeStatAvgHours.
+  ///
+  /// In de, this message translates to:
+  /// **'Ø {hours} h/Tag aktiv'**
+  String bankRuntimeStatAvgHours(String hours);
+
+  /// No description provided for @bankRuntimeStatDelivered.
+  ///
+  /// In de, this message translates to:
+  /// **'Geliefert: {kwh} kWh'**
+  String bankRuntimeStatDelivered(String kwh);
+
+  /// No description provided for @bankRuntimeStatShortfall.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlbetrag: {kwh} kWh'**
+  String bankRuntimeStatShortfall(String kwh);
+
   /// No description provided for @topologyTitle.
   ///
   /// In de, this message translates to:
