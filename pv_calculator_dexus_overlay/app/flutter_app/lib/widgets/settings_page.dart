@@ -65,11 +65,11 @@ class SettingsPage extends StatelessWidget {
                 subtitle: Text(l.settingsLanguageSystemDesc),
                 value: null,
               ),
-              for (final entry in _languageOptions)
+              for (final locale in kSupportedLocales)
                 RadioListTile<Locale?>(
-                  key: Key('locale-${entry.locale.languageCode}'),
-                  title: Text(entry.nativeName),
-                  value: entry.locale,
+                  key: Key('locale-${locale.languageCode}'),
+                  title: Text(_nativeLanguageName(locale.languageCode)),
+                  value: locale,
                 ),
             ]),
           ),
@@ -99,19 +99,22 @@ void showAppAboutDialog(BuildContext context) {
   );
 }
 
-class _LanguageOption {
-  const _LanguageOption(this.locale, this.nativeName);
-  final Locale locale;
-  final String nativeName;
+/// Native (endonym) name for a supported language code. Names are
+/// intentionally in each language's own form ("Deutsch", "English", …)
+/// regardless of the current locale, so users can find their language
+/// even when the UI is in one they don't read. Falls back to the raw
+/// code if a new locale is added to [kSupportedLocales] without an
+/// endonym entry here — analyzer + a future translator catches the gap.
+String _nativeLanguageName(String languageCode) {
+  switch (languageCode) {
+    case 'de':
+      return 'Deutsch';
+    case 'en':
+      return 'English';
+    case 'fr':
+      return 'Français';
+    case 'es':
+      return 'Español';
+  }
+  return languageCode;
 }
-
-/// Language list shown in the picker. Names are intentionally in each
-/// language's own form ("Deutsch", "English", …) regardless of the
-/// current locale, so users can find their language even when the UI is
-/// in one they don't read.
-const List<_LanguageOption> _languageOptions = [
-  _LanguageOption(Locale('de'), 'Deutsch'),
-  _LanguageOption(Locale('en'), 'English'),
-  _LanguageOption(Locale('fr'), 'Français'),
-  _LanguageOption(Locale('es'), 'Español'),
-];

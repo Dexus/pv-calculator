@@ -89,4 +89,28 @@ void main() {
     expect(controller.locale, isNull);
     expect(prefs.getString(SettingsController.localeKey), isNull);
   });
+
+  test('setLocale normalises unsupported locales to null', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController(prefs: prefs);
+    await controller.load();
+
+    // A locale outside kSupportedLocales must not reach MaterialApp;
+    // it would leave the picker with no matching radio option.
+    await controller.setLocale(const Locale('pt'));
+    expect(controller.locale, isNull);
+    expect(prefs.getString(SettingsController.localeKey), isNull);
+  });
+
+  test('load ignores a persisted locale outside kSupportedLocales', () async {
+    SharedPreferences.setMockInitialValues({
+      SettingsController.localeKey: 'zh',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController(prefs: prefs);
+    await controller.load();
+
+    expect(controller.locale, isNull,
+        reason: 'Unknown persisted languages must fall back to "follow system".');
+  });
 }
