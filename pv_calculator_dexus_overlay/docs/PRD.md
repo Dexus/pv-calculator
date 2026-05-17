@@ -1,5 +1,7 @@
 # PRD – PV Calculator
 
+Verdichtete MVP-Sicht. Kanonische Quelle inkl. funktionaler Anforderungen (FR-…), Akzeptanzkriterien, NFRs und User Stories: [`../../docs/PRD_PV_Calculator_Flutter_App.md`](../../docs/PRD_PV_Calculator_Flutter_App.md). SOC-/Pre-Run-Detail in §6.2 dort.
+
 ## Ziel
 
 PV Calculator soll eine Flutter-App werden, die PV-Anlagen mit mehreren Arrays, Wechselrichtern und Batteriespeichern konfigurierbar simuliert.
