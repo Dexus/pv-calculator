@@ -51,8 +51,11 @@ void main() {
       expect((rebuilt.schedule as HourlySchedule).factors, factors);
     });
 
-    test('adding a window after loading an hourly schedule replaces it', () {
-      final factors = List<double>.filled(24, 1.0);
+    test('switching scheduleKind selects which editor state is built', () {
+      // Editor state for both kinds lives side-by-side; switching the
+      // scheduleKind flips which one buildSchedule() returns without
+      // discarding the other.
+      final factors = List<double>.filled(24, 0.7);
       final bank = MicroInverterBank(
         id: 'bank-1',
         batteryId: 'b1',
@@ -60,9 +63,14 @@ void main() {
         schedule: HourlySchedule(factors),
       );
       final draft = MicroInverterBankDraft.fromBank(bank);
+      expect(draft.scheduleKind, BankScheduleKind.hourly);
       draft.windows.add(TimeWindowDraft(startHour: 18, endHour: 22, factor: 1.0));
-      final rebuilt = draft.build();
-      expect(rebuilt.schedule, isA<TimeWindowSchedule>());
+      draft.scheduleKind = BankScheduleKind.timeWindows;
+      expect(draft.build().schedule, isA<TimeWindowSchedule>());
+      draft.scheduleKind = BankScheduleKind.hourly;
+      expect(draft.build().schedule, isA<HourlySchedule>());
+      // Hourly factors preserved through the round-trip via scheduleKind.
+      expect((draft.build().schedule as HourlySchedule).factors, factors);
     });
   });
 }
