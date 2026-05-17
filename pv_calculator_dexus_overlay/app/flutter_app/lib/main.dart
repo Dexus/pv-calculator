@@ -14,7 +14,18 @@ import 'state/settings_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final database = await AppDatabase.open();
+  final AppDatabase database;
+  try {
+    database = await AppDatabase.open();
+  } catch (error, stack) {
+    // On web, an AppDatabase.open() failure means the sqlite3 WASM bundle
+    // failed to load or instantiate. Without this guard, runApp() is never
+    // called and the user sees a blank canvas with no diagnostic — the
+    // error only surfaces in the JS console. Surface it visibly instead.
+    debugPrint('main: AppDatabase.open() failed — $error\n$stack');
+    runApp(_DatabaseInitErrorApp(error: error));
+    return;
+  }
   // One-shot migration of the legacy shared_preferences project list into
   // the new schema. Idempotent and silent on subsequent launches.
   final imported = await SharedPreferencesMigration(database: database)
@@ -24,6 +35,58 @@ Future<void> main() async {
   }
   debugPrint('main: AppDatabase storage tier = ${database.storageTier.name}.');
   runApp(PvCalculatorApp(database: database));
+}
+
+/// Last-resort fallback when AppDatabase.open() throws before any normal
+/// UI has been mounted. AppLocalizations is not available here (no
+/// MaterialApp context yet), so the copy is bilingual DE/EN.
+class _DatabaseInitErrorApp extends StatelessWidget {
+  const _DatabaseInitErrorApp({required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'PV Calculator',
+      theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
+      home: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Datenbank konnte nicht initialisiert werden.',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Could not initialize the database. On web this usually '
+                      'means that sqlite3.wasm failed to load — reload the '
+                      'page or clear the site data and try again.',
+                    ),
+                    const SizedBox(height: 16),
+                    SelectableText(
+                      '$error',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class PvCalculatorApp extends StatelessWidget {
