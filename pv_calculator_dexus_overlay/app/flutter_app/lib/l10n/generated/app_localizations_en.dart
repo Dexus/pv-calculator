@@ -1385,4 +1385,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wizardFinish => 'Create project';
+
+  @override
+  String get warningsSectionTitle => 'Configuration notices';
+
+  @override
+  String warningInverterOversized(String inverter, String ratio) {
+    return 'Inverter \"$inverter\" has a DC/AC ratio of $ratio — daytime curtailment is likely.';
+  }
+
+  @override
+  String warningBankExceedsDischarge(
+    String bank,
+    String bankKw,
+    String dischargeKw,
+  ) {
+    return 'Bank \"$bank\" requires $bankKw kW but the battery can only supply $dischargeKw kW — chronic shortfall.';
+  }
+
+  @override
+  String warningBatteryMinSocHigh(String battery, String pct) {
+    return 'Battery \"$battery\" reserves $pct% of its capacity as minSOC — usable energy is heavily reduced.';
+  }
+
+  @override
+  String get hintIrradianceMissing =>
+      'No irradiance data loaded. The simulation will use the synthetic demo model — open the Irradiance tab to load real values.';
 }

@@ -105,16 +105,18 @@ Ziel: Projekte, Standorte, Szenarien anlegen, duplizieren, vergleichen (PRD FR-0
 Ziel: App für Endnutzer nutzbar, validiert, barrierefrei (PRD Kap. 7, 8.1).
 
 - [x] **Slice 1: Wizard für Schnell-Einstieg + Expertenmodus** (NFR-06, R-04). Modaler 5-Schritt-Stepper (`widgets/quick_start_wizard.dart`) als Eintrittspunkt aus dem Projekte-Tab; der bisherige `ConfigDraft.demo()`-Pfad bleibt nur noch für interne Resets bestehen. Expertenmodus als runtime-Flag in `SettingsController` (Default OFF, persistiert via `pv_expert_mode`-Key); im Auswertung-Tab werden `TopologySection`, `MicroInverterBanksSection` und `DispatchPolicySection` über `ExpertOnly` weggeblendet und durch eine Hinweis-Karte ersetzt. Auto-Detect-Banner (`Key('advanced-scenario-banner')`) erscheint, sobald ein geladenes Szenario bereits eine erweiterte Funktion nutzt (`ConfigDraft.usesAdvancedFeatures`).
-- [ ] Validierungsregeln im UI: blockierende Fehler (minSOC ≥ maxSOC), Warnungen (Micro-Inverter > Entladeleistung), Hinweise (fehlende Wetterdaten) (Architektur Kap. 11.1).
-- [ ] Design-System, Kontrast, VoiceOver/TalkBack-Labels, skalierbare Schrift (NFR-07).
-- [ ] CSV-Zeitreihen-Export mit allen Energiepfaden: Timestamp, Array-Erträge, Lade/Entladung, SOC, Netzimport/-export, Ausgangsleistung je Inverter (PRD AC).
+- [x] **Slice 2: Validierungs-Hinweise im UI**. `ConfigDraft.validationWarnings()` liefert nicht-blockierende Warnungen (Inverter-Oversizing > 1.3 DC/AC, Bank-AC > Battery-Discharge, minSOC > 50% der Kapazität) und Hinweise (fehlende Einstrahlung). Render in `ResultsTab` als eigener Abschnitt zwischen Engine-Fehlerkarten und Sim-Parametern; Hint-Cards nutzen tertiäre Farbe, Warn-Cards die `secondaryContainer`-Palette. Stabile Test-Keys `Key('warning-<code>')`.
+- [x] **Slice 3: CSV-Zeitreihen-Export mit Array-Aufschlüsselung**. `SimulationStep` um `dcKwhByArray` / `acKwhByArray` erweitert (per-Array-AC entsteht durch Skalierung mit dem Inverter-Verlust-Verhältnis, Energieerhaltung im Test `sums to step.pvDcKwh/pvAcKwh`). `stepsCsv(arrayIds: [...])` ergänzt eine `dcKwh_<id>` / `acKwh_<id>`-Spalte pro Array; Identifier werden auf `[A-Za-z0-9_\-]` sanitisiert. Call-Site in `ResultsTab` reicht `draft.arrays.map((a) => a.id)` durch.
+- [x] **Slice 4: Release-Prozess**. `appVersion` in `lib/app_info.dart` (0.1.0 → 0.2.0) synchronisiert mit `pubspec.yaml`; About-Dialog zeigt jetzt `appVersion (engine kEngineVersion)`. Neue Datei `pv_calculator_dexus_overlay/CHANGELOG.md` (Keep a Changelog, SemVer) listet die Phase-8-Slices.
+- [x] **Slice 5: Erste a11y-Schicht**. `_KpiCard` bündelt Label + Wert in einem `Semantics`-Knoten (`excludeSemantics: true` auf den `Text`-Kindern), damit Screenreader „Eigenverbrauch, 1234 kWh" statt zweier losgelöster Text-Knoten lesen. PRD NFR-07; weitere Designsystem-Schritte (Kontrast, skalierbare Schrift) folgen in einer eigenen Slice.
 - [ ] PDF/DOCX-Bericht (Pro, später).
-- [ ] Release-Prozess: App-Version in Engine-Version eingebettet, Changelog.
 
 ### Verschoben
 
-- **Per-Array-Spalten im CSV-Zeitreihen-Export**: Richtung mit dem Nutzer abgestimmt — `SimulationStep` um `dcKwhByArray[] / acKwhByArray[]` erweitern und `stepsCsv()` eine Spalte pro Array (`dcKwh_<arrayId>` / `acKwh_<arrayId>`) ausgeben lassen. Bezug: PRD AC „CSV-Export enthält Array-Erträge …". Wird in der CSV-Slice von Phase 8 umgesetzt.
+- **Vollständiges Design-System & Schrift-Skalierung** (NFR-07): die jetzt eingezogene `_KpiCard`-Semantik ist ein erster Schritt. Es fehlen kontrastsichere Theme-Tokens, MediaQuery-gestützte `textScaleFactor`-Anpassungen und VoiceOver/TalkBack-Labels auf Formular-Feldern. Nächste Triggerschwelle: erstes externes UX-Audit.
 - **Auto-Enable Expertenmodus beim Laden eines Expert-Szenarios**: Aktuell zeigt der Auswertung-Tab nur ein Banner. Ein automatisches Umschalten im `ProjectController.loadDraft`-Pfad wäre invasiver (UX-Preference vs. Szenario-State); im Banner-Status belassen, bis genug Telemetrie zeigt, dass Nutzer das Banner übersehen.
+- **Strukturierte Engine-Warnings**: aktuell laufen die nicht-blockierenden Warnungen UI-seitig (`ConfigDraft.validationWarnings()`). Sobald ein Server-Lauf der Engine zustande kommt (Phase 10 Backend), müssen die gleichen Regeln im Kern leben. Trigger: erster Backend-Endpoint, der eine Simulation ohne UI fährt.
+- **CSV-Übersetzung der Engine-Fehlertexte**: `ArgumentError.message`-Strings sind weiterhin englisch; UI-Karten haben lokalisierte Titel und englische Bodies. Trigger: erste echte fremdsprachige Anwender-Beschwerde.
 
 ---
 

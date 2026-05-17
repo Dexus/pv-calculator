@@ -6,8 +6,20 @@ String stepsCsv(
   List<SimulationStep> steps, {
   int batteryCount = 0,
   int bankCount = 0,
+  List<String> arrayIds = const [],
   String delimiter = ';',
 }) {
+  // Sanitise array identifiers so they can be embedded in column
+  // headers without breaking the CSV: replace anything that isn't
+  // alphanumeric / underscore / dash with `_` and fall back to a
+  // positional label when the resulting string would be empty.
+  String safeColumn(int index) {
+    final raw = index < arrayIds.length ? arrayIds[index] : '';
+    final cleaned = raw.replaceAll(RegExp(r'[^A-Za-z0-9_\-]+'), '_');
+    return cleaned.isEmpty ? 'array_${index + 1}' : cleaned;
+  }
+
+  final arrayCount = arrayIds.length;
   final headers = <String>[
     'dayIndex', 'dayOfYear', 'stepOfDay', 'hourOfDay',
     'pvDcKwh', 'pvAcKwh', 'loadKwh', 'selfConsumptionKwh',
@@ -15,6 +27,8 @@ String stepsCsv(
     'gridImportKwh', 'gridExportKwh',
     'curtailedDcKwh', 'curtailedAcKwh', 'curtailedExportKwh',
     'microInverterDeliveredKwh', 'microInverterShortfallKwh', 'unservedLoadKwh',
+    for (var i = 0; i < arrayCount; i++) 'dcKwh_${safeColumn(i)}',
+    for (var i = 0; i < arrayCount; i++) 'acKwh_${safeColumn(i)}',
     for (var i = 1; i <= batteryCount; i++) 'chargeKwh_$i',
     for (var i = 1; i <= batteryCount; i++) 'dischargeKwh_$i',
     for (var i = 1; i <= batteryCount; i++) 'socKwh_$i',
@@ -45,6 +59,10 @@ String stepsCsv(
       _num(step.microInverterDeliveredKwh),
       _num(step.microInverterShortfallKwh),
       _num(step.unservedLoadKwh),
+      for (var i = 0; i < arrayCount; i++)
+        _num(i < step.dcKwhByArray.length ? step.dcKwhByArray[i] : 0.0),
+      for (var i = 0; i < arrayCount; i++)
+        _num(i < step.acKwhByArray.length ? step.acKwhByArray[i] : 0.0),
       for (var i = 0; i < batteryCount; i++)
         _num(i < step.batteryChargesKwh.length ? step.batteryChargesKwh[i] : 0.0),
       for (var i = 0; i < batteryCount; i++)

@@ -24,6 +24,34 @@ class ValidationIssue {
   final String message;
 }
 
+/// Severity of a non-blocking [ValidationWarning]. `warning` means the
+/// configuration runs but produces likely-undesired results (chronic
+/// curtailment, chronic shortfall); `hint` is informational only.
+enum WarningSeverity { warning, hint }
+
+/// A non-blocking validation finding computed by the UI against the
+/// current [ConfigDraft]. Distinct from [ValidationIssue] (which mirrors
+/// an engine throw) — warnings let the simulation run but flag a
+/// design smell. [code] is a stable identifier so widget tests can
+/// target individual warnings without matching on translated copy; the
+/// renderer maps each code to a localized string and substitutes the
+/// per-warning [args] into the ICU placeholders.
+class ValidationWarning {
+  const ValidationWarning({
+    required this.code,
+    required this.severity,
+    required this.section,
+    this.args = const {},
+  });
+
+  /// Stable warning identifier (e.g. `inverter-oversized`). Used as a
+  /// Widget key and as the lookup key in the renderer's switch.
+  final String code;
+  final WarningSeverity severity;
+  final ConfigSection section;
+  final Map<String, String> args;
+}
+
 /// Maps an engine [ArgumentError.message] string to the form section
 /// that owns the field that triggered it. Keyword-based so the engine
 /// stays in plain text without needing structured error types.
@@ -271,6 +299,93 @@ class ConfigDraft {
       longitudeDeg: longitudeDeg,
       weatherSource: buildWeatherSource(),
     );
+  }
+
+  /// Computes the non-blocking warnings that the UI should surface
+  /// alongside the engine's blocking errors. Returns codes + numeric
+  /// arguments so the widget layer can localize the message; never
+  /// throws on an in-progress draft (a half-edited project can still
+  /// surface warnings without first passing engine validation).
+  List<ValidationWarning> validationWarnings() {
+    final out = <ValidationWarning>[];
+
+    // 1) Inverter oversizing: when arrays pointing at one inverter sum
+    //    to more than 1.3× the inverter's AC cap, daytime clipping
+    //    becomes chronic. Threshold chosen to match the PRD example
+    //    "Array peak power >> inverter AC rating".
+    for (final inv in inverters) {
+      final dcPeak = arrays
+          .where((a) => a.inverterId == inv.id)
+          .fold<double>(0, (s, a) => s + a.peakKw);
+      if (inv.maxAcKw <= 0) continue;
+      final ratio = dcPeak / inv.maxAcKw;
+      if (ratio > 1.3) {
+        out.add(ValidationWarning(
+          code: 'inverter-oversized',
+          severity: WarningSeverity.warning,
+          section: ConfigSection.inverters,
+          args: {
+            'inverter': inv.label.isEmpty ? inv.id : inv.label,
+            'ratio': ratio.toStringAsFixed(2),
+          },
+        ));
+      }
+    }
+
+    // 2) Bank target > battery discharge: when the rated AC output of
+    //    a bank exceeds the coupled battery's maxDischargeKw, the bank
+    //    chronically runs into shortfall. Phase-4 already reports the
+    //    shortfall in the run summary, but at edit time we want to warn
+    //    before the simulation runs.
+    for (final bank in microInverterBanks) {
+      final batteries = this.batteries.where((b) => b.id == bank.batteryId);
+      if (batteries.isEmpty) continue;
+      final battery = batteries.first;
+      final bankAcKw = bank.count * bank.unitRatedPowerW / 1000.0;
+      if (bankAcKw > battery.maxDischargeKw + 1e-9) {
+        out.add(ValidationWarning(
+          code: 'bank-exceeds-discharge',
+          severity: WarningSeverity.warning,
+          section: ConfigSection.banks,
+          args: {
+            'bank': bank.label.isEmpty ? bank.id : bank.label,
+            'bankKw': bankAcKw.toStringAsFixed(2),
+            'dischargeKw': battery.maxDischargeKw.toStringAsFixed(2),
+          },
+        ));
+      }
+    }
+
+    // 3) Deep minSOC: minSocKwh above half of capacity locks away more
+    //    than half of the nominal energy — almost always a misclick.
+    for (final battery in batteries) {
+      if (battery.capacityKwh <= 0) continue;
+      final minFraction = battery.minSocKwh / battery.capacityKwh;
+      if (minFraction > 0.5) {
+        out.add(ValidationWarning(
+          code: 'battery-min-soc-high',
+          severity: WarningSeverity.warning,
+          section: ConfigSection.batteries,
+          args: {
+            'battery': battery.label.isEmpty ? battery.id : battery.label,
+            'pct': (minFraction * 100).toStringAsFixed(0),
+          },
+        ));
+      }
+    }
+
+    // 4) Hint — synthetic irradiance fallback. Already a permanent
+    //    footer note on Results, but as a per-edit hint it nudges
+    //    users toward the Einstrahlung tab.
+    if (siteIrradiance.samples == null) {
+      out.add(const ValidationWarning(
+        code: 'irradiance-missing',
+        severity: WarningSeverity.hint,
+        section: ConfigSection.project,
+      ));
+    }
+
+    return out;
   }
 
   /// Returns the first engine-validation failure as a [ValidationIssue]

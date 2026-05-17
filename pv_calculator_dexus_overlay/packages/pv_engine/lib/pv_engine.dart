@@ -634,6 +634,8 @@ class SimulationStep {
     this.microInverterDeliveriesKwh = const [],
     this.microInverterShortfallsKwh = const [],
     this.unservedLoadKwh = 0.0,
+    this.dcKwhByArray = const [],
+    this.acKwhByArray = const [],
   });
 
   final int dayIndex;
@@ -690,6 +692,18 @@ class SimulationStep {
   /// [GridAssistPolicy] with `allowGridImport: false`). `0` for grid-
   /// connected scenarios.
   final double unservedLoadKwh;
+
+  /// Per-array breakdown of [pvDcKwh] before inverter losses, ordered
+  /// the same as `SimulationConfig.arrays`. Sums to [pvDcKwh] within
+  /// floating-point tolerance. Empty when the engine was instantiated
+  /// outside the simulator (e.g. test fixtures).
+  final List<double> dcKwhByArray;
+
+  /// Per-array breakdown of [pvAcKwh] *after* inverter efficiency and
+  /// AC clipping. Each array's AC share is its DC share weighted by
+  /// the inverter-level (rawAc → limitedAc) outcome, so the sum equals
+  /// [pvAcKwh] within floating-point tolerance.
+  final List<double> acKwhByArray;
 }
 
 class SimulationSummary {
@@ -924,8 +938,10 @@ class PvSimulator {
     final source = config.effectiveWeatherSource;
     final tempModel = config.temperatureModel;
     var pvDcKwh = 0.0;
+    final dcKwhByArray = List<double>.filled(config.arrays.length, 0.0);
 
-    for (final array in config.arrays) {
+    for (var i = 0; i < config.arrays.length; i++) {
+      final array = config.arrays[i];
       final weather = source.sampleFor(WeatherQuery(
         arrayId: array.id,
         tiltDeg: array.tiltDeg,
@@ -936,12 +952,17 @@ class PvSimulator {
       ));
       final dcKwh = _dcPowerKwFromWeather(array, weather, tempModel) * stepHours;
       pvDcKwh += dcKwh;
+      dcKwhByArray[i] = dcKwh;
       dcByInverter.update(array.inverterId, (value) => value + dcKwh, ifAbsent: () => dcKwh);
     }
 
     var pvAcKwh = 0.0;
     var curtailedDcKwh = 0.0;
     var curtailedAcKwh = 0.0;
+    // For per-array AC distribution: remember each inverter's
+    // (limitedAc, dcAfterCap) pair so the array breakdown can scale
+    // each array's DC share by the same loss ratio its inverter saw.
+    final acRatioByInverter = <String, double>{};
     for (final entry in dcByInverter.entries) {
       final inverter = inverterById[entry.key]!;
       var dcKwh = entry.value;
@@ -961,7 +982,17 @@ class PvSimulator {
       final limitedAc = math.min(rawAc, inverter.effectiveMaxAcKw * stepHours);
       pvAcKwh += limitedAc;
       curtailedAcKwh += math.max(0.0, rawAc - limitedAc);
+      // ratio = limitedAc / entry.value (original pre-cap DC sum) so
+      // the per-array distribution captures both DC clipping and AC
+      // clipping in one factor.
+      acRatioByInverter[entry.key] =
+          entry.value > 0 ? limitedAc / entry.value : 0.0;
     }
+
+    final acKwhByArray = <double>[
+      for (var i = 0; i < config.arrays.length; i++)
+        dcKwhByArray[i] * (acRatioByInverter[config.arrays[i].inverterId] ?? 0.0),
+    ];
 
     final loadKwh = config.loadProfile.energyKwhForStep(hourOfDay: hourOfDay, timeStep: config.timeStep);
 
@@ -1072,6 +1103,8 @@ class PvSimulator {
       microInverterDeliveriesKwh: flows.bankDeliveriesKwh,
       microInverterShortfallsKwh: flows.bankShortfallsKwh,
       unservedLoadKwh: flows.unservedLoadKwh,
+      dcKwhByArray: List<double>.unmodifiable(dcKwhByArray),
+      acKwhByArray: List<double>.unmodifiable(acKwhByArray),
     );
   }
 
