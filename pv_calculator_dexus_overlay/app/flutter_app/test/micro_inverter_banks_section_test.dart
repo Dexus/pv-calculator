@@ -73,10 +73,13 @@ void main() {
 
     expect(controller.draft.microInverterBanks.first.scheduleKind,
         BankScheduleKind.hourly);
-    // 24 hourly cells.
+    // 24 hourly cells with stable keys (no value suffix, so typing
+    // doesn't replace the NumberField mid-input).
     for (var h = 0; h < 24; h++) {
-      expect(find.byKey(ValueKey('bank-bank-1-hourly-$h-1.0')), findsOneWidget);
+      expect(find.byKey(ValueKey('bank-bank-1-hourly-$h')), findsOneWidget);
     }
+    expect(controller.draft.microInverterBanks.first.hourlyFactors,
+        everyElement(equals(1.0)));
   });
 
   testWidgets('hourly factors round-trip when bank loaded with HourlySchedule', (tester) async {
@@ -103,9 +106,12 @@ void main() {
 
     expect(controller.draft.microInverterBanks.first.scheduleKind,
         BankScheduleKind.hourly);
-    // First half are 0.0, second half are 1.0 — both should be rendered.
-    expect(find.byKey(const ValueKey('bank-bank-1-hourly-0-0.0')), findsOneWidget);
-    expect(find.byKey(const ValueKey('bank-bank-1-hourly-13-1.0')), findsOneWidget);
+    // 24 cells render with stable keys regardless of value.
+    expect(find.byKey(const ValueKey('bank-bank-1-hourly-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('bank-bank-1-hourly-13')), findsOneWidget);
+    // Underlying state preserves the loaded factors.
+    expect(controller.draft.microInverterBanks.first.hourlyFactors[0], 0.0);
+    expect(controller.draft.microInverterBanks.first.hourlyFactors[13], 1.0);
 
     // Reset button restores all 24 cells to 1.0.
     await tester.ensureVisible(find.byKey(const Key('bank-bank-1-hourly-reset')));

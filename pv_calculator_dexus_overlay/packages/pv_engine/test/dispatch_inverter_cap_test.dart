@@ -90,4 +90,85 @@ void main() {
           reason: 'microInverter800W role must clamp the cap regardless of maxAcKw');
     }
   });
+
+  test('small battery behind a large inverter is still capped by maxDischargeKw', () {
+    // Regression for PR #18 P1 review: when inverterId is set, the
+    // engine must enforce min(maxDischargeKw, inverter.effectiveMaxAcKw),
+    // not just the inverter cap. Otherwise a 0.5 kW battery behind a
+    // 10 kW inverter would over-deliver.
+    final config = SimulationConfig(
+      arrays: const [
+        PvArray(id: 'a1', label: 'A', peakKw: 0.001, azimuthDeg: 180, tiltDeg: 35, inverterId: 'pv-inv'),
+      ],
+      inverters: const [
+        Inverter(id: 'pv-inv', label: 'PV', maxAcKw: 10.0),
+        Inverter(id: 'bat-inv', label: 'Battery', maxAcKw: 10.0, role: InverterRole.batteryCoupled),
+      ],
+      batteries: const [
+        BatteryConfig(id: 'b1', capacityKwh: 20.0, maxChargeKw: 5.0, maxDischargeKw: 0.5, initialSocKwh: 20.0),
+      ],
+      microInverterBanks: const [
+        MicroInverterBank(id: 'bank-a', batteryId: 'b1', count: 1, unitRatedPowerW: 800, inverterEfficiency: 1.0),
+        MicroInverterBank(id: 'bank-b', batteryId: 'b1', count: 1, unitRatedPowerW: 800, inverterEfficiency: 1.0),
+      ],
+      topology: const TopologyGraph(batteryCouplings: [
+        BatteryCouplingSpec(batteryId: 'b1', inverterId: 'bat-inv'),
+      ]),
+      dispatchPolicy: const ConstantFeed24hPolicy(),
+      loadProfile: const LoadProfile(dailyKwh: 0),
+      startDayOfYear: 355,
+      days: 1,
+    );
+    final result = const PvSimulator().run(config);
+    const stepHours = 1.0;
+    const batteryCapKwh = 0.5 * stepHours;
+    for (final step in result.steps) {
+      expect(step.microInverterDeliveredKwh, lessThanOrEqualTo(batteryCapKwh + 1e-9),
+          reason: 'cap must be min(maxDischargeKw, inverter cap), not just the inverter cap');
+      expect(step.batteryDischargesKwh[0], lessThanOrEqualTo(batteryCapKwh + 1e-9));
+    }
+  });
+
+  test('DC-coupled battery ignores inverterId — battery cap stays in charge', () {
+    // Regression for PR #18 Copilot review: the engine must not apply an
+    // inverter AC cap to a DC-coupled battery, even if a stale inverterId
+    // is left on the coupling (e.g. by an older JSON file). The path is
+    // not AC, so `inverterLimitW` doesn't describe it.
+    final config = SimulationConfig(
+      arrays: const [
+        PvArray(id: 'a1', label: 'A', peakKw: 0.001, azimuthDeg: 180, tiltDeg: 35, inverterId: 'pv-inv'),
+      ],
+      inverters: const [
+        Inverter(id: 'pv-inv', label: 'PV', maxAcKw: 10.0),
+        Inverter(id: 'bat-inv', label: 'Battery', maxAcKw: 0.1, role: InverterRole.batteryCoupled),
+      ],
+      batteries: const [
+        BatteryConfig(id: 'b1', capacityKwh: 20.0, maxChargeKw: 5.0, maxDischargeKw: 1.0, initialSocKwh: 20.0),
+      ],
+      microInverterBanks: const [
+        MicroInverterBank(id: 'bank-a', batteryId: 'b1', count: 1, unitRatedPowerW: 800, inverterEfficiency: 1.0),
+      ],
+      topology: const TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-main')],
+        batteryCouplings: [
+          BatteryCouplingSpec(
+            batteryId: 'b1',
+            coupling: BatteryCoupling.dc,
+            dcBusId: 'dc-main',
+            inverterId: 'bat-inv', // stale value; must be ignored.
+          ),
+        ],
+      ),
+      dispatchPolicy: const ConstantFeed24hPolicy(),
+      loadProfile: const LoadProfile(dailyKwh: 0),
+      startDayOfYear: 355,
+      days: 1,
+    );
+    final result = const PvSimulator().run(config);
+    final firstStep = result.steps.first;
+    // If the stale inverterId leaked into the AC cap, delivery would be
+    // capped at 0.1 kWh. With the guard in place, the battery's own
+    // 1.0 kW rating governs, so the 0.8 kW bank delivers in full.
+    expect(firstStep.microInverterDeliveredKwh, closeTo(0.8, 1e-6));
+  });
 }

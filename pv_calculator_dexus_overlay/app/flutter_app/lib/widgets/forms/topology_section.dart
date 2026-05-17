@@ -311,7 +311,16 @@ class _CouplingsEditor extends StatelessWidget {
                 selected: {coupling.acCoupled},
                 onSelectionChanged: (v) {
                   coupling.acCoupled = v.first;
-                  if (coupling.acCoupled) coupling.dcBusId = null;
+                  // Drop the now-hidden picker's selection so a switch
+                  // back to AC doesn't silently apply a stale dcBusId,
+                  // and a DC-coupled battery doesn't keep a stale
+                  // inverterId that would otherwise feed the engine's
+                  // AC cap path.
+                  if (coupling.acCoupled) {
+                    coupling.dcBusId = null;
+                  } else {
+                    coupling.inverterId = null;
+                  }
                   onChanged();
                 },
               ),
