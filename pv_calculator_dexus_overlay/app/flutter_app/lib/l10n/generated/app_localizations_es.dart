@@ -233,7 +233,32 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get projectPreRunHelp =>
-      'Los días de precalentado estabilizan el estado de carga inicial de la batería antes de la simulación real. Los pasos de precalentado no aparecen en los resultados.';
+      'Número de días de precalentado para el modo \"Precalentado simple\". Solo se aplica si ese modo está activo; los pasos de precalentado no aparecen en los resultados.';
+
+  @override
+  String get projectPreRunMode => 'Precarga del SOC';
+
+  @override
+  String get projectPreRunModeManual => 'SOC inicial manual';
+
+  @override
+  String get projectPreRunModeSingle => 'Precalentado simple';
+
+  @override
+  String get projectPreRunModeCyclic => 'Convergencia cíclica';
+
+  @override
+  String get projectPreRunModeCyclicPro => 'Convergencia cíclica (Pro)';
+
+  @override
+  String get projectConvergenceTolerance => 'Tolerancia de convergencia';
+
+  @override
+  String get projectConvergenceToleranceHelp =>
+      '|inicio − final| SOC máximo tras un ciclo, en % de la capacidad útil. PRD §6.2 sugiere 0,5 %.';
+
+  @override
+  String get projectMaxConvergenceIterations => 'Iteraciones máx.';
 
   @override
   String get projectExportLimit => 'Límite de inyección';
@@ -580,6 +605,29 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String resultsBatteryLabel(int n) {
     return 'Batería $n';
+  }
+
+  @override
+  String get resultsPreRunSection => 'Precarga del SOC';
+
+  @override
+  String get resultsPreRunMode => 'Modo';
+
+  @override
+  String get resultsPreRunIterations => 'Iteraciones';
+
+  @override
+  String get resultsPreRunConverged => 'Convergido';
+
+  @override
+  String get resultsPreRunConvergedYes => 'Sí';
+
+  @override
+  String get resultsPreRunConvergedNo => 'No';
+
+  @override
+  String resultsPreRunStartSoc(int n) {
+    return 'SOC inicial batería $n';
   }
 
   @override

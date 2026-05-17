@@ -44,9 +44,14 @@ jobs:
       - name: Analyze
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter analyze
-      - name: Test
+      - name: Test (free build)
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter test
+      - name: Test (Pro build)
+        # Mirrors the Pages workflow's --dart-define=PRO_FEATURES=true so
+        # Pro-only UI (cyclic SOC convergence) is exercised in CI.
+        working-directory: pv_calculator_dexus_overlay/app/flutter_app
+        run: flutter test --dart-define=PRO_FEATURES=true
 
   pvgis-proxy:
     runs-on: ubuntu-latest

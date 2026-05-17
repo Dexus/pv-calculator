@@ -170,6 +170,9 @@ class ConfigDraft {
     this.days = 365,
     this.timeStep = TimeStep.hourly,
     this.preRunDays = 0,
+    this.preRunMode = PreRunMode.singleWarmUp,
+    this.convergenceToleranceFraction = 0.005,
+    this.maxConvergenceIterations = 10,
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
     this.longitudeDeg = 10.0,
@@ -194,6 +197,9 @@ class ConfigDraft {
   int days;
   TimeStep timeStep;
   int preRunDays;
+  PreRunMode preRunMode;
+  double convergenceToleranceFraction;
+  int maxConvergenceIterations;
   double? gridExportLimitKw;
   double latitudeDeg;
   double longitudeDeg;
@@ -247,6 +253,9 @@ class ConfigDraft {
       days: days,
       timeStep: timeStep,
       preRunDays: preRunDays,
+      preRunMode: preRunMode,
+      convergenceToleranceFraction: convergenceToleranceFraction,
+      maxConvergenceIterations: maxConvergenceIterations,
       gridExportLimitKw: gridExportLimitKw,
       latitudeDeg: latitudeDeg,
       longitudeDeg: longitudeDeg,
@@ -273,6 +282,9 @@ class ConfigDraft {
         days: config.days,
         timeStep: config.timeStep,
         preRunDays: config.preRunDays,
+        preRunMode: config.preRunMode,
+        convergenceToleranceFraction: config.convergenceToleranceFraction,
+        maxConvergenceIterations: config.maxConvergenceIterations,
         gridExportLimitKw: config.gridExportLimitKw,
         latitudeDeg: config.latitudeDeg,
         longitudeDeg: config.longitudeDeg,

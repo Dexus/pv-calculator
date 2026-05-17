@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '../config.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../persistence/file_io.dart';
 import '../state/config_draft.dart';
@@ -108,6 +109,10 @@ class _SimParamsSection extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final controller = context.watch<ProjectController>();
     final draft = controller.draft;
+    final showWarmUp = draft.preRunMode == PreRunMode.singleWarmUp;
+    final showConvergence = draft.preRunMode == PreRunMode.cyclicConvergence;
+    final cyclicSelectable = kProFeatures ||
+        draft.preRunMode == PreRunMode.cyclicConvergence;
     return Card(
       child: ExpansionTile(
         title: Text(l.projectSectionTitle),
@@ -128,13 +133,79 @@ class _SimParamsSection extends StatelessWidget {
                 min: 1, max: 365,
                 onChanged: (v) { if (v != null) { draft.startDayOfYear = v.round(); controller.touch(); } },
               )),
-              SizedBox(width: 180, child: NumberField(
-                label: l.projectPreRunDays,
-                helpText: l.projectPreRunHelp,
-                initialValue: draft.preRunDays.toDouble(),
-                min: 0, max: 365,
-                onChanged: (v) { if (v != null) { draft.preRunDays = v.round(); controller.touch(); } },
+              SizedBox(width: 220, child: DropdownButtonFormField<PreRunMode>(
+                key: const Key('pre-run-mode-dropdown'),
+                isExpanded: true,
+                initialValue: draft.preRunMode,
+                decoration: InputDecoration(labelText: l.projectPreRunMode, isDense: true),
+                items: [
+                  DropdownMenuItem(
+                    value: PreRunMode.manual,
+                    child: Text(l.projectPreRunModeManual),
+                  ),
+                  DropdownMenuItem(
+                    value: PreRunMode.singleWarmUp,
+                    child: Text(l.projectPreRunModeSingle),
+                  ),
+                  DropdownMenuItem(
+                    value: PreRunMode.cyclicConvergence,
+                    enabled: cyclicSelectable,
+                    child: Text(cyclicSelectable
+                        ? l.projectPreRunModeCyclic
+                        : l.projectPreRunModeCyclicPro),
+                  ),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  draft.preRunMode = v;
+                  // Cyclic convergence enforces full-year, zero warm-up at
+                  // the engine; mirror that here so users don't get a
+                  // confusing validation error after the fact.
+                  if (v == PreRunMode.cyclicConvergence) {
+                    draft.days = 365;
+                    draft.preRunDays = 0;
+                  }
+                  controller.touch();
+                },
               )),
+              if (showWarmUp)
+                SizedBox(width: 180, child: NumberField(
+                  label: l.projectPreRunDays,
+                  helpText: l.projectPreRunHelp,
+                  initialValue: draft.preRunDays.toDouble(),
+                  min: 0, max: 365,
+                  onChanged: (v) { if (v != null) { draft.preRunDays = v.round(); controller.touch(); } },
+                )),
+              if (showConvergence) ...[
+                SizedBox(width: 200, child: NumberField(
+                  key: const Key('convergence-tolerance-field'),
+                  label: l.projectConvergenceTolerance,
+                  suffix: '%',
+                  helpText: l.projectConvergenceToleranceHelp,
+                  // Stored as a fraction (0..1); the UI works in % to
+                  // match the PRD §6.2 "0,5 %" example.
+                  initialValue: draft.convergenceToleranceFraction * 100,
+                  min: 0.001, max: 100,
+                  onChanged: (v) {
+                    if (v != null) {
+                      draft.convergenceToleranceFraction = v / 100;
+                      controller.touch();
+                    }
+                  },
+                )),
+                SizedBox(width: 200, child: NumberField(
+                  key: const Key('max-convergence-iterations-field'),
+                  label: l.projectMaxConvergenceIterations,
+                  initialValue: draft.maxConvergenceIterations.toDouble(),
+                  min: 1, max: 100,
+                  onChanged: (v) {
+                    if (v != null) {
+                      draft.maxConvergenceIterations = v.round();
+                      controller.touch();
+                    }
+                  },
+                )),
+              ],
               SizedBox(width: 200, child: NumberField(
                 label: l.projectExportLimit,
                 suffix: 'kW',
@@ -237,6 +308,37 @@ class _ResultsBody extends StatelessWidget {
             _KpiCard(label: l.resultsBatteryLabel(i + 1), value: '${s.finalBatterySocsKwh[i].toStringAsFixed(2)} kWh'),
         ]),
       ],
+      // Pre-Run report per PRD §6.2 line 260 "Ergebnisreport muss
+      // anzeigen, ob Pre-Run aktiv war und welchen Start-SOC das
+      // Ergebnisjahr bekommen hat" — shown whenever pre-run actually
+      // ran, or for cyclic mode so non-convergence is always surfaced.
+      if (s.preRunActive || s.preRunMode == PreRunMode.cyclicConvergence) ...[
+        const SizedBox(height: 24),
+        Text(l.resultsPreRunSection, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(spacing: 12, runSpacing: 12, children: [
+          _KpiCard(
+            key: const Key('pre-run-mode-card'),
+            label: l.resultsPreRunMode,
+            value: _preRunModeLabel(l, s.preRunMode),
+          ),
+          _KpiCard(
+            key: const Key('pre-run-iterations-card'),
+            label: l.resultsPreRunIterations,
+            value: s.convergenceIterations.toString(),
+          ),
+          _KpiCard(
+            key: const Key('pre-run-converged-card'),
+            label: l.resultsPreRunConverged,
+            value: s.converged ? l.resultsPreRunConvergedYes : l.resultsPreRunConvergedNo,
+          ),
+          for (var i = 0; i < s.startSocsUsedKwh.length; i++)
+            _KpiCard(
+              label: l.resultsPreRunStartSoc(i + 1),
+              value: '${s.startSocsUsedKwh[i].toStringAsFixed(2)} kWh',
+            ),
+        ]),
+      ],
       const SizedBox(height: 24),
       Text(l.resultsMonthly, style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 12),
@@ -285,8 +387,19 @@ class _ResultsBody extends StatelessWidget {
   String _safe(String name) => name.replaceAll(RegExp(r'[^A-Za-z0-9_\-]+'), '_');
 }
 
+String _preRunModeLabel(AppLocalizations l, PreRunMode mode) {
+  switch (mode) {
+    case PreRunMode.manual:
+      return l.projectPreRunModeManual;
+    case PreRunMode.singleWarmUp:
+      return l.projectPreRunModeSingle;
+    case PreRunMode.cyclicConvergence:
+      return l.projectPreRunModeCyclic;
+  }
+}
+
 class _KpiCard extends StatelessWidget {
-  const _KpiCard({required this.label, required this.value});
+  const _KpiCard({super.key, required this.label, required this.value});
   final String label;
   final String value;
 

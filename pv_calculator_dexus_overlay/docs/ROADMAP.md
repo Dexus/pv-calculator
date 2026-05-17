@@ -49,15 +49,19 @@ Ziel: Mehrere PV-Arrays mit individuellen Ausrichtungen, gerichteter Energiegrap
 
 ---
 
-## Phase 5 – SOC Pre-Run & Jahresgrenzen
+## Phase 5 – SOC Pre-Run & Jahresgrenzen ✓
 
-Ziel: Realistische Startzustände; keine künstlich verzerrten Januarwerte (PRD FR-11; Architektur Kap. 6).
+Ziel: Realistische Startzustände; keine künstlich verzerrten Januarwerte (PRD FR-11; Architektur Kap. 6; `docs/PRD_PV_Calculator_Flutter_App.md` §6.2; `docs/Architekturkonzept_PV_Calculator_Flutter_App.md` §6).
 
-- [ ] Single Warm-Up Pre-Run: Jahr N-1 vorrechnen, End-SOC als Start für Ergebnisjahr.
-- [ ] Cyclic Convergence (Pro): Gleiches Jahr wiederholen bis |Start-SOC − End-SOC| < 0,5 % der nutzbaren Kapazität.
-- [ ] Manuelle SOC-Eingabe als MVP-Option.
-- [ ] Report-Feld: Pre-Run aktiv ja/nein, verwendeter Start-SOC, Konvergenz-Iterationen.
-- [ ] Tests: Golden Scenarios leerer Speicher, voller Speicher, Pre-Run-Konvergenz.
+- [x] Single Warm-Up Pre-Run: Jahr N-1 vorrechnen, End-SOC als Start für Ergebnisjahr (`PreRunMode.singleWarmUp`, weiterhin über `preRunDays` steuerbar).
+- [x] Cyclic Convergence (Pro): Gleiches Jahr wiederholen bis |Start-SOC − End-SOC| < `convergenceToleranceFraction` × nutzbare Kapazität (Default 0,5 %), max. `maxConvergenceIterations` Zyklen. Im UI über das Build-Flag `--dart-define=PRO_FEATURES=true` freigeschaltet (im Pages-Workflow automatisch aktiv).
+- [x] Manuelle SOC-Eingabe als MVP-Option: `BatteryConfig.initialSocKwh` + `PreRunMode.manual`; UI-Checkbox in `widgets/forms/batteries_section.dart` unverändert.
+- [x] Report-Feld: `SimulationSummary.preRunMode`, `.preRunActive`, `.startSocsUsedKwh`, `.convergenceIterations`, `.converged`; im Auswertung-Tab als eigene KPI-Sektion „SOC-Vorlauf".
+- [x] Tests: `packages/pv_engine/test/pre_run_mode_test.dart` (leerer Speicher, voller Speicher, Konvergenz, Nicht-Konvergenz, Validierung), JSON-Roundtrip + Schema v3 in `json_roundtrip_test.dart`, Widget-Test `app/flutter_app/test/pre_run_widget_test.dart` (free + Pro).
+
+### Verschoben
+
+- **Previous-Year Weather Pre-Run** (Architektur §6, dritte Methode): tatsächliches Vorjahr als Warm-Up. Benötigt mehrjährige Wetterdaten und gehört in Phase 10 (erweiterte Datenquellen) — frühestens umsetzbar wenn ein Wetter-Proxy mit Mehrjahres-Cache vorliegt.
 
 ---
 

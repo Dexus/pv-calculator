@@ -33,6 +33,33 @@ enum TimeStep {
   int get stepsPerDay => (24 * 60 / minutes).round();
 }
 
+/// Strategy for initialising the battery state of charge before the
+/// reported simulation year begins.
+///
+/// Per `docs/PRD_PV_Calculator_Flutter_App.md` §6.2 and
+/// `docs/Architekturkonzept_PV_Calculator_Flutter_App.md` §6: a Jahres-
+/// simulation that starts with an arbitrary 0 %, 50 % or 100 % SOC
+/// distorts the January values. Three strategies are supported here;
+/// "Previous-Year Weather" (Architektur §6) is deferred to Phase 10
+/// because it depends on multi-year weather data.
+enum PreRunMode {
+  /// User-supplied start SOC (`BatteryConfig.initialSocKwh`, or the
+  /// 50 %-of-capacity default when null) is used as-is. No warm-up.
+  manual,
+
+  /// Simulates `SimulationConfig.preRunDays` once before the reported
+  /// year; the warm-up's end SOC becomes the reported year's start SOC.
+  /// Matches the pre-Phase-5 behaviour and is the default for legacy
+  /// JSON.
+  singleWarmUp,
+
+  /// Repeats the full 365-day year until the per-battery start↔end SOC
+  /// delta falls below `convergenceToleranceFraction × usableCapacity`
+  /// (usable = capacity − minSoc) for every battery, or
+  /// `maxConvergenceIterations` is reached. Pro feature.
+  cyclicConvergence,
+}
+
 class PvArray {
   const PvArray({
     required this.id,
@@ -284,6 +311,9 @@ class SimulationConfig {
     this.days = 365,
     this.timeStep = TimeStep.hourly,
     this.preRunDays = 0,
+    this.preRunMode = PreRunMode.singleWarmUp,
+    this.convergenceToleranceFraction = 0.005,
+    this.maxConvergenceIterations = 10,
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
     this.longitudeDeg = 10.0,
@@ -313,6 +343,20 @@ class SimulationConfig {
   final int days;
   final TimeStep timeStep;
   final int preRunDays;
+
+  /// Strategy used to settle the battery SOC before reporting begins.
+  /// See [PreRunMode].
+  final PreRunMode preRunMode;
+
+  /// For [PreRunMode.cyclicConvergence]: the per-battery convergence
+  /// threshold expressed as a fraction of usable capacity
+  /// (`capacity − minSoc`). PRD §6.2 line 259 suggests 0.5 %.
+  final double convergenceToleranceFraction;
+
+  /// Upper bound on cyclic iterations. Convergence usually settles in
+  /// 2–5 iterations; this is the safety stop for pathological configs.
+  final int maxConvergenceIterations;
+
   final double? gridExportLimitKw;
   final double latitudeDeg;
 
@@ -363,6 +407,21 @@ class SimulationConfig {
     _require(days >= 1 && days <= 365, 'days must be in [1, 365].');
     _require(preRunDays >= 0 && preRunDays <= 365, 'preRunDays must be in [0, 365].');
     _require(startDayOfYear >= 1 && startDayOfYear <= 365, 'startDayOfYear must be in [1, 365].');
+    _require(
+      convergenceToleranceFraction > 0 && convergenceToleranceFraction <= 1,
+      'convergenceToleranceFraction must be in (0, 1].',
+    );
+    _require(
+      maxConvergenceIterations >= 1,
+      'maxConvergenceIterations must be >= 1.',
+    );
+    if (preRunMode == PreRunMode.cyclicConvergence) {
+      // Cyclic convergence repeats the *full year*; partial-year runs or
+      // an extra warm-up window would conflate two different settling
+      // mechanisms and make the reported iteration count meaningless.
+      _require(days == 365, 'cyclicConvergence requires days == 365.');
+      _require(preRunDays == 0, 'cyclicConvergence cannot be combined with preRunDays > 0.');
+    }
     _require(latitudeDeg >= -90 && latitudeDeg <= 90, 'latitudeDeg must be in [-90, 90].');
     _require(longitudeDeg >= -180 && longitudeDeg <= 180, 'longitudeDeg must be in [-180, 180].');
     _require(gridExportLimitKw == null || gridExportLimitKw! >= 0, 'gridExportLimitKw must not be negative.');
@@ -406,12 +465,17 @@ class SimulationConfig {
 
   Map<String, dynamic> toJson() {
     // Bump to schema v2 only when one of the new Phase-4 fields is
-    // actually set, so legacy consumers continue to see v1 JSON.
+    // actually set, and to v3 only when a Phase-5 field differs from
+    // its default. Legacy projects continue to round-trip as v1.
     final hasPhase4 = topology != null ||
         dispatchPolicy != null ||
         microInverterBanks.isNotEmpty;
+    final hasPhase5 = preRunMode != PreRunMode.singleWarmUp ||
+        convergenceToleranceFraction != 0.005 ||
+        maxConvergenceIterations != 10;
+    final version = hasPhase5 ? 3 : (hasPhase4 ? 2 : 1);
     final json = <String, dynamic>{
-      'schemaVersion': hasPhase4 ? 2 : 1,
+      'schemaVersion': version,
       'arrays': arrays.map((a) => a.toJson()).toList(),
       'inverters': inverters.map((i) => i.toJson()).toList(),
       'batteries': batteries.map((b) => b.toJson()).toList(),
@@ -424,7 +488,7 @@ class SimulationConfig {
       'latitudeDeg': latitudeDeg,
       'longitudeDeg': longitudeDeg,
     };
-    if (hasPhase4) {
+    if (hasPhase4 || hasPhase5) {
       if (microInverterBanks.isNotEmpty) {
         json['microInverterBanks'] = microInverterBanks.map((b) => b.toJson()).toList();
       }
@@ -435,12 +499,17 @@ class SimulationConfig {
         json['dispatchPolicy'] = dispatchPolicy!.toJson();
       }
     }
+    if (hasPhase5) {
+      json['preRunMode'] = preRunMode.name;
+      json['convergenceToleranceFraction'] = convergenceToleranceFraction;
+      json['maxConvergenceIterations'] = maxConvergenceIterations;
+    }
     return json;
   }
 
   static SimulationConfig fromJson(Map<String, dynamic> json) {
     final version = json['schemaVersion'] as int? ?? 1;
-    if (version != 1 && version != 2) {
+    if (version != 1 && version != 2 && version != 3) {
       throw ArgumentError('Unknown SimulationConfig schemaVersion: $version');
     }
     final batteries = <BatteryConfig>[];
@@ -496,11 +565,26 @@ class SimulationConfig {
       days: (json['days'] as num?)?.toInt() ?? 365,
       timeStep: _timeStepFromName(json['timeStep'] as String? ?? 'hourly'),
       preRunDays: (json['preRunDays'] as num?)?.toInt() ?? 0,
+      preRunMode: _preRunModeFromName(json['preRunMode'] as String?),
+      convergenceToleranceFraction:
+          _toDouble(json['convergenceToleranceFraction'] ?? 0.005),
+      maxConvergenceIterations:
+          (json['maxConvergenceIterations'] as num?)?.toInt() ?? 10,
       gridExportLimitKw: json['gridExportLimitKw'] == null ? null : _toDouble(json['gridExportLimitKw']),
       latitudeDeg: _toDouble(json['latitudeDeg'] ?? 50.0),
       longitudeDeg: _toDouble(json['longitudeDeg'] ?? 10.0),
     );
   }
+}
+
+PreRunMode _preRunModeFromName(String? name) {
+  // Legacy projects (v1/v2) have no `preRunMode` field; default to
+  // singleWarmUp so their existing `preRunDays` semantics are preserved.
+  if (name == null) return PreRunMode.singleWarmUp;
+  for (final mode in PreRunMode.values) {
+    if (mode.name == name) return mode;
+  }
+  throw ArgumentError('Unknown PreRunMode: $name');
 }
 
 class SimulationStep {
@@ -605,6 +689,11 @@ class SimulationSummary {
     this.microInverterDeliveredKwh = 0.0,
     this.microInverterShortfallKwh = 0.0,
     this.unservedLoadKwh = 0.0,
+    this.preRunMode = PreRunMode.singleWarmUp,
+    this.preRunActive = false,
+    this.startSocsUsedKwh = const [],
+    this.convergenceIterations = 0,
+    this.converged = true,
   });
 
   final double pvDcKwh;
@@ -638,6 +727,31 @@ class SimulationSummary {
   /// Load left uncovered when grid import was disabled by the policy.
   final double unservedLoadKwh;
 
+  /// Pre-run strategy actually used by the simulator. Echoed from the
+  /// config for traceability — see PRD §6.2 line 260.
+  final PreRunMode preRunMode;
+
+  /// `true` when any pre-run iteration actually executed (warm-up days
+  /// > 0 or cyclic mode ran at least one cycle). `false` for manual
+  /// mode or for singleWarmUp with `preRunDays == 0`.
+  final bool preRunActive;
+
+  /// Per-battery SOC at the first reported step (i.e. after the pre-run
+  /// has settled). Same ordering as `SimulationConfig.batteries`. Empty
+  /// when no batteries are configured.
+  final List<double> startSocsUsedKwh;
+
+  /// Number of full-year cycles executed by the cyclic convergence
+  /// loop. `0` for manual, `1` for singleWarmUp (even with
+  /// `preRunDays == 0`, accounting for the always-executed reported
+  /// year), `N` for cyclic mode.
+  final int convergenceIterations;
+
+  /// `true` unless cyclic convergence hit `maxConvergenceIterations`
+  /// without satisfying the per-battery tolerance. Always `true` for
+  /// the non-cyclic modes.
+  final bool converged;
+
   double get selfConsumptionRate => pvAcKwh <= 0 ? 0 : selfConsumptionKwh / pvAcKwh;
   double get autarkyRate => loadKwh <= 0 ? 0 : selfConsumptionKwh / loadKwh;
 }
@@ -658,18 +772,121 @@ class PvSimulator {
     // a quiet zero-yield column in the summary.
     config.effectiveWeatherSource
         .validateForArrays(config.arrays.map((a) => a.id));
+    switch (config.preRunMode) {
+      case PreRunMode.manual:
+        return _runLinear(config, preRunDays: 0);
+      case PreRunMode.singleWarmUp:
+        return _runLinear(config, preRunDays: config.preRunDays);
+      case PreRunMode.cyclicConvergence:
+        return _runCyclic(config);
+    }
+  }
+
+  /// Linear (non-cyclic) execution path used by [PreRunMode.manual] and
+  /// [PreRunMode.singleWarmUp]. Steps with `dayIndex < 0` mutate SOC
+  /// but are dropped from the reported series — see Architektur §6
+  /// "Der Pre-Run wird nicht in Jahres-KPIs eingerechnet".
+  SimulationResult _runLinear(SimulationConfig config, {required int preRunDays}) {
     final steps = <SimulationStep>[];
     final socs = [for (final b in config.batteries) b.effectiveInitialSocKwh];
+    final startSocs = List<double>.unmodifiable(socs);
+    var capturedReportSocs = false;
+    var reportedStartSocs = startSocs;
 
-    for (var dayIndex = -config.preRunDays; dayIndex < config.days; dayIndex++) {
+    for (var dayIndex = -preRunDays; dayIndex < config.days; dayIndex++) {
       final dayOfYear = _wrapDay(config.startDayOfYear + dayIndex);
       for (var stepOfDay = 0; stepOfDay < config.timeStep.stepsPerDay; stepOfDay++) {
+        if (!capturedReportSocs && dayIndex >= 0) {
+          // The "start SOC the reported year actually saw" is the SOC at
+          // the entry of the first reported step (post-warm-up).
+          reportedStartSocs = List<double>.unmodifiable(socs);
+          capturedReportSocs = true;
+        }
         final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
         final step = _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay);
         if (dayIndex >= 0) steps.add(step);
       }
     }
-    return SimulationResult(steps: steps, summary: _summarize(steps, socs));
+
+    final preRunActive = preRunDays > 0 && config.batteries.isNotEmpty;
+    return SimulationResult(
+      steps: steps,
+      summary: _summarize(
+        steps,
+        socs,
+        preRunMode: config.preRunMode,
+        preRunActive: preRunActive,
+        startSocsUsedKwh: reportedStartSocs,
+        convergenceIterations: preRunActive ? 1 : 0,
+        converged: true,
+      ),
+    );
+  }
+
+  /// Repeats the full 365-day year until the per-battery start↔end SOC
+  /// delta is within `tolerance × usableCapacity` for every battery, or
+  /// `maxConvergenceIterations` is reached. Only the final cycle's
+  /// steps survive into [SimulationResult.steps] — earlier iterations
+  /// are pre-run and are not reported per Architektur §6.
+  SimulationResult _runCyclic(SimulationConfig config) {
+    final batteries = config.batteries;
+    final socs = [for (final b in batteries) b.effectiveInitialSocKwh];
+    final usable = [
+      for (final b in batteries)
+        math.max(0.0, b.capacityKwh - b.minSocKwh),
+    ];
+    final tolerances = [
+      for (final u in usable) u * config.convergenceToleranceFraction,
+    ];
+
+    List<SimulationStep> lastSteps = const [];
+    var iterations = 0;
+    var converged = false;
+    List<double> startSocs = List<double>.unmodifiable(socs);
+
+    while (iterations < config.maxConvergenceIterations) {
+      iterations += 1;
+      startSocs = List<double>.unmodifiable(socs);
+      final cycleSteps = <SimulationStep>[];
+      for (var dayIndex = 0; dayIndex < 365; dayIndex++) {
+        final dayOfYear = _wrapDay(config.startDayOfYear + dayIndex);
+        for (var stepOfDay = 0; stepOfDay < config.timeStep.stepsPerDay; stepOfDay++) {
+          final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
+          cycleSteps.add(_simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay));
+        }
+      }
+      lastSteps = cycleSteps;
+      // Convergence: every battery's |start - end| must be within its
+      // own usable-capacity tolerance. Batteries with usable == 0 are
+      // trivially converged (the tolerance is 0 and the SOC cannot move).
+      var allWithin = true;
+      for (var i = 0; i < batteries.length; i++) {
+        if ((socs[i] - startSocs[i]).abs() > tolerances[i]) {
+          allWithin = false;
+          break;
+        }
+      }
+      if (allWithin) {
+        converged = true;
+        break;
+      }
+    }
+
+    // When the loop exits without convergence, `lastSteps` is the last
+    // (non-converged) cycle — the user still gets a complete year of
+    // output, just marked converged = false.
+    return SimulationResult(
+      steps: lastSteps,
+      summary: _summarize(
+        lastSteps,
+        socs,
+        preRunMode: config.preRunMode,
+        preRunActive: batteries.isNotEmpty,
+        startSocsUsedKwh: startSocs,
+        convergenceIterations: iterations,
+        converged: converged || batteries.isEmpty,
+      ),
+    );
   }
 
   SimulationStep _simulateStep(SimulationConfig config, List<double> socs, int dayIndex, int dayOfYear, int stepOfDay, double hourOfDay) {
@@ -841,7 +1058,15 @@ class PvSimulator {
     return array.peakKw * (weather.poaWPerM2 / 1000.0) * retained * math.max(0.0, tempDerate);
   }
 
-  SimulationSummary _summarize(List<SimulationStep> steps, List<double> finalSocs) {
+  SimulationSummary _summarize(
+    List<SimulationStep> steps,
+    List<double> finalSocs, {
+    required PreRunMode preRunMode,
+    required bool preRunActive,
+    required List<double> startSocsUsedKwh,
+    required int convergenceIterations,
+    required bool converged,
+  }) {
     double sum(double Function(SimulationStep step) selector) => steps.fold<double>(0.0, (total, step) => total + selector(step));
     return SimulationSummary(
       pvDcKwh: sum((s) => s.pvDcKwh),
@@ -860,6 +1085,11 @@ class PvSimulator {
       microInverterDeliveredKwh: sum((s) => s.microInverterDeliveredKwh),
       microInverterShortfallKwh: sum((s) => s.microInverterShortfallKwh),
       unservedLoadKwh: sum((s) => s.unservedLoadKwh),
+      preRunMode: preRunMode,
+      preRunActive: preRunActive,
+      startSocsUsedKwh: List<double>.unmodifiable(startSocsUsedKwh),
+      convergenceIterations: convergenceIterations,
+      converged: converged,
     );
   }
 

@@ -73,4 +73,43 @@ void main() {
       expect((draft.build().schedule as HourlySchedule).factors, factors);
     });
   });
+
+  group('Phase-5 pre-run fields', () {
+    test('defaults match engine defaults', () {
+      final draft = ConfigDraft();
+      expect(draft.preRunMode, PreRunMode.singleWarmUp);
+      expect(draft.convergenceToleranceFraction, 0.005);
+      expect(draft.maxConvergenceIterations, 10);
+    });
+
+    test('build() forwards pre-run fields to SimulationConfig', () {
+      final draft = ConfigDraft.demo()
+        ..preRunMode = PreRunMode.cyclicConvergence
+        ..preRunDays = 0
+        ..days = 365
+        ..convergenceToleranceFraction = 0.002
+        ..maxConvergenceIterations = 6;
+      final config = draft.build();
+      expect(config.preRunMode, PreRunMode.cyclicConvergence);
+      expect(config.convergenceToleranceFraction, 0.002);
+      expect(config.maxConvergenceIterations, 6);
+    });
+
+    test('fromConfig() round-trips pre-run fields', () {
+      final original = SimulationConfig(
+        arrays: ConfigDraft.demo().build().arrays,
+        inverters: ConfigDraft.demo().build().inverters,
+        batteries: ConfigDraft.demo().build().batteries,
+        loadProfile: ConfigDraft.demo().build().loadProfile,
+        days: 365,
+        preRunMode: PreRunMode.manual,
+        convergenceToleranceFraction: 0.01,
+        maxConvergenceIterations: 3,
+      );
+      final draft = ConfigDraft.fromConfig(original);
+      expect(draft.preRunMode, PreRunMode.manual);
+      expect(draft.convergenceToleranceFraction, 0.01);
+      expect(draft.maxConvergenceIterations, 3);
+    });
+  });
 }
