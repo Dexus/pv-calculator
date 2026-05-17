@@ -29,12 +29,18 @@ Data Adapters / Persistence / APIs
 
 ## Persistenz
 
-Zwei nebeneinanderliegende Wege:
+Phase 7: relationaler `package:sqlite3`-Store als kanonische Projekt-/Szenario-DB plus zwei flankierende Wege:
 
-- `lib/persistence/project_store.dart` — `shared_preferences` als Projektliste mit Index-Schlüssel `pv_project_index` und Einträgen `pv_project:<name>`. Funktioniert auf Web (localStorage), Desktop und Mobile gleichermaßen.
-- `lib/persistence/file_io.dart` — `file_selector` für JSON-/CSV-Datei-Export und JSON-Import. Auf Web löst `getSaveLocation`+`XFile.saveTo` einen Browser-Download aus (kein Dateipfad); auf nativen Plattformen erscheint der OS-Dialog.
+- `lib/persistence/{database,schema,project_repository,scenario_repository,simulation_run_repository}.dart` — vier Tabellen (`projects`, `sites`, `scenarios`, `simulation_runs`) plus `app_meta(key, value)` für Versionierung und einmalige Migrationsmarker. Reines SQL, keine Codegen-Stufe. Auf Native (mobile/desktop) wird sqlite3 über `sqlite3_flutter_libs` als Bibliothek eingebunden; auf Web ist der Loader auf `package:sqlite3`-WASM mit OPFS/IndexedDB-Fallback vorbereitet (Asset-Wiring steht noch aus → ROADMAP §Phase 7 Verschoben).
+- `lib/persistence/sp_migration.dart` — einmaliger Importpfad: liest die Legacy-`shared_preferences`-Einträge (`pv_project_index` + `pv_project:<name>`) und erzeugt pro Eintrag ein Projekt + Default-Szenario im neuen Schema. Idempotent über den `app_meta('sp_migrated_v1')`-Marker; die SP-Keys bleiben als Read-only-Fallback erhalten.
+- `lib/persistence/project_store.dart` — Legacy `shared_preferences`-Adapter. Wird **nicht mehr** für Neueinträge verwendet, dient nur noch der SP-Migration als Lesepfad.
+- `lib/persistence/file_io.dart` — `file_selector` für JSON-/CSV-Datei-Export und JSON-Import. Export schreibt ab Phase 7 in einem Envelope `{engineVersion, inputHash, config}` (PRD NFR-05); `parseImportedConfig` akzeptiert beide Formen, der Legacy-Bare-Config-Form fehlt der Hash, der wird beim Re-Import frisch berechnet.
 
 Legacy-Migration: `SimulationConfig.fromJson` akzeptiert auch die alte 0.1-Form mit einzelnem `"battery"`-Feld und überführt sie in eine `batteries`-Liste mit synthetischer ID `battery-1`.
+
+## Reproduzierbarkeit
+
+Engine exportiert `kEngineVersion` (synchron mit `packages/pv_engine/pubspec.yaml`) und eine Extension `SimulationConfig.inputHash` (kanonisches JSON → 64-Bit FNV-1a, hex). Beide Werte werden in `scenarios.engine_version` / `scenarios.input_hash` und in jedem `simulation_runs`-Datensatz mitgeschrieben, ebenso im Export-Envelope. `ScenarioComparisonController` nutzt den Hash als Cache-Key: solange er stabil bleibt, wird der zuletzt gespeicherte `summary_json` wieder verwendet, statt die Engine erneut anzuwerfen.
 
 ## Externe Datenquellen
 

@@ -77,11 +77,13 @@ The `_dcPowerKw` model is **synthetic** (sin curve over a season-shifted day len
 
 ## Architecture — Flutter app
 
-`app/flutter_app/lib/main.dart` is currently a one-screen demo (`DashboardPage`) that constructs a hardcoded `SimulationConfig`, runs `PvSimulator`, and renders KPI cards from `SimulationSummary`. The hard rule from `pv_calculator_dexus_overlay/AGENTS.md`:
+`app/flutter_app/lib/main.dart` opens an `AppDatabase` (Phase-7 sqlite3 store), runs the one-shot `SharedPreferencesMigration`, then mounts a `MultiProvider` exposing `ProjectController`, the three repositories, and the `ScenarioComparisonController`. The UI is tab-based (`pages/main_scaffold.dart`); the Projects tab (`pages/projects_tab.dart`) is the entry point for project/scenario CRUD and the compare flow. The hard rule from `pv_calculator_dexus_overlay/AGENTS.md`:
 
 > Flutter widgets may display simulation results and collect input, but must not contain dispatch or PV core calculations. Battery dispatch, inverter limiting, 800 W micro-inverter capping, SOC carry-over and export/import must remain separately testable in `packages/pv_engine`.
 
 When you add input forms, persistence, or PVGIS adapters, route them through `pv_engine` types — never reimplement the simulation in widgets.
+
+**Persistence (Phase 7):** the canonical store is `lib/persistence/database.dart` (a thin wrapper over `package:sqlite3`) with four tables (`projects`, `sites`, `scenarios`, `simulation_runs`) plus an `app_meta` KV row for schema and migration markers. Repositories (`project_repository.dart`, `scenario_repository.dart`, `simulation_run_repository.dart`) own the SQL. Legacy `shared_preferences` projects are imported once at startup by `sp_migration.dart`; the SP keys then stay in place as a read-only fallback. The engine still has zero runtime deps — `sqlite3` is Flutter-app-only.
 
 ## Project conventions
 

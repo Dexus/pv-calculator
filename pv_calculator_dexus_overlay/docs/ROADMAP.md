@@ -83,15 +83,20 @@ Ziel: Konstante oder zeitgesteuerte AC-Einspeisung aus Speicher (PRD FR-10; Arch
 
 ---
 
-## Phase 7 – Projektmanagement & Szenariovergleich
+## Phase 7 – Projektmanagement & Szenariovergleich ✓
 
 Ziel: Projekte, Standorte, Szenarien anlegen, duplizieren, vergleichen (PRD FR-01, FR-14).
 
-- [ ] Persistenz-Schema: `projects`, `sites`, `scenarios`, `simulation_runs` mit Drift/SQLite (Architektur Kap. 7).
-- [ ] Szenarien duplizieren und Parameter variieren (Speichergröße, Array-Mix, Ausgangsleistung).
-- [ ] Szenariovergleich: KPIs nebeneinander als Tabelle und Chart.
-- [ ] JSON-Projektdatei-Export mit Engine-Version und Input-Hash (Reproduzierbarkeit, NFR-05).
-- [ ] Schema-Migration ab Version 1 einplanen.
+- [x] Persistenz-Schema: `projects`, `sites`, `scenarios`, `simulation_runs` über `package:sqlite3` (Architektur Kap. 7). Implementierung in `app/flutter_app/lib/persistence/{schema,database,project_repository,scenario_repository,simulation_run_repository}.dart`. Statt Drift mit Codegen wird reines SQL verwendet — gleiche Datei-/Web-Persistenz (OPFS/IndexedDB), aber ohne Build-Runner-Overhead.
+- [x] Szenarien duplizieren und Parameter variieren: `ScenarioRepository.duplicate` klont `config_json`, frischt `input_hash`/`engine_version`/Timestamps auf. UI: Duplizieren-Button pro Szenario im Projekte-Tab (`pages/projects_tab.dart`).
+- [x] Szenariovergleich: KPIs nebeneinander als Tabelle und Chart (`pages/scenario_compare_page.dart`, `widgets/results/scenario_compare_table.dart`, `widgets/results/scenario_compare_chart.dart`). Selektion über Checkboxen am Szenario, „Vergleichen (N)"-Button im Toolbar. Resolver (`ScenarioComparisonController`) re-uses cached `simulation_runs` solange `input_hash` passt.
+- [x] JSON-Projektdatei-Export mit Engine-Version und Input-Hash (NFR-05): `buildExportEnvelope` / `parseImportedConfig` in `persistence/file_io.dart`. Pre-Phase-7-JSON ohne Envelope wird transparent erkannt und geladen.
+- [x] Schema-Migration: `app_meta('schema_version')`-Marker plus `_upgrade`-Ladder in `persistence/database.dart`. SP-Bestandsdaten werden einmalig durch `SharedPreferencesMigration` in das neue Schema importiert; die alten `pv_project:*`-Keys bleiben als Read-only-Fallback erhalten.
+
+### Verschoben
+
+- **Persistierte Zeitreihen** (Architektur §7 `result_points`): aktuell speichern wir nur `SimulationSummary` als JSON-Blob in `simulation_runs.summary_json`. Per-Step-Reihen würden auf 365×24×N(scenarios) Floats wachsen; Architektur-Empfehlung war ohnehin „bei Bedarf rekonstruieren". Frühestens Phase 9 (Performance / 15-Minuten-Mode), wenn ein Float64List-basierter Streaming-Speicher steht.
+- **Web-Persistenz aktivieren**: `database.dart` fällt aktuell auf In-Memory zurück, wenn der `sqlite3.wasm`-Bundle unter `web/` fehlt. Der Loader-Switch auf `WasmDatabase.open` mit OPFS/IndexedDB-Auswahl ist vorbereitet, das Asset-Wiring (Download des passenden `sqlite3.wasm` über den Flutter-Build) bleibt offen — Trigger: nächster Pages-Deploy der Flutter-App.
 
 ---
 

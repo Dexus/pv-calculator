@@ -22,15 +22,25 @@ class FileIo {
   /// 5 KB; the limit guards against memory exhaustion via crafted uploads.
   static const int maxImportBytes = 1024 * 1024;
 
+  /// Wraps [config] in the Phase-7 reproducibility envelope and writes it.
+  /// The envelope pins the engine version and the canonical input hash of
+  /// the embedded config — pre-Phase-7 readers that look for `arrays` at
+  /// the top level are handled by the import fallback below.
   Future<bool> exportConfig(String suggestedName, SimulationConfig config) =>
-      _saveString(suggestedName: suggestedName, content: jsonEncode(config.toJson()), mimeType: 'application/json');
+      _saveString(
+        suggestedName: suggestedName,
+        content: jsonEncode(buildExportEnvelope(config)),
+        mimeType: 'application/json',
+      );
 
   Future<bool> exportCsv({required String filename, required String content}) =>
       _saveString(suggestedName: filename, content: content, mimeType: 'text/csv');
 
-  /// Reads, validates and returns an [ImportedProject]. Throws [ArgumentError]
-  /// on oversize input, non-object JSON, or any [SimulationConfig.validate]
-  /// failure — callers should surface the error to the user.
+  /// Reads, validates and returns an [ImportedProject]. Accepts both the
+  /// Phase-7 envelope (`{engineVersion, inputHash, config}`) and the
+  /// pre-Phase-7 bare-config form (the entire document is a
+  /// `SimulationConfig`). Throws [ArgumentError] on oversize input,
+  /// non-object JSON, or any [SimulationConfig.validate] failure.
   Future<ImportedProject?> importConfig() async {
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     final file = await openFile(acceptedTypeGroups: const [typeGroup]);
@@ -41,7 +51,8 @@ class FileIo {
     if (decoded is! Map) {
       throw ArgumentError('Project JSON must be a top-level object.');
     }
-    final config = SimulationConfig.fromJson(decoded.cast<String, dynamic>());
+    final map = decoded.cast<String, dynamic>();
+    final config = parseImportedConfig(map);
     // Validate before returning so invalid imports never reach persistence.
     config.validate();
     final name = file.name.replaceAll(RegExp(r'\.json$', caseSensitive: false), '');
@@ -67,4 +78,33 @@ class FileIo {
     await xfile.saveTo(location.path);
     return true;
   }
+}
+
+/// Phase-7 export envelope. Top-level keys are the reproducibility
+/// metadata (PRD NFR-05); the original engine `SimulationConfig.toJson`
+/// goes under `config` so its own `schemaVersion` is preserved.
+Map<String, dynamic> buildExportEnvelope(SimulationConfig config) => {
+      'engineVersion': kEngineVersion,
+      'inputHash': config.inputHash,
+      'config': config.toJson(),
+    };
+
+/// Parses an imported JSON document into a [SimulationConfig], accepting
+/// either the Phase-7 envelope or a bare pre-Phase-7 config map. Returns
+/// the embedded config — callers must still call `validate()` themselves.
+SimulationConfig parseImportedConfig(Map<String, dynamic> map) {
+  // Phase-7 envelope: nested `config` object plus reproducibility metadata.
+  final nested = map['config'];
+  if (nested is Map) {
+    return SimulationConfig.fromJson(nested.cast<String, dynamic>());
+  }
+  // Pre-Phase-7 bare config: the entire document is a SimulationConfig.
+  // Detected by presence of `arrays`, which every config has.
+  if (map.containsKey('arrays')) {
+    return SimulationConfig.fromJson(map);
+  }
+  throw ArgumentError(
+    'Project JSON is neither a Phase-7 envelope (with "config") '
+    'nor a bare SimulationConfig (with "arrays").',
+  );
 }

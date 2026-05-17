@@ -1,0 +1,169 @@
+import 'dart:convert';
+
+import 'package:pv_engine/pv_engine.dart';
+
+import 'database.dart';
+import 'models.dart';
+import 'uuid.dart';
+
+/// Records simulation outcomes so the comparison view can render KPIs
+/// without re-running the engine. The summary is stored as a compact
+/// JSON blob; full per-step time series are deliberately not persisted
+/// (Architektur §7 line 372 — large series can be reconstructed on demand).
+class SimulationRunRepository {
+  SimulationRunRepository(this._db);
+
+  final AppDatabase _db;
+
+  /// Persists a completed run. [startedAt] / [finishedAt] are taken in UTC.
+  SimulationRunRow recordRun({
+    required String scenarioId,
+    required DateTime startedAt,
+    required DateTime finishedAt,
+    required String inputHash,
+    required SimulationSummary summary,
+  }) {
+    final id = newUuidV4();
+    final duration = finishedAt.difference(startedAt).inMilliseconds;
+    final summaryJson = jsonEncode(summaryToJson(summary));
+    _db.db.execute(
+      'INSERT INTO simulation_runs('
+      'id, scenario_id, started_at, finished_at, input_hash, engine_version, '
+      'summary_json, duration_ms) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        scenarioId,
+        startedAt.toUtc().millisecondsSinceEpoch,
+        finishedAt.toUtc().millisecondsSinceEpoch,
+        inputHash,
+        kEngineVersion,
+        summaryJson,
+        duration,
+      ],
+    );
+    return _findById(id)!;
+  }
+
+  /// Most recent run whose `input_hash` matches [inputHash], or null if
+  /// the scenario has no cached run for its current inputs. Callers use
+  /// this to short-circuit re-runs when nothing has changed.
+  SimulationRunRow? latestMatching(String scenarioId, String inputHash) {
+    final rows = _db.db.select(
+      'SELECT id, scenario_id, started_at, finished_at, input_hash, '
+      'engine_version, summary_json, duration_ms '
+      'FROM simulation_runs '
+      'WHERE scenario_id = ? AND input_hash = ? '
+      'ORDER BY finished_at DESC LIMIT 1',
+      [scenarioId, inputHash],
+    );
+    if (rows.isEmpty) return null;
+    return _fromRow(rows.first);
+  }
+
+  /// Most recent run for [scenarioId] regardless of hash. Useful for
+  /// showing the last-known KPIs in lists, with the caveat that the
+  /// config may have changed since the run was recorded — UI should
+  /// surface that staleness when `inputHash != scenario.inputHash`.
+  SimulationRunRow? latestFor(String scenarioId) {
+    final rows = _db.db.select(
+      'SELECT id, scenario_id, started_at, finished_at, input_hash, '
+      'engine_version, summary_json, duration_ms '
+      'FROM simulation_runs WHERE scenario_id = ? '
+      'ORDER BY finished_at DESC LIMIT 1',
+      [scenarioId],
+    );
+    if (rows.isEmpty) return null;
+    return _fromRow(rows.first);
+  }
+
+  void deleteForScenario(String scenarioId) {
+    _db.db.execute('DELETE FROM simulation_runs WHERE scenario_id = ?', [scenarioId]);
+  }
+
+  SimulationRunRow? _findById(String id) {
+    final rows = _db.db.select(
+      'SELECT id, scenario_id, started_at, finished_at, input_hash, '
+      'engine_version, summary_json, duration_ms '
+      'FROM simulation_runs WHERE id = ?',
+      [id],
+    );
+    if (rows.isEmpty) return null;
+    return _fromRow(rows.first);
+  }
+
+  SimulationRunRow _fromRow(Map row) => SimulationRunRow(
+        id: row['id'] as String,
+        scenarioId: row['scenario_id'] as String,
+        startedAt: DateTime.fromMillisecondsSinceEpoch(row['started_at'] as int, isUtc: true),
+        finishedAt: DateTime.fromMillisecondsSinceEpoch(row['finished_at'] as int, isUtc: true),
+        inputHash: row['input_hash'] as String,
+        engineVersion: row['engine_version'] as String,
+        summaryJson: row['summary_json'] as String,
+        durationMs: row['duration_ms'] as int,
+      );
+}
+
+/// Compact JSON form of [SimulationSummary] for cache storage. Reverse via
+/// [summaryFromJson]. Keeps only the KPI surface the comparison view
+/// needs — full per-step series live in memory while the run is active.
+Map<String, dynamic> summaryToJson(SimulationSummary s) => {
+      'pvDcKwh': s.pvDcKwh,
+      'pvAcKwh': s.pvAcKwh,
+      'loadKwh': s.loadKwh,
+      'selfConsumptionKwh': s.selfConsumptionKwh,
+      'batteryChargeKwh': s.batteryChargeKwh,
+      'batteryDischargeKwh': s.batteryDischargeKwh,
+      'gridImportKwh': s.gridImportKwh,
+      'gridExportKwh': s.gridExportKwh,
+      'curtailedDcKwh': s.curtailedDcKwh,
+      'curtailedAcKwh': s.curtailedAcKwh,
+      'curtailedExportKwh': s.curtailedExportKwh,
+      'finalBatterySocKwh': s.finalBatterySocKwh,
+      'finalBatterySocsKwh': s.finalBatterySocsKwh,
+      'microInverterDeliveredKwh': s.microInverterDeliveredKwh,
+      'microInverterShortfallKwh': s.microInverterShortfallKwh,
+      'unservedLoadKwh': s.unservedLoadKwh,
+      'preRunMode': s.preRunMode.name,
+      'preRunActive': s.preRunActive,
+      'startSocsUsedKwh': s.startSocsUsedKwh,
+      'convergenceIterations': s.convergenceIterations,
+      'converged': s.converged,
+    };
+
+SimulationSummary summaryFromJson(Map<String, dynamic> json) {
+  PreRunMode parseMode(String? name) {
+    if (name == null) return PreRunMode.singleWarmUp;
+    for (final m in PreRunMode.values) {
+      if (m.name == name) return m;
+    }
+    return PreRunMode.singleWarmUp;
+  }
+
+  double toD(Object? v) => (v as num).toDouble();
+  return SimulationSummary(
+    pvDcKwh: toD(json['pvDcKwh']),
+    pvAcKwh: toD(json['pvAcKwh']),
+    loadKwh: toD(json['loadKwh']),
+    selfConsumptionKwh: toD(json['selfConsumptionKwh']),
+    batteryChargeKwh: toD(json['batteryChargeKwh']),
+    batteryDischargeKwh: toD(json['batteryDischargeKwh']),
+    gridImportKwh: toD(json['gridImportKwh']),
+    gridExportKwh: toD(json['gridExportKwh']),
+    curtailedDcKwh: toD(json['curtailedDcKwh']),
+    curtailedAcKwh: toD(json['curtailedAcKwh']),
+    curtailedExportKwh: toD(json['curtailedExportKwh']),
+    finalBatterySocKwh: toD(json['finalBatterySocKwh']),
+    finalBatterySocsKwh:
+        (json['finalBatterySocsKwh'] as List).map((e) => toD(e)).toList(growable: false),
+    microInverterDeliveredKwh: toD(json['microInverterDeliveredKwh']),
+    microInverterShortfallKwh: toD(json['microInverterShortfallKwh']),
+    unservedLoadKwh: toD(json['unservedLoadKwh']),
+    preRunMode: parseMode(json['preRunMode'] as String?),
+    preRunActive: json['preRunActive'] as bool? ?? false,
+    startSocsUsedKwh:
+        (json['startSocsUsedKwh'] as List?)?.map((e) => toD(e)).toList(growable: false) ?? const [],
+    convergenceIterations: (json['convergenceIterations'] as num?)?.toInt() ?? 0,
+    converged: json['converged'] as bool? ?? true,
+  );
+}

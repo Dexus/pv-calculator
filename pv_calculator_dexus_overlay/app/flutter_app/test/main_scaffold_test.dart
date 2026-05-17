@@ -7,23 +7,43 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pv_calculator_app/l10n/generated/app_localizations.dart';
 import 'package:pv_calculator_app/pages/main_scaffold.dart';
+import 'package:pv_calculator_app/persistence/database.dart';
+import 'package:pv_calculator_app/persistence/project_repository.dart';
+import 'package:pv_calculator_app/persistence/scenario_repository.dart';
+import 'package:pv_calculator_app/persistence/simulation_run_repository.dart';
 import 'package:pv_calculator_app/services/pvgis_api.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
+import 'package:pv_calculator_app/state/scenario_comparison_controller.dart';
 import 'package:pv_calculator_app/state/settings_controller.dart';
 
-Widget _scaffold({required ProjectController controller, required SettingsController settings}) =>
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: settings),
-        ChangeNotifierProvider.value(value: controller),
-      ],
-      child: MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const MainScaffold(),
+Widget _scaffold({
+  required ProjectController controller,
+  required SettingsController settings,
+  required AppDatabase database,
+}) {
+  return MultiProvider(
+    providers: [
+      ChangeNotifierProvider.value(value: settings),
+      ChangeNotifierProvider.value(value: controller),
+      Provider<AppDatabase>.value(value: database),
+      Provider<ProjectRepository>(create: (_) => ProjectRepository(database)),
+      Provider<ScenarioRepository>(create: (_) => ScenarioRepository(database)),
+      Provider<SimulationRunRepository>(create: (_) => SimulationRunRepository(database)),
+      ChangeNotifierProvider<ScenarioComparisonController>(
+        create: (_) => ScenarioComparisonController(
+          scenarios: ScenarioRepository(database),
+          runs: SimulationRunRepository(database),
+        ),
       ),
-    );
+    ],
+    child: MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const MainScaffold(),
+    ),
+  );
+}
 
 void main() {
   testWidgets('MainScaffold renders four tab labels and project name', (tester) async {
@@ -40,7 +60,9 @@ void main() {
     final controller = ProjectController(pvgisApi: api);
     addTearDown(controller.dispose);
 
-    await tester.pumpWidget(_scaffold(controller: controller, settings: settings));
+    final database = AppDatabase.memory();
+    addTearDown(database.close);
+    await tester.pumpWidget(_scaffold(controller: controller, settings: settings, database: database));
     await tester.pumpAndSettle();
 
     // All four tab labels must be rendered in the tab bar (English locale).
@@ -66,7 +88,9 @@ void main() {
     final controller = ProjectController(pvgisApi: api);
     addTearDown(controller.dispose);
 
-    await tester.pumpWidget(_scaffold(controller: controller, settings: settings));
+    final database = AppDatabase.memory();
+    addTearDown(database.close);
+    await tester.pumpWidget(_scaffold(controller: controller, settings: settings, database: database));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Results'));

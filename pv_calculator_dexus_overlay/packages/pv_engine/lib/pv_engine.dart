@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'src/dispatch_policies.dart';
 import 'src/dispatch_policy.dart';
 import 'src/energy_router.dart';
+import 'src/hash.dart';
 import 'src/micro_inverter_bank.dart';
 import 'src/temperature_model.dart';
 import 'src/topology.dart';
@@ -12,6 +13,7 @@ export 'src/csv_export.dart';
 export 'src/dispatch_policies.dart';
 export 'src/dispatch_policy.dart';
 export 'src/energy_router.dart';
+export 'src/hash.dart';
 export 'src/micro_inverter_bank.dart';
 export 'src/pvgis.dart';
 export 'src/pvgis_client.dart';
@@ -20,6 +22,23 @@ export 'src/temperature_model.dart';
 export 'src/topology.dart';
 export 'src/transposition.dart';
 export 'src/weather.dart';
+
+/// Version of the simulation engine — must track
+/// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
+/// change that can shift simulation results. Persisted alongside scenarios
+/// and simulation runs for reproducibility (PRD NFR-05).
+const String kEngineVersion = '0.5.0';
+
+/// Reproducibility helpers on [SimulationConfig]. Kept as an extension so
+/// the core class stays pure data — adding `inputHash` here makes it clear
+/// the value is derived from `toJson()` and does not participate in
+/// equality or persistence directly.
+extension SimulationConfigReproducibility on SimulationConfig {
+  /// Canonical, deterministic hex fingerprint of the config's JSON form.
+  /// Two configs with the same `toJson()` content (regardless of map
+  /// insertion order) yield the same hash.
+  String get inputHash => fnv1a64Hex(canonicalJsonEncode(toJson()));
+}
 
 enum InverterRole { grid, microInverter800W, batteryCoupled }
 

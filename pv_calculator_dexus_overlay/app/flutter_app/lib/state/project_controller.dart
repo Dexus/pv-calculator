@@ -25,6 +25,13 @@ class ProjectController extends ChangeNotifier {
   bool _loadingIrradiance = false;
   String? _lastIrradianceError;
 
+  /// Identifies the scenario row this controller is editing. `null` means
+  /// the draft is unsaved — Save acts as Save-As and creates a new row.
+  /// Mirrored on the project side because the projects tab uses both ids
+  /// when persisting changes.
+  String? _scenarioId;
+  String? _projectId;
+
   /// Index of the PV array the azimuth-compass overlay currently writes to.
   /// `null` = no active selection (compass overlay is hidden).
   int? _selectedArrayIndex;
@@ -40,6 +47,8 @@ class ProjectController extends ChangeNotifier {
   bool get loadingIrradiance => _loadingIrradiance;
   String? get lastIrradianceError => _lastIrradianceError;
   int? get selectedArrayIndex => _selectedArrayIndex;
+  String? get scenarioId => _scenarioId;
+  String? get projectId => _projectId;
 
   set projectName(String value) {
     if (_projectName == value) return;
@@ -67,9 +76,16 @@ class ProjectController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void loadDraft(String name, ConfigDraft draft) {
+  void loadDraft(
+    String name,
+    ConfigDraft draft, {
+    String? scenarioId,
+    String? projectId,
+  }) {
     _projectName = name;
     _draft = draft;
+    _scenarioId = scenarioId;
+    _projectId = projectId;
     _result = null;
     _lastError = null;
     _lastIrradianceError = null;
@@ -97,6 +113,8 @@ class ProjectController extends ChangeNotifier {
     if (defaultBatteryLabel != null && _draft.batteries.isNotEmpty) {
       _draft.batteries.first.label = defaultBatteryLabel;
     }
+    _scenarioId = null;
+    _projectId = null;
     _result = null;
     _lastError = null;
     _lastIrradianceError = null;
