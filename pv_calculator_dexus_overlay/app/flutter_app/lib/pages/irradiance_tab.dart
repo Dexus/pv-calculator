@@ -97,6 +97,9 @@ class _IrradianceTabState extends State<IrradianceTab> {
     // Loaded samples are no longer correct for the new location.
     controller.draft.siteIrradiance.samples = null;
     controller.draft.siteIrradiance.loadedFromCache = null;
+    // A previous load error belongs to the old location; clear it so the
+    // error card doesn't linger after the user picks a different site.
+    controller.clearIrradianceError();
     controller.touch();
     _mapController.move(LatLng(lat, lon), _mapController.camera.zoom);
     setState(() {
@@ -111,6 +114,7 @@ class _IrradianceTabState extends State<IrradianceTab> {
     controller.draft.longitudeDeg = double.parse(point.longitude.toStringAsFixed(5));
     controller.draft.siteIrradiance.samples = null;
     controller.draft.siteIrradiance.loadedFromCache = null;
+    controller.clearIrradianceError();
     controller.touch();
   }
 
@@ -161,6 +165,10 @@ class _IrradianceTabState extends State<IrradianceTab> {
                         // browser strips it on web, but the package
                         // also uses it as the Referer where possible.
                         userAgentPackageName: 'de.dexus.pvcalc',
+                      ),
+                      // OSM tile usage policy requires visible attribution.
+                      const SimpleAttributionWidget(
+                        source: Text('© OpenStreetMap contributors'),
                       ),
                       MarkerLayer(markers: [
                         Marker(
@@ -328,6 +336,7 @@ class _LoadRow extends StatelessWidget {
               site.year = v;
               site.samples = null;
               site.loadedFromCache = null;
+              controller.clearIrradianceError();
               controller.touch();
             },
           ),
@@ -356,6 +365,7 @@ class _LoadRow extends StatelessWidget {
               site.radDatabase = v;
               site.samples = null;
               site.loadedFromCache = null;
+              controller.clearIrradianceError();
               controller.touch();
             },
           ),

@@ -30,19 +30,30 @@ class AzimuthCompass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (details) => _emit(details.localPosition),
-        onPanUpdate: (details) => _emit(details.localPosition),
-        child: CustomPaint(
-          painter: _CompassPainter(
-            azimuthDeg: azimuthDeg,
-            tickColor: scheme.onSurface,
-            needleColor: scheme.primary,
-            background: scheme.surface.withValues(alpha: 0.5),
+    // Semantics: expose as an adjustable value so screen readers and
+    // switch-access users can increment/decrement by 5° steps. The
+    // gesture-only API has no keyboard path without this wrapper.
+    return Semantics(
+      label: 'Azimuth compass',
+      value: '${azimuthDeg.toStringAsFixed(0)}°',
+      increasedValue: '${((azimuthDeg + 5) % 360).toStringAsFixed(0)}°',
+      decreasedValue: '${((azimuthDeg - 5 + 360) % 360).toStringAsFixed(0)}°',
+      onIncrease: () => onChanged((azimuthDeg + 5) % 360),
+      onDecrease: () => onChanged((azimuthDeg - 5 + 360) % 360),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) => _emit(details.localPosition),
+          onPanUpdate: (details) => _emit(details.localPosition),
+          child: CustomPaint(
+            painter: _CompassPainter(
+              azimuthDeg: azimuthDeg,
+              tickColor: scheme.onSurface,
+              needleColor: scheme.primary,
+              background: scheme.surface.withValues(alpha: 0.5),
+            ),
           ),
         ),
       ),

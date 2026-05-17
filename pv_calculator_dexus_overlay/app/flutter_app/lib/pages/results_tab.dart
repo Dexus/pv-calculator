@@ -7,6 +7,7 @@ import '../l10n/generated/app_localizations.dart';
 import '../persistence/file_io.dart';
 import '../state/config_draft.dart';
 import '../state/project_controller.dart';
+import '../widgets/forms/_field.dart';
 import '../widgets/forms/batteries_section.dart';
 import '../widgets/forms/inverters_section.dart';
 import '../widgets/forms/load_section.dart';
@@ -54,6 +55,8 @@ class ResultsTab extends StatelessWidget {
               ),
             ),
           ),
+        _SimParamsSection(),
+        const SizedBox(height: 12),
         const InvertersSection(),
         const SizedBox(height: 12),
         const BatteriesSection(),
@@ -83,6 +86,67 @@ class ResultsTab extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ]),
+    );
+  }
+}
+
+/// Expandable tile exposing the simulation-level parameters that have no
+/// dedicated tab of their own: days, timestep, pre-run days, grid export
+/// limit. Previously these lived in the deleted ProjectSection card.
+class _SimParamsSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final controller = context.watch<ProjectController>();
+    final draft = controller.draft;
+    return Card(
+      child: ExpansionTile(
+        title: Text(l.projectSectionTitle),
+        leading: const Icon(Icons.tune),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Wrap(spacing: 12, runSpacing: 12, children: [
+              SizedBox(width: 180, child: NumberField(
+                label: l.projectSimulationDays,
+                initialValue: draft.days.toDouble(),
+                min: 1, max: 366,
+                onChanged: (v) { if (v != null) { draft.days = v.round(); controller.touch(); } },
+              )),
+              SizedBox(width: 180, child: NumberField(
+                label: l.projectStartDay,
+                initialValue: draft.startDayOfYear.toDouble(),
+                min: 1, max: 365,
+                onChanged: (v) { if (v != null) { draft.startDayOfYear = v.round(); controller.touch(); } },
+              )),
+              SizedBox(width: 180, child: NumberField(
+                label: l.projectPreRunDays,
+                helpText: l.projectPreRunHelp,
+                initialValue: draft.preRunDays.toDouble(),
+                min: 0, max: 365,
+                onChanged: (v) { if (v != null) { draft.preRunDays = v.round(); controller.touch(); } },
+              )),
+              SizedBox(width: 200, child: NumberField(
+                label: l.projectExportLimit,
+                suffix: 'kW',
+                initialValue: draft.gridExportLimitKw,
+                min: 0,
+                onChanged: (v) { draft.gridExportLimitKw = v; controller.touch(); },
+              )),
+              SizedBox(width: 200, child: DropdownButtonFormField<TimeStep>(
+                isExpanded: true,
+                initialValue: draft.timeStep,
+                decoration: InputDecoration(labelText: l.projectTimeStep, isDense: true),
+                items: [
+                  DropdownMenuItem(value: TimeStep.hourly, child: Text(l.projectTimeStepHourly)),
+                  DropdownMenuItem(value: TimeStep.quarterHourly, child: Text(l.projectTimeStepQuarter)),
+                ],
+                onChanged: (v) { if (v != null) { draft.timeStep = v; controller.touch(); } },
+              )),
+            ]),
+          ),
+        ],
+      ),
     );
   }
 }

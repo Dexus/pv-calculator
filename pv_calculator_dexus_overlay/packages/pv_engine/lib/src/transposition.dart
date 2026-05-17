@@ -23,6 +23,9 @@ const double _albedo = 0.2;
 /// accepted):
 ///   * Solar position is computed from a single-day declination + hour
 ///     angle; equation-of-time correction omitted.
+///   * PVGIS timestamps are UTC; [longitudeDeg] is used to convert to
+///     local solar time (`LST = UTC + lon / 15 h`) before the hour angle
+///     is computed, so east/west sites produce beam at the correct time.
 ///   * Isotropic sky underestimates clear-day POA by 2–6 % vs. anisotropic
 ///     models (Hay-Davies / Perez). Upgrade path is to swap this function
 ///     out behind the same signature.
@@ -32,8 +35,9 @@ WeatherSample transposeToPoa({
   required double tiltDeg,
   required double azimuthDeg,
   required double latitudeDeg,
+  required double longitudeDeg,
   required int dayOfYear,
-  required double hourOfDay,
+  required double hourOfDay, // UTC hour [0, 24)
 }) {
   if (h.globalHorizontalWPerM2 <= 0) {
     return WeatherSample(
@@ -43,13 +47,17 @@ WeatherSample transposeToPoa({
     );
   }
 
+  // PVGIS timestamps are UTC. Convert to local solar time so the hour
+  // angle is correct for sites away from the prime meridian.
+  final solarHourOfDay = hourOfDay + longitudeDeg / 15.0;
+
   final tiltRad = tiltDeg * math.pi / 180.0;
   final cosTilt = math.cos(tiltRad);
 
   final zenithRad = _solarZenithRad(
     latitudeDeg: latitudeDeg,
     dayOfYear: dayOfYear,
-    hourOfDay: hourOfDay,
+    hourOfDay: solarHourOfDay,
   );
   final cosZenith = math.cos(zenithRad);
 
@@ -69,7 +77,7 @@ WeatherSample transposeToPoa({
       solarAzimuthRad: _solarAzimuthRad(
         latitudeDeg: latitudeDeg,
         dayOfYear: dayOfYear,
-        hourOfDay: hourOfDay,
+        hourOfDay: solarHourOfDay,
         zenithRad: zenithRad,
       ),
       surfaceAzimuthRad: azimuthDeg * math.pi / 180.0,

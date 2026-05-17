@@ -121,8 +121,13 @@ HorizontalIrradianceSeries parsePvgisHorizontalSeries(
     }
     final t = _parsePvgisTimestamp(timeStr, i);
     if (t.month == 2 && t.day == 29) continue;
-    final beam = _readDouble(e, 'Gb(i)', i, fallback: 0);
-    final diffuse = _readDouble(e, 'Gd(i)', i, fallback: 0);
+    // Gb(i) and Gd(i) are required — silently falling back to 0 would
+    // accept a non-components response (e.g. G(i)-only) and produce an
+    // all-zero irradiance year, which would silently corrupt simulation
+    // results. Gr(i) is always 0 on a horizontal plane but may be absent
+    // in some PVGIS response variants, so it keeps its fallback.
+    final beam = _readDouble(e, 'Gb(i)', i);
+    final diffuse = _readDouble(e, 'Gd(i)', i);
     final reflected = _readDouble(e, 'Gr(i)', i, fallback: 0);
     final tAmb = _readDouble(e, 'T2m', i, fallback: 25);
     final wMs = _readDouble(e, 'WS10m', i, fallback: 1);

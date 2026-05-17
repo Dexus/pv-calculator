@@ -342,6 +342,9 @@ class HorizontalToPoaSource extends IrradianceSource {
       tiltDeg: query.tiltDeg,
       azimuthDeg: query.azimuthDeg,
       latitudeDeg: query.latitudeDeg,
+      // Use the series longitude to convert UTC hours to local solar time
+      // before computing the hour angle; hourOfDay in WeatherQuery is UTC.
+      longitudeDeg: series.longitudeDeg,
       dayOfYear: query.dayOfYear,
       hourOfDay: query.hourOfDay,
     );

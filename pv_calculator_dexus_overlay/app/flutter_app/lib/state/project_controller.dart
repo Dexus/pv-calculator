@@ -49,11 +49,21 @@ class ProjectController extends ChangeNotifier {
 
   /// Notify listeners — call from form widgets after mutating draft fields.
   ///
-  /// Also clears the last simulation error, since any draft edit could
-  /// be the user's response to that error and a stale message next to
-  /// a now-valid form would be misleading.
+  /// Also clears the last simulation error and any stale result, since a
+  /// draft edit could be the user's response to that error and stale KPIs
+  /// next to a changed form would be misleading.
   void touch() {
     _lastError = null;
+    _result = null;
+    notifyListeners();
+  }
+
+  /// Clears [lastIrradianceError] without modifying the draft. Call
+  /// whenever the site location or year changes so a previous load failure
+  /// is not shown next to a freshly selected location.
+  void clearIrradianceError() {
+    if (_lastIrradianceError == null) return;
+    _lastIrradianceError = null;
     notifyListeners();
   }
 
@@ -91,6 +101,17 @@ class ProjectController extends ChangeNotifier {
     _lastError = null;
     _lastIrradianceError = null;
     _selectedArrayIndex = null;
+    notifyListeners();
+  }
+
+  /// Called by the arrays tab after it removes the array at [removedIndex].
+  /// Decrements [selectedArrayIndex] when the removed array is before the
+  /// currently selected one so the selection continues to point at the same
+  /// physical array.
+  void adjustCompassIndexAfterRemoval(int removedIndex) {
+    final cur = _selectedArrayIndex;
+    if (cur == null || cur <= removedIndex) return;
+    _selectedArrayIndex = cur - 1;
     notifyListeners();
   }
 

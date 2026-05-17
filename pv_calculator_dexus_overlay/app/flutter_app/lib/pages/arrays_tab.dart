@@ -90,7 +90,13 @@ class ArraysTab extends StatelessWidget {
               onToggleCompass: () => controller.selectArrayForCompass(selected == i ? null : i),
               onChanged: controller.touch,
               onRemove: () {
-                if (selected == i) controller.selectArrayForCompass(null);
+                // Removing the selected array clears the compass; removing
+                // an earlier array shifts all indices down by one.
+                if (selected == i) {
+                  controller.selectArrayForCompass(null);
+                } else if (selected != null && selected > i) {
+                  controller.adjustCompassIndexAfterRemoval(i);
+                }
                 draft.arrays.removeAt(i);
                 controller.touch();
               },

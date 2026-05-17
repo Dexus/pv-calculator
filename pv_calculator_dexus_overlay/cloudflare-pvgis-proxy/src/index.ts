@@ -44,6 +44,10 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Accept, Content-Type',
+  // Required so Flutter web (which runs inside a browser CORS sandbox) can
+  // read these response headers. Without Expose-Headers the browser strips
+  // them and the X-Cache badge in the app always shows "unknown".
+  'Access-Control-Expose-Headers': 'X-Cache, X-Cache-Key',
 };
 
 async function sha256Hex(input: string): Promise<string> {
