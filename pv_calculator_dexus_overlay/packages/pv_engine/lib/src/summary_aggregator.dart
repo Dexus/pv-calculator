@@ -61,14 +61,30 @@ class BankDayStats {
     required this.shortfallKwh,
     required this.activeHours,
     required this.scheduledHours,
+    required this.fullDeliveryHours,
   });
 
   final int dayOfYear;
   final double targetKwh;
   final double deliveredKwh;
   final double shortfallKwh;
+
+  /// Hours during which the bank delivered any positive AC. Includes
+  /// partial-delivery steps where the bank fell short of its target;
+  /// chart code that wants a "fully sustained" segment should use
+  /// [fullDeliveryHours] instead so partial steps don't masquerade as
+  /// 100 % coverage.
   final double activeHours;
+
+  /// Hours the schedule asked for any positive AC (`target > 0`).
   final double scheduledHours;
+
+  /// Hours during which delivery met the target within 0.1 % — same
+  /// tolerance as `BankRuntimeStats.fullDeliveryHours`. Visualisations
+  /// that stack "satisfied vs. shortfall" should split on this value
+  /// rather than `activeHours`: a partially-served step counts as
+  /// shortfall time here even though `activeHours` would include it.
+  final double fullDeliveryHours;
 }
 
 class MonthlyBucket {
@@ -233,6 +249,7 @@ class SummaryAggregator {
     final shortfall = List<double>.filled(365, 0.0);
     final active = List<double>.filled(365, 0.0);
     final scheduled = List<double>.filled(365, 0.0);
+    final full = List<double>.filled(365, 0.0);
     final stepHours = timeStep.hours;
 
     for (final step in steps) {
@@ -242,11 +259,17 @@ class SummaryAggregator {
       final s = bankIndex < step.microInverterShortfallsKwh.length
           ? step.microInverterShortfallsKwh[bankIndex]
           : 0.0;
-      final dayIdx = (step.dayOfYear - 1).clamp(0, 364);
+      // `num.clamp` is statically `num`; we index a `List<double>`
+      // immediately below, so make the int-ness explicit.
+      final dayIdx = (step.dayOfYear - 1).clamp(0, 364).toInt();
+      final target = d + s;
       delivered[dayIdx] += d;
       shortfall[dayIdx] += s;
       if (d > 0) active[dayIdx] += stepHours;
-      if (d + s > 0) scheduled[dayIdx] += stepHours;
+      if (target > 0) {
+        scheduled[dayIdx] += stepHours;
+        if (d >= target * 0.999) full[dayIdx] += stepHours;
+      }
     }
 
     return List<BankDayStats>.generate(
@@ -258,6 +281,7 @@ class SummaryAggregator {
         shortfallKwh: shortfall[i],
         activeHours: active[i],
         scheduledHours: scheduled[i],
+        fullDeliveryHours: full[i],
       ),
     );
   }

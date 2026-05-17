@@ -1039,7 +1039,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get bankRuntimeSectionTitle => 'Sortie 24h — autonomie journalière';
 
   @override
-  String get bankRuntimeLegendActive => 'Actif (heures livrées)';
+  String get bankRuntimeLegendFull => 'Entièrement couvert (objectif atteint)';
+
+  @override
+  String get bankRuntimeLegendPartial => 'Partiel (en dessous de l\'objectif)';
 
   @override
   String get bankRuntimeLegendShortfall =>

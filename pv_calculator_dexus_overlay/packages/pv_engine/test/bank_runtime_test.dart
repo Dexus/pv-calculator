@@ -252,6 +252,78 @@ void main() {
     });
   });
 
+  group('Partial-shortfall accounting', () {
+    test('rate-capped bank reports fullDeliveryHours below activeHours', () {
+      // Two 800 W banks share one battery rated at 1 kW discharge. Each
+      // bank wants 0.8 kWh per step but only 0.5 kWh is left per step
+      // for the second bank after the first saturates, so every step
+      // is *active* yet *not fully covered* for bank-b.
+      final result = const PvSimulator().run(_config(
+        batteries: const [
+          BatteryConfig(
+            id: 'b1',
+            capacityKwh: 50.0,
+            maxChargeKw: 5.0,
+            maxDischargeKw: 1.0,
+            initialSocKwh: 50.0,
+          ),
+        ],
+        load: const LoadProfile(dailyKwh: 0),
+        peakKw: 0.001,
+        policy: const ConstantFeed24hPolicy(),
+        banks: const [
+          MicroInverterBank(
+            id: 'bank-a',
+            batteryId: 'b1',
+            count: 1,
+            unitRatedPowerW: 800,
+            minSocShutdown: 0.0,
+            inverterEfficiency: 1.0,
+          ),
+          MicroInverterBank(
+            id: 'bank-b',
+            batteryId: 'b1',
+            count: 1,
+            unitRatedPowerW: 800,
+            minSocShutdown: 0.0,
+            inverterEfficiency: 1.0,
+          ),
+        ],
+      ));
+      final runtime = SummaryAggregator.bankRuntime(
+        result.steps,
+        bankCount: 2,
+        timeStep: TimeStep.hourly,
+      );
+      // bank-a gets its full 0.8 kWh every step → fullDeliveryHours == scheduledHours.
+      expect(runtime[0].fullDeliveryHours, closeTo(runtime[0].scheduledHours, 1e-9));
+      // bank-b is rate-capped to 0.2 kWh per step → still active every
+      // step but never *fully* delivers; the chart must therefore split
+      // partial vs. full to show the residual shortfall.
+      expect(runtime[1].activeHours, closeTo(runtime[1].scheduledHours, 1e-9));
+      expect(runtime[1].fullDeliveryHours, closeTo(0.0, 1e-9));
+      expect(runtime[1].shortfallKwh, greaterThan(0));
+
+      // Same split must propagate into the per-day series the chart
+      // actually plots.
+      final dailyA = SummaryAggregator.bankDaily(
+        result.steps,
+        bankIndex: 0,
+        timeStep: TimeStep.hourly,
+      );
+      final dailyB = SummaryAggregator.bankDaily(
+        result.steps,
+        bankIndex: 1,
+        timeStep: TimeStep.hourly,
+      );
+      final activeDayA = dailyA[171];
+      final activeDayB = dailyB[171];
+      expect(activeDayA.fullDeliveryHours, closeTo(activeDayA.scheduledHours, 1e-9));
+      expect(activeDayB.activeHours, closeTo(activeDayB.scheduledHours, 1e-9));
+      expect(activeDayB.fullDeliveryHours, closeTo(0.0, 1e-9));
+    });
+  });
+
   group('SummaryAggregator.bankDaily', () {
     test('puts delivery into the right day-of-year slot, zero elsewhere', () {
       final result = const PvSimulator().run(_config(

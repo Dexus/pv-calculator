@@ -1035,7 +1035,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bankRuntimeSectionTitle => '24h output — daily runtime';
 
   @override
-  String get bankRuntimeLegendActive => 'Active (hours delivered)';
+  String get bankRuntimeLegendFull => 'Fully sustained (target met)';
+
+  @override
+  String get bankRuntimeLegendPartial => 'Partial (below target)';
 
   @override
   String get bankRuntimeLegendShortfall =>
