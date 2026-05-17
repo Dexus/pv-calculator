@@ -1,5 +1,7 @@
 # Architektur – PV Calculator
 
+Verdichtete Overlay-Sicht. Kanonische Quelle inkl. vollständiger Energiefluss-Pipeline, Modulgrenzen, Datenmodell, Persistenz und Teststrategie: [`../../docs/Architekturkonzept_PV_Calculator_Flutter_App.md`](../../docs/Architekturkonzept_PV_Calculator_Flutter_App.md). SOC-Pre-Run-Methoden in §6, Per-Inverter-AC-Cap in §5.3 dort.
+
 ## Prinzip
 
 Domain first: Die Simulationslogik liegt in `packages/pv_engine` und bleibt unabhängig von Flutter testbar. Die Flutter-App sammelt Eingaben, zeigt Ergebnisse und speichert Projekte.
