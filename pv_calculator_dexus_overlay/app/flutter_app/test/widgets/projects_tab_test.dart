@@ -10,13 +10,20 @@ import 'package:pv_calculator_app/persistence/simulation_run_repository.dart';
 import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/state/scenario_comparison_controller.dart';
+import 'package:pv_calculator_app/widgets/quick_start_wizard.dart';
 
 /// Hosts [ProjectsTab] inside the minimum scaffold it requires:
 /// `DefaultTabController` (the open-scenario tap calls `animateTo(1)`) and
 /// the provider tree built up in `main.dart`. Each test gets its own
 /// in-memory db so seeded fixtures don't leak. Pass [controller] when the
-/// test wants to observe controller state after a tab action.
-Widget _host(AppDatabase db, {ProjectController? controller}) {
+/// test wants to observe controller state after a tab action. Pass
+/// [wizardLauncher] to drive `_newProject` deterministically without
+/// pumping the full Stepper dialog.
+Widget _host(
+  AppDatabase db, {
+  ProjectController? controller,
+  QuickStartWizardLauncher? wizardLauncher,
+}) {
   final ctrl = controller ?? ProjectController();
   return MultiProvider(
     providers: [
@@ -36,9 +43,9 @@ Widget _host(AppDatabase db, {ProjectController? controller}) {
       locale: const Locale('de'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: const DefaultTabController(
+      home: DefaultTabController(
         length: 2,
-        child: Scaffold(body: ProjectsTab()),
+        child: Scaffold(body: ProjectsTab(wizardLauncher: wizardLauncher)),
       ),
     ),
   );
@@ -198,6 +205,43 @@ void main() {
             'Save Current writes a fresh row instead of UPDATE-ing a deleted one');
     expect(controller.projectId, isNull);
     expect(scenarios.findById(scenario.id), isNull);
+  });
+
+  testWidgets('+ Neues Projekt: wizard result becomes a project + scenario',
+      (tester) async {
+    final captured = <String>[];
+    Future<QuickStartResult?> launcher(BuildContext context) async {
+      captured.add('called');
+      return QuickStartResult(
+        projectName: 'Wizard Project',
+        draft: ConfigDraft.demo(),
+      );
+    }
+
+    await tester.pumpWidget(_host(db, wizardLauncher: launcher));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('projects-new-project')));
+    await tester.pumpAndSettle();
+
+    expect(captured, ['called'], reason: 'launcher must be invoked once');
+    expect(projects.listProjects(), hasLength(1));
+    final created = projects.listProjects().single;
+    expect(created.name, 'Wizard Project');
+    expect(scenarios.listForProject(created.id), hasLength(1));
+  });
+
+  testWidgets('+ Neues Projekt: cancelling the wizard creates no row',
+      (tester) async {
+    Future<QuickStartResult?> launcher(BuildContext _) async => null;
+
+    await tester.pumpWidget(_host(db, wizardLauncher: launcher));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('projects-new-project')));
+    await tester.pumpAndSettle();
+
+    expect(projects.listProjects(), isEmpty);
   });
 
   testWidgets('deleting the active project clears it from ProjectController',

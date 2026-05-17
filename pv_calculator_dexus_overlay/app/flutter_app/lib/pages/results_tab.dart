@@ -8,6 +8,8 @@ import '../l10n/generated/app_localizations.dart';
 import '../persistence/file_io.dart';
 import '../state/config_draft.dart';
 import '../state/project_controller.dart';
+import '../state/settings_controller.dart';
+import '../widgets/forms/_expert_gate.dart';
 import '../widgets/forms/_field.dart';
 import '../widgets/forms/batteries_section.dart';
 import '../widgets/forms/dispatch_policy_section.dart';
@@ -17,6 +19,7 @@ import '../widgets/forms/micro_inverter_banks_section.dart';
 import '../widgets/forms/topology_section.dart';
 import '../widgets/results/bank_runtime_chart.dart';
 import '../widgets/results/monthly_table.dart';
+import '../widgets/settings_page.dart';
 
 /// Auswertung tab — system definition (inverters + batteries + load
 /// profile), Run button, and result KPIs + monthly table. The PV array
@@ -66,11 +69,12 @@ class ResultsTab extends StatelessWidget {
         const SizedBox(height: 12),
         const BatteriesSection(),
         const SizedBox(height: 12),
-        const TopologySection(),
-        const SizedBox(height: 12),
-        const MicroInverterBanksSection(),
-        const SizedBox(height: 12),
-        const DispatchPolicySection(),
+        const _ExpertOffHint(),
+        const ExpertOnly(child: TopologySection()),
+        const ExpertOnly(child: SizedBox(height: 12)),
+        const ExpertOnly(child: MicroInverterBanksSection()),
+        const ExpertOnly(child: SizedBox(height: 12)),
+        const ExpertOnly(child: DispatchPolicySection()),
         const SizedBox(height: 12),
         const LoadSection(),
         const SizedBox(height: 16),
@@ -233,6 +237,53 @@ class _SimParamsSection extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Shown in the Auswertung tab while expert mode is off. Renders the
+/// auto-detect banner (only when the loaded draft already exercises an
+/// advanced feature) plus a single tappable card that opens the Settings
+/// page so the user can flip the flag. Hides entirely once expert mode
+/// is on — the actual editor sections take over above.
+class _ExpertOffHint extends StatelessWidget {
+  const _ExpertOffHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final expert = context.watch<SettingsController>().expertMode;
+    if (expert) return const SizedBox.shrink();
+    final draft = context.watch<ProjectController>().draft;
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (draft.usesAdvancedFeatures)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Card(
+            key: const Key('advanced-scenario-banner'),
+            color: scheme.tertiaryContainer,
+            child: ListTile(
+              leading: Icon(Icons.info_outline, color: scheme.onTertiaryContainer),
+              title: Text(
+                l.resultsAdvancedScenarioBanner,
+                style: TextStyle(color: scheme.onTertiaryContainer),
+              ),
+            ),
+          ),
+        ),
+      Card(
+        key: const Key('enable-expert-hint'),
+        child: ListTile(
+          leading: const Icon(Icons.engineering_outlined),
+          title: Text(l.resultsEnableExpertHint),
+          subtitle: Text(l.resultsEnableExpertHintDesc),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+          ),
+        ),
+      ),
+    ]);
   }
 }
 

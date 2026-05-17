@@ -113,4 +113,57 @@ void main() {
     expect(controller.locale, isNull,
         reason: 'Unknown persisted languages must fall back to "follow system".');
   });
+
+  test('expertMode defaults to false on an empty store', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController(prefs: prefs);
+    await controller.load();
+
+    expect(controller.expertMode, isFalse);
+  });
+
+  test('setExpertMode persists the choice and reloads it', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController(prefs: prefs);
+    await controller.load();
+
+    var notifications = 0;
+    controller.addListener(() => notifications++);
+
+    await controller.setExpertMode(true);
+    expect(controller.expertMode, isTrue);
+    expect(notifications, 1);
+    expect(prefs.getBool(SettingsController.expertModeKey), isTrue);
+
+    final reloaded = SettingsController(prefs: prefs);
+    await reloaded.load();
+    expect(reloaded.expertMode, isTrue);
+  });
+
+  test('setExpertMode is a no-op when the value is unchanged', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController(prefs: prefs);
+    await controller.load();
+
+    var notifications = 0;
+    controller.addListener(() => notifications++);
+
+    await controller.setExpertMode(false);
+    expect(notifications, 0);
+  });
+
+  test('a setExpertMode that beats a slow load() is not overwritten', () async {
+    SharedPreferences.setMockInitialValues({
+      SettingsController.expertModeKey: false,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController(prefs: prefs);
+
+    final loadFuture = controller.load();
+    await controller.setExpertMode(true);
+    await loadFuture;
+
+    expect(controller.expertMode, isTrue,
+        reason: 'User choice must win over a late-arriving load.');
+  });
 }

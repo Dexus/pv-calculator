@@ -49,6 +49,23 @@ void main() {
     expect(controller.themeMode, ThemeMode.light);
   });
 
+  testWidgets('toggling expert mode flips the controller flag', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+    final controller = await _freshController();
+
+    await tester.pumpWidget(_host(controller));
+    await tester.pumpAndSettle();
+
+    expect(controller.expertMode, isFalse);
+
+    await tester.tap(find.byKey(const Key('expert-mode-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(controller.expertMode, isTrue);
+  });
+
   testWidgets('selecting Spanish locale persists the choice', (tester) async {
     // The default 800x600 surface clips the language radios below the
     // theme block — give the page enough height that every radio is
