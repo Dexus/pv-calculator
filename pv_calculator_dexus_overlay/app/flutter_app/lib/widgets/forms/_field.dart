@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/generated/app_localizations.dart';
+
 /// Numeric form field tolerating both `,` and `.` decimal separators.
 class NumberField extends StatefulWidget {
   const NumberField({
@@ -80,9 +82,10 @@ class _NumberFieldState extends State<NumberField> {
 
   String? _validate(String? raw) {
     final value = (raw ?? '').trim();
+    final l = AppLocalizations.of(context);
     if (value.isEmpty) {
       if (widget.allowNull) return null;
-      return 'Pflichtfeld';
+      return l.validationRequired;
     }
     // Suppress errors for incomplete input only while the field has focus,
     // so typing "-0.4" doesn't flash errors on intermediate keystrokes.
@@ -93,9 +96,9 @@ class _NumberFieldState extends State<NumberField> {
       return null;
     }
     final parsed = double.tryParse(value.replaceAll(',', '.'));
-    if (parsed == null) return 'Bitte eine Zahl eingeben';
-    if (widget.min != null && parsed < widget.min!) return 'Mindestens ${widget.min}';
-    if (widget.max != null && parsed > widget.max!) return 'Höchstens ${widget.max}';
+    if (parsed == null) return l.validationMustBeNumber;
+    if (widget.min != null && parsed < widget.min!) return l.validationAtLeast('${widget.min}');
+    if (widget.max != null && parsed > widget.max!) return l.validationAtMost('${widget.max}');
     return null;
   }
 
@@ -248,7 +251,9 @@ class _StringFieldState extends State<StringField> {
       ),
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (v) {
-        if (widget.required && (v == null || v.trim().isEmpty)) return 'Pflichtfeld';
+        if (widget.required && (v == null || v.trim().isEmpty)) {
+          return AppLocalizations.of(context).validationRequired;
+        }
         return null;
       },
       onChanged: widget.onChanged,

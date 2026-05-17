@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import 'settings_page.dart';
 
 /// Navigation drawer attached to top-level pages (currently only the
@@ -12,6 +13,7 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return Drawer(
       child: SafeArea(
         child: ListView(
@@ -32,7 +34,7 @@ class AppDrawer extends StatelessWidget {
                         ),
                   ),
                   Text(
-                    'Demo · synthetisches Modell',
+                    l.drawerSubtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onPrimaryContainer,
                         ),
@@ -42,13 +44,13 @@ class AppDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.folder_outlined),
-              title: const Text('Projekte'),
+              title: Text(l.drawerProjects),
               onTap: () => Navigator.pop(context),
             ),
             ListTile(
               key: const Key('drawer-settings'),
               leading: const Icon(Icons.settings_outlined),
-              title: const Text('Einstellungen'),
+              title: Text(l.drawerSettings),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(
@@ -61,7 +63,7 @@ class AppDrawer extends StatelessWidget {
             ListTile(
               key: const Key('drawer-about'),
               leading: const Icon(Icons.info_outline),
-              title: const Text('Über'),
+              title: Text(l.drawerAbout),
               onTap: () {
                 Navigator.pop(context);
                 showAppAboutDialog(context);

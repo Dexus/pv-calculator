@@ -5,6 +5,8 @@ import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/forms/editor_page.dart';
 import 'package:pv_calculator_app/widgets/results/results_page.dart';
 
+import '_test_localization.dart';
+
 void main() {
   testWidgets('Run button navigates to results page with non-zero KPIs', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 4000));
@@ -12,7 +14,7 @@ void main() {
 
     final controller = ProjectController();
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Builder(
@@ -52,7 +54,7 @@ void main() {
 
   testWidgets('ResultsPage empty state offers a back button', (tester) async {
     final controller = ProjectController();
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: const ResultsPage(),

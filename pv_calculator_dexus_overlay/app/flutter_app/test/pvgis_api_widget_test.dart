@@ -10,6 +10,8 @@ import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/forms/arrays_section.dart';
 
+import '_test_localization.dart';
+
 String _samplePvgisBody({int hours = 24}) {
   final entries = <Map<String, Object?>>[
     for (var h = 0; h < hours; h++)
@@ -49,7 +51,7 @@ void main() {
     final controller = ProjectController(); // demo array id: south-roof
     final api = PvgisApiService(client: mockHttp, minimumInterval: Duration.zero);
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(
@@ -99,7 +101,7 @@ void main() {
     final controller = ProjectController();
     final api = PvgisApiService(client: mockHttp, minimumInterval: Duration.zero);
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(
@@ -133,7 +135,7 @@ void main() {
     controller.draft.arrays[0].id = '';
     final api = PvgisApiService(client: mockHttp, minimumInterval: Duration.zero);
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(
@@ -168,7 +170,7 @@ void main() {
       ..draft.pvgisRadDatabase = 'PVGIS-ERA5';
     final api = PvgisApiService(client: mockHttp, minimumInterval: Duration.zero);
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(
@@ -217,7 +219,7 @@ void main() {
       minimumInterval: const Duration(milliseconds: 200),
     );
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: Scaffold(

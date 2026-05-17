@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../state/project_controller.dart';
 import '_field.dart';
 
@@ -11,16 +12,17 @@ class LoadSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ProjectController>();
     final load = controller.draft.loadProfile;
+    final l = AppLocalizations.of(context);
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Lastprofil', style: Theme.of(context).textTheme.titleMedium),
+          Text(l.loadTitle, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           Wrap(spacing: 12, runSpacing: 12, children: [
             SizedBox(width: 200, child: NumberField(
-              label: 'Tagesverbrauch',
+              label: l.loadFieldDaily,
               suffix: 'kWh/Tag',
               initialValue: load.dailyKwh,
               min: 0,
@@ -30,10 +32,9 @@ class LoadSection extends StatelessWidget {
             )),
           ]),
           const SizedBox(height: 8),
-          const Text(
-            'Stundenform: deutsches Haushalts-Standardprofil (24 Werte). '
-            'Eine manuelle Anpassung der Stundenform ist für eine spätere Version vorgesehen.',
-            style: TextStyle(fontSize: 12),
+          Text(
+            l.loadHourlyHint,
+            style: const TextStyle(fontSize: 12),
           ),
         ]),
       ),

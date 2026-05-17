@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:pv_calculator_app/l10n/generated/app_localizations.dart';
 import 'package:pv_calculator_app/services/geocoding.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/forms/project_section.dart';
@@ -27,6 +28,9 @@ class _ThrowingGeocoder implements GeocodingService {
 
 Widget _harness(GeocodingService geocoder, ProjectController controller) {
   return MaterialApp(
+    locale: const Locale('de'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(
       body: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
@@ -87,7 +91,9 @@ void main() {
 
   testWidgets('surfaces GeocodingException messages in the UI', (tester) async {
     final controller = ProjectController();
-    final geocoder = _ThrowingGeocoder(GeocodingException('boom'));
+    final geocoder = _ThrowingGeocoder(
+      GeocodingException(GeocodingFailureKind.network, detail: 'boom'),
+    );
 
     await tester.pumpWidget(_harness(geocoder, controller));
     await tester.pumpAndSettle();
@@ -96,7 +102,7 @@ void main() {
     await tester.tap(find.byKey(const Key('address-search-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('boom'), findsOneWidget);
+    expect(find.textContaining('boom'), findsOneWidget);
   });
 
   testWidgets('empty query does not invoke the geocoder', (tester) async {

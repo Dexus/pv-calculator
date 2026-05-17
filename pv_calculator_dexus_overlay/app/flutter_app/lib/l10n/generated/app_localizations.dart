@@ -1,0 +1,1367 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/intl.dart' as intl;
+
+import 'app_localizations_de.dart';
+import 'app_localizations_en.dart';
+import 'app_localizations_es.dart';
+import 'app_localizations_fr.dart';
+
+// ignore_for_file: type=lint
+
+/// Callers can lookup localized strings with an instance of AppLocalizations
+/// returned by `AppLocalizations.of(context)`.
+///
+/// Applications need to include `AppLocalizations.delegate()` in their app's
+/// `localizationDelegates` list, and the locales they support in the app's
+/// `supportedLocales` list. For example:
+///
+/// ```dart
+/// import 'generated/app_localizations.dart';
+///
+/// return MaterialApp(
+///   localizationsDelegates: AppLocalizations.localizationsDelegates,
+///   supportedLocales: AppLocalizations.supportedLocales,
+///   home: MyApplicationHome(),
+/// );
+/// ```
+///
+/// ## Update pubspec.yaml
+///
+/// Please make sure to update your pubspec.yaml to include the following
+/// packages:
+///
+/// ```yaml
+/// dependencies:
+///   # Internationalization support.
+///   flutter_localizations:
+///     sdk: flutter
+///   intl: any # Use the pinned version from flutter_localizations
+///
+///   # Rest of dependencies
+/// ```
+///
+/// ## iOS Applications
+///
+/// iOS applications define key application metadata, including supported
+/// locales, in an Info.plist file that is built into the application bundle.
+/// To configure the locales supported by your app, you’ll need to edit this
+/// file.
+///
+/// First, open your project’s ios/Runner.xcworkspace Xcode workspace file.
+/// Then, in the Project Navigator, open the Info.plist file under the Runner
+/// project’s Runner folder.
+///
+/// Next, select the Information Property List item, select Add Item from the
+/// Editor menu, then select Localizations from the pop-up menu.
+///
+/// Select and expand the newly-created Localizations item then, for each
+/// locale your application supports, add a new item and select the locale
+/// you wish to add from the pop-up menu in the Value field. This list should
+/// be consistent with the languages listed in the AppLocalizations.supportedLocales
+/// property.
+abstract class AppLocalizations {
+  AppLocalizations(String locale)
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+
+  final String localeName;
+
+  static AppLocalizations of(BuildContext context) {
+    return Localizations.of<AppLocalizations>(context, AppLocalizations)!;
+  }
+
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
+
+  /// A list of this localizations delegate along with the default localizations
+  /// delegates.
+  ///
+  /// Returns a list of localizations delegates containing this delegate along with
+  /// GlobalMaterialLocalizations.delegate, GlobalCupertinoLocalizations.delegate,
+  /// and GlobalWidgetsLocalizations.delegate.
+  ///
+  /// Additional delegates can be added by appending to this list in
+  /// MaterialApp. This list does not have to be used at all if a custom list
+  /// of delegates is preferred or required.
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
+
+  /// A list of this localizations delegate's supported locales.
+  static const List<Locale> supportedLocales = <Locale>[
+    Locale('de'),
+    Locale('en'),
+    Locale('es'),
+    Locale('fr'),
+  ];
+
+  /// No description provided for @commonAdd.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinzufügen'**
+  String get commonAdd;
+
+  /// No description provided for @commonRemove.
+  ///
+  /// In de, this message translates to:
+  /// **'Entfernen'**
+  String get commonRemove;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In de, this message translates to:
+  /// **'Abbrechen'**
+  String get commonCancel;
+
+  /// No description provided for @commonDelete.
+  ///
+  /// In de, this message translates to:
+  /// **'Löschen'**
+  String get commonDelete;
+
+  /// No description provided for @commonSearch.
+  ///
+  /// In de, this message translates to:
+  /// **'Suchen'**
+  String get commonSearch;
+
+  /// No description provided for @validationRequired.
+  ///
+  /// In de, this message translates to:
+  /// **'Pflichtfeld'**
+  String get validationRequired;
+
+  /// No description provided for @validationMustBeNumber.
+  ///
+  /// In de, this message translates to:
+  /// **'Bitte eine Zahl eingeben'**
+  String get validationMustBeNumber;
+
+  /// No description provided for @validationAtLeast.
+  ///
+  /// In de, this message translates to:
+  /// **'Mindestens {value}'**
+  String validationAtLeast(String value);
+
+  /// No description provided for @validationAtMost.
+  ///
+  /// In de, this message translates to:
+  /// **'Höchstens {value}'**
+  String validationAtMost(String value);
+
+  /// No description provided for @drawerSubtitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Demo · synthetisches Modell'**
+  String get drawerSubtitle;
+
+  /// No description provided for @drawerProjects.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekte'**
+  String get drawerProjects;
+
+  /// No description provided for @drawerSettings.
+  ///
+  /// In de, this message translates to:
+  /// **'Einstellungen'**
+  String get drawerSettings;
+
+  /// No description provided for @drawerAbout.
+  ///
+  /// In de, this message translates to:
+  /// **'Über'**
+  String get drawerAbout;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Einstellungen'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsAppearance.
+  ///
+  /// In de, this message translates to:
+  /// **'Erscheinungsbild'**
+  String get settingsAppearance;
+
+  /// No description provided for @settingsThemeSystem.
+  ///
+  /// In de, this message translates to:
+  /// **'Systemvorgabe folgen'**
+  String get settingsThemeSystem;
+
+  /// No description provided for @settingsThemeSystemDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselt mit der Geräteeinstellung.'**
+  String get settingsThemeSystemDesc;
+
+  /// No description provided for @settingsThemeLight.
+  ///
+  /// In de, this message translates to:
+  /// **'Hell'**
+  String get settingsThemeLight;
+
+  /// No description provided for @settingsThemeDark.
+  ///
+  /// In de, this message translates to:
+  /// **'Dunkel'**
+  String get settingsThemeDark;
+
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In de, this message translates to:
+  /// **'Sprache'**
+  String get settingsLanguage;
+
+  /// No description provided for @settingsLanguageSystem.
+  ///
+  /// In de, this message translates to:
+  /// **'Systemsprache verwenden'**
+  String get settingsLanguageSystem;
+
+  /// No description provided for @settingsLanguageSystemDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Folgt der Sprache des Geräts.'**
+  String get settingsLanguageSystemDesc;
+
+  /// No description provided for @settingsAboutApp.
+  ///
+  /// In de, this message translates to:
+  /// **'Über die App'**
+  String get settingsAboutApp;
+
+  /// No description provided for @settingsAboutBody.
+  ///
+  /// In de, this message translates to:
+  /// **'Demo-Anwendung zur PV-Auslegung mit Batteriespeicher und 800-W-Micro-Wechselrichter. Das aktuelle Strahlungsmodell ist synthetisch und stellt keine validierte Ertragsprognose dar.'**
+  String get settingsAboutBody;
+
+  /// No description provided for @projectListTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'PV Calculator — Projekte'**
+  String get projectListTitle;
+
+  /// No description provided for @projectListEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine Projekte gespeichert.'**
+  String get projectListEmpty;
+
+  /// No description provided for @projectListEmptyHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Lege ein neues Projekt an oder importiere ein gespeichertes JSON.'**
+  String get projectListEmptyHint;
+
+  /// No description provided for @projectListCreateButton.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Projekt erstellen'**
+  String get projectListCreateButton;
+
+  /// No description provided for @projectListImportTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Importieren'**
+  String get projectListImportTooltip;
+
+  /// No description provided for @projectListNewTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Projekt'**
+  String get projectListNewTooltip;
+
+  /// No description provided for @projectListExportTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Exportieren'**
+  String get projectListExportTooltip;
+
+  /// No description provided for @projectListDeleteTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Löschen'**
+  String get projectListDeleteTooltip;
+
+  /// No description provided for @projectListNewDefaultName.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Projekt'**
+  String get projectListNewDefaultName;
+
+  /// No description provided for @projectListLoadFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt \"{name}\" konnte nicht geladen werden.'**
+  String projectListLoadFailed(String name);
+
+  /// No description provided for @projectListImported.
+  ///
+  /// In de, this message translates to:
+  /// **'Importiert: {name}'**
+  String projectListImported(String name);
+
+  /// No description provided for @projectListImportFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Import fehlgeschlagen: {error}'**
+  String projectListImportFailed(String error);
+
+  /// No description provided for @projectListDownloaded.
+  ///
+  /// In de, this message translates to:
+  /// **'Heruntergeladen: {filename}'**
+  String projectListDownloaded(String filename);
+
+  /// No description provided for @projectListExported.
+  ///
+  /// In de, this message translates to:
+  /// **'Exportiert: {filename}'**
+  String projectListExported(String filename);
+
+  /// No description provided for @projectListExportCancelled.
+  ///
+  /// In de, this message translates to:
+  /// **'Export abgebrochen'**
+  String get projectListExportCancelled;
+
+  /// No description provided for @projectListExportFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Export fehlgeschlagen: {error}'**
+  String projectListExportFailed(String error);
+
+  /// No description provided for @projectListConflictTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt existiert bereits'**
+  String get projectListConflictTitle;
+
+  /// No description provided for @projectListConflictBody.
+  ///
+  /// In de, this message translates to:
+  /// **'\"{name}\" ist bereits gespeichert. Soll der Import diese Version überschreiben oder unter einem neuen Namen abgelegt werden?'**
+  String projectListConflictBody(String name);
+
+  /// No description provided for @projectListConflictRename.
+  ///
+  /// In de, this message translates to:
+  /// **'Umbenennen'**
+  String get projectListConflictRename;
+
+  /// No description provided for @projectListConflictOverwrite.
+  ///
+  /// In de, this message translates to:
+  /// **'Überschreiben'**
+  String get projectListConflictOverwrite;
+
+  /// No description provided for @projectListDeleteTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt löschen?'**
+  String get projectListDeleteTitle;
+
+  /// No description provided for @projectListDeleteBody.
+  ///
+  /// In de, this message translates to:
+  /// **'\"{name}\" wird unwiderruflich gelöscht.'**
+  String projectListDeleteBody(String name);
+
+  /// No description provided for @projectListSaveFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Speichern fehlgeschlagen: {error}'**
+  String projectListSaveFailed(String error);
+
+  /// No description provided for @editorRun.
+  ///
+  /// In de, this message translates to:
+  /// **'Simulation starten'**
+  String get editorRun;
+
+  /// No description provided for @editorValidationTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Konfiguration unvollständig'**
+  String get editorValidationTitle;
+
+  /// No description provided for @editorRunErrorTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Simulation fehlgeschlagen'**
+  String get editorRunErrorTitle;
+
+  /// No description provided for @editorOrphanedTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-Importe ohne passendes Modulfeld'**
+  String get editorOrphanedTitle;
+
+  /// No description provided for @editorOrphanedBody.
+  ///
+  /// In de, this message translates to:
+  /// **'Die folgenden importierten Wetterreihen verweisen auf gelöschte oder umbenannte Modulfelder und werden von der Simulation nicht genutzt. Über „Vergessen“ kannst du sie freigeben.'**
+  String get editorOrphanedBody;
+
+  /// No description provided for @editorOrphanedForget.
+  ///
+  /// In de, this message translates to:
+  /// **'Vergessen'**
+  String get editorOrphanedForget;
+
+  /// No description provided for @editorWeatherSynthetic.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinweis: Diese Simulation nutzt ein synthetisches Demo-Strahlungsmodell und ersetzt keine PVGIS-Validierung. Du kannst pro Modulfeld eine PVGIS-Stündliche-Daten-JSON importieren, um reale Einstrahlung zu nutzen.'**
+  String get editorWeatherSynthetic;
+
+  /// No description provided for @editorWeatherSession.
+  ///
+  /// In de, this message translates to:
+  /// **' PVGIS-Importe gelten nur für diese Sitzung; beim erneuten Öffnen eines gespeicherten Projekts müssen sie neu importiert werden.'**
+  String get editorWeatherSession;
+
+  /// No description provided for @editorWeatherAll.
+  ///
+  /// In de, this message translates to:
+  /// **'Wetterquelle: PVGIS-Daten für alle {total} Modulfelder importiert. TMY-Mittelwerte über die in der Datei enthaltenen Jahre.{session}'**
+  String editorWeatherAll(int total, String session);
+
+  /// No description provided for @editorWeatherMixed.
+  ///
+  /// In de, this message translates to:
+  /// **'Wetterquelle gemischt: {withCount} von {total} Modulfeldern nutzen importierte PVGIS-Daten, die übrigen fallen auf das synthetische Demo-Modell zurück.{session}'**
+  String editorWeatherMixed(int withCount, int total, String session);
+
+  /// No description provided for @projectSectionTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt'**
+  String get projectSectionTitle;
+
+  /// No description provided for @projectName.
+  ///
+  /// In de, this message translates to:
+  /// **'Projektname'**
+  String get projectName;
+
+  /// No description provided for @projectLatitude.
+  ///
+  /// In de, this message translates to:
+  /// **'Breitengrad'**
+  String get projectLatitude;
+
+  /// No description provided for @projectLongitude.
+  ///
+  /// In de, this message translates to:
+  /// **'Längengrad'**
+  String get projectLongitude;
+
+  /// No description provided for @projectStartDay.
+  ///
+  /// In de, this message translates to:
+  /// **'Start-Tag im Jahr'**
+  String get projectStartDay;
+
+  /// No description provided for @projectSimulationDays.
+  ///
+  /// In de, this message translates to:
+  /// **'Simulationstage'**
+  String get projectSimulationDays;
+
+  /// No description provided for @projectPreRunDays.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorlauf-Tage'**
+  String get projectPreRunDays;
+
+  /// No description provided for @projectPreRunHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorlauftage stabilisieren den Batterie-Startladestand vor der eigentlichen Simulation. Schritte mit Vorlauf erscheinen nicht in den Ergebnissen.'**
+  String get projectPreRunHelp;
+
+  /// No description provided for @projectExportLimit.
+  ///
+  /// In de, this message translates to:
+  /// **'Einspeise-Limit'**
+  String get projectExportLimit;
+
+  /// No description provided for @projectTimeStep.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitschritt'**
+  String get projectTimeStep;
+
+  /// No description provided for @projectTimeStepHourly.
+  ///
+  /// In de, this message translates to:
+  /// **'Stündlich'**
+  String get projectTimeStepHourly;
+
+  /// No description provided for @projectTimeStepQuarter.
+  ///
+  /// In de, this message translates to:
+  /// **'Viertelstündlich'**
+  String get projectTimeStepQuarter;
+
+  /// No description provided for @projectPvgisApiTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-API'**
+  String get projectPvgisApiTitle;
+
+  /// No description provided for @projectPvgisApiHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitfenster und Strahlungsdatenbank für „Von PVGIS-API laden“. PVGIS-SARAH3 deckt typischerweise 2005–2023 ab; je breiter das Fenster, desto stabiler werden TMY-Mittelwerte.'**
+  String get projectPvgisApiHelp;
+
+  /// No description provided for @projectPvgisStartYear.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS Startjahr'**
+  String get projectPvgisStartYear;
+
+  /// No description provided for @projectPvgisEndYear.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS Endjahr'**
+  String get projectPvgisEndYear;
+
+  /// No description provided for @projectRadDatabase.
+  ///
+  /// In de, this message translates to:
+  /// **'Strahlungsdatenbank'**
+  String get projectRadDatabase;
+
+  /// No description provided for @projectRadDatabaseAuto.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS Auto'**
+  String get projectRadDatabaseAuto;
+
+  /// No description provided for @projectAddressSearch.
+  ///
+  /// In de, this message translates to:
+  /// **'Adresse suchen (OpenStreetMap)'**
+  String get projectAddressSearch;
+
+  /// No description provided for @projectAddressHint.
+  ///
+  /// In de, this message translates to:
+  /// **'z.B. Marktplatz 1, Frankfurt'**
+  String get projectAddressHint;
+
+  /// No description provided for @projectAddressNoResults.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Treffer gefunden.'**
+  String get projectAddressNoResults;
+
+  /// No description provided for @fieldId.
+  ///
+  /// In de, this message translates to:
+  /// **'ID'**
+  String get fieldId;
+
+  /// No description provided for @fieldLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Bezeichnung'**
+  String get fieldLabel;
+
+  /// No description provided for @arraysTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'PV-Module'**
+  String get arraysTitle;
+
+  /// No description provided for @arraysEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Mindestens ein Modulfeld ist erforderlich.'**
+  String get arraysEmpty;
+
+  /// No description provided for @arraysDefaultLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Modulfeld {n}'**
+  String arraysDefaultLabel(int n);
+
+  /// No description provided for @arraysHeading.
+  ///
+  /// In de, this message translates to:
+  /// **'Modulfeld {n}'**
+  String arraysHeading(int n);
+
+  /// No description provided for @arraysFieldPeak.
+  ///
+  /// In de, this message translates to:
+  /// **'Spitzenleistung'**
+  String get arraysFieldPeak;
+
+  /// No description provided for @arraysFieldAzimuth.
+  ///
+  /// In de, this message translates to:
+  /// **'Azimut'**
+  String get arraysFieldAzimuth;
+
+  /// No description provided for @arraysFieldTilt.
+  ///
+  /// In de, this message translates to:
+  /// **'Neigung'**
+  String get arraysFieldTilt;
+
+  /// No description provided for @arraysFieldLosses.
+  ///
+  /// In de, this message translates to:
+  /// **'Verluste'**
+  String get arraysFieldLosses;
+
+  /// No description provided for @arraysFieldShading.
+  ///
+  /// In de, this message translates to:
+  /// **'Verschattung'**
+  String get arraysFieldShading;
+
+  /// No description provided for @arraysFieldTempCoef.
+  ///
+  /// In de, this message translates to:
+  /// **'Temperaturkoeff.'**
+  String get arraysFieldTempCoef;
+
+  /// No description provided for @arraysFieldTempCoefHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Leistungsverlust pro °C Zelltemperatur über 25 °C. Kristallines Silizium ≈ −0,4 %/°C; 0 deaktiviert die Temperatur-Derating.'**
+  String get arraysFieldTempCoefHelp;
+
+  /// No description provided for @arraysFieldNoct.
+  ///
+  /// In de, this message translates to:
+  /// **'NOCT'**
+  String get arraysFieldNoct;
+
+  /// No description provided for @arraysFieldNoctHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Nominal Operating Cell Temperature: Zelltemperatur bei 800 W/m², 20 °C Luft, 1 m/s Wind. Typisch 45 °C.'**
+  String get arraysFieldNoctHelp;
+
+  /// No description provided for @arraysFieldInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter'**
+  String get arraysFieldInverter;
+
+  /// No description provided for @arraysFieldInverterRequired.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter auswählen'**
+  String get arraysFieldInverterRequired;
+
+  /// No description provided for @pvgisIdRequired.
+  ///
+  /// In de, this message translates to:
+  /// **'Bitte zuerst eine Modulfeld-ID vergeben.'**
+  String get pvgisIdRequired;
+
+  /// No description provided for @pvgisImported.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-Daten für \"{id}\" importiert ({count} Werte).'**
+  String pvgisImported(String id, int count);
+
+  /// No description provided for @pvgisImportFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-Import fehlgeschlagen: {error}'**
+  String pvgisImportFailed(String error);
+
+  /// No description provided for @pvgisArrayNotFound.
+  ///
+  /// In de, this message translates to:
+  /// **'Modulfeld nicht gefunden.'**
+  String get pvgisArrayNotFound;
+
+  /// No description provided for @pvgisInvalidRequest.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-Abfrage ungültig: {error}'**
+  String pvgisInvalidRequest(String error);
+
+  /// No description provided for @pvgisApiLoaded.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-API-Daten für \"{id}\" geladen ({count} Werte).'**
+  String pvgisApiLoaded(String id, int count);
+
+  /// No description provided for @pvgisApiFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-API-Abfrage fehlgeschlagen: {error}'**
+  String pvgisApiFailed(String error);
+
+  /// No description provided for @pvgisStatusSynthetic.
+  ///
+  /// In de, this message translates to:
+  /// **'Wetterquelle: synthetisches Demo-Modell'**
+  String get pvgisStatusSynthetic;
+
+  /// No description provided for @pvgisStatusLoaded.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-Daten geladen'**
+  String get pvgisStatusLoaded;
+
+  /// No description provided for @pvgisMetadata.
+  ///
+  /// In de, this message translates to:
+  /// **'{source} · {count} Stunden · Jahre {years} · PVGIS-Lage {lat}°/{lon}°{orientation}'**
+  String pvgisMetadata(
+    String source,
+    int count,
+    String years,
+    String lat,
+    String lon,
+    String orientation,
+  );
+
+  /// No description provided for @pvgisSessionNote.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinweis: PVGIS-Importe gelten nur für diese Sitzung — sie werden nicht im Projekt-JSON gespeichert.'**
+  String get pvgisSessionNote;
+
+  /// No description provided for @pvgisOrientationWarning.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-Ausrichtung weicht ab ({issues}). Die importierten POA-Werte gelten für die PVGIS-Ausrichtung, nicht für die hier eingestellte.'**
+  String pvgisOrientationWarning(String issues);
+
+  /// No description provided for @pvgisOrientationTilt.
+  ///
+  /// In de, this message translates to:
+  /// **'Neigung {value}°'**
+  String pvgisOrientationTilt(String value);
+
+  /// No description provided for @pvgisOrientationAzimuth.
+  ///
+  /// In de, this message translates to:
+  /// **'Azimut {value}°'**
+  String pvgisOrientationAzimuth(String value);
+
+  /// No description provided for @pvgisTiltMismatch.
+  ///
+  /// In de, this message translates to:
+  /// **'Neigung {imported}° vs {configured}°'**
+  String pvgisTiltMismatch(String imported, String configured);
+
+  /// No description provided for @pvgisAzimuthMismatch.
+  ///
+  /// In de, this message translates to:
+  /// **'Azimut {imported}° vs {configured}°'**
+  String pvgisAzimuthMismatch(String imported, String configured);
+
+  /// No description provided for @pvgisReloadApi.
+  ///
+  /// In de, this message translates to:
+  /// **'API neu laden'**
+  String get pvgisReloadApi;
+
+  /// No description provided for @pvgisLoadFromApi.
+  ///
+  /// In de, this message translates to:
+  /// **'Von PVGIS-API laden'**
+  String get pvgisLoadFromApi;
+
+  /// No description provided for @pvgisImportJson.
+  ///
+  /// In de, this message translates to:
+  /// **'JSON importieren'**
+  String get pvgisImportJson;
+
+  /// No description provided for @invertersTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter'**
+  String get invertersTitle;
+
+  /// No description provided for @invertersEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Mindestens ein Wechselrichter ist erforderlich.'**
+  String get invertersEmpty;
+
+  /// No description provided for @invertersDefaultLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter {n}'**
+  String invertersDefaultLabel(int n);
+
+  /// No description provided for @invertersHeading.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter {n}'**
+  String invertersHeading(int n);
+
+  /// No description provided for @invertersFieldMaxAc.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. AC-Leistung'**
+  String get invertersFieldMaxAc;
+
+  /// No description provided for @invertersFieldEfficiency.
+  ///
+  /// In de, this message translates to:
+  /// **'Wirkungsgrad'**
+  String get invertersFieldEfficiency;
+
+  /// No description provided for @invertersFieldMaxDc.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. DC-Eingang'**
+  String get invertersFieldMaxDc;
+
+  /// No description provided for @invertersFieldMaxDcHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Optionale DC-Eingangsgrenze (MPPT). DC-Leistung darüber wird vor dem Wechselrichter geclippt und als Abregelung erfasst. Leer lassen, wenn der Wechselrichter nicht überdimensioniert ist.'**
+  String get invertersFieldMaxDcHelp;
+
+  /// No description provided for @invertersFieldRole.
+  ///
+  /// In de, this message translates to:
+  /// **'Rolle'**
+  String get invertersFieldRole;
+
+  /// No description provided for @invertersRoleGrid.
+  ///
+  /// In de, this message translates to:
+  /// **'Netz'**
+  String get invertersRoleGrid;
+
+  /// No description provided for @invertersRoleMicro.
+  ///
+  /// In de, this message translates to:
+  /// **'800-W-Micro'**
+  String get invertersRoleMicro;
+
+  /// No description provided for @invertersRoleBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Batteriegekoppelt'**
+  String get invertersRoleBattery;
+
+  /// No description provided for @invertersRoleMicroHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'800-W-Stecker-Solar: AC-Ausgang wird hart auf 0,8 kW gekappt, unabhängig von der eingestellten Max. AC-Leistung.'**
+  String get invertersRoleMicroHelp;
+
+  /// No description provided for @invertersRoleBatteryHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter ist DC-seitig mit einer Batterie gekoppelt; Erfassung wie ein Netz-Wechselrichter, aber semantisch markiert.'**
+  String get invertersRoleBatteryHelp;
+
+  /// No description provided for @invertersRoleGridHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Standard-Netz-Wechselrichter ohne harte AC-Hürde.'**
+  String get invertersRoleGridHelp;
+
+  /// No description provided for @batteriesTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Batteriespeicher'**
+  String get batteriesTitle;
+
+  /// No description provided for @batteriesEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein Batteriespeicher konfiguriert (optional).'**
+  String get batteriesEmpty;
+
+  /// No description provided for @batteriesDefaultLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher {n}'**
+  String batteriesDefaultLabel(int n);
+
+  /// No description provided for @batteriesHeading.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher {n}'**
+  String batteriesHeading(int n);
+
+  /// No description provided for @batteriesFieldCapacity.
+  ///
+  /// In de, this message translates to:
+  /// **'Kapazität'**
+  String get batteriesFieldCapacity;
+
+  /// No description provided for @batteriesFieldChargePower.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. Ladeleistung'**
+  String get batteriesFieldChargePower;
+
+  /// No description provided for @batteriesFieldDischargePower.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. Entladeleistung'**
+  String get batteriesFieldDischargePower;
+
+  /// No description provided for @batteriesFieldRoundtrip.
+  ///
+  /// In de, this message translates to:
+  /// **'Roundtrip-Wirkungsgrad'**
+  String get batteriesFieldRoundtrip;
+
+  /// No description provided for @batteriesFieldRoundtripHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Lade- × Entladewirkungsgrad. Typisch 0,9 für Lithium-Speicher, ≈ 0,75 für Blei-Speicher.'**
+  String get batteriesFieldRoundtripHelp;
+
+  /// No description provided for @batteriesFieldMinSoc.
+  ///
+  /// In de, this message translates to:
+  /// **'Min. SOC'**
+  String get batteriesFieldMinSoc;
+
+  /// No description provided for @batteriesCustomInitial.
+  ///
+  /// In de, this message translates to:
+  /// **'Start-SOC manuell setzen'**
+  String get batteriesCustomInitial;
+
+  /// No description provided for @batteriesFieldStartSoc.
+  ///
+  /// In de, this message translates to:
+  /// **'Start-SOC'**
+  String get batteriesFieldStartSoc;
+
+  /// No description provided for @loadTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Lastprofil'**
+  String get loadTitle;
+
+  /// No description provided for @loadFieldDaily.
+  ///
+  /// In de, this message translates to:
+  /// **'Tagesverbrauch'**
+  String get loadFieldDaily;
+
+  /// No description provided for @loadHourlyHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Stundenform: deutsches Haushalts-Standardprofil (24 Werte). Eine manuelle Anpassung der Stundenform ist für eine spätere Version vorgesehen.'**
+  String get loadHourlyHint;
+
+  /// No description provided for @resultsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Ergebnis — {name}'**
+  String resultsTitle(String name);
+
+  /// No description provided for @resultsEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Simulation ausgeführt.'**
+  String get resultsEmpty;
+
+  /// No description provided for @resultsBack.
+  ///
+  /// In de, this message translates to:
+  /// **'Zurück zur Konfiguration'**
+  String get resultsBack;
+
+  /// No description provided for @resultsAnnualKpis.
+  ///
+  /// In de, this message translates to:
+  /// **'Jahreskennzahlen'**
+  String get resultsAnnualKpis;
+
+  /// No description provided for @resultsKpiPvAc.
+  ///
+  /// In de, this message translates to:
+  /// **'PV AC'**
+  String get resultsKpiPvAc;
+
+  /// No description provided for @resultsKpiLoad.
+  ///
+  /// In de, this message translates to:
+  /// **'Last'**
+  String get resultsKpiLoad;
+
+  /// No description provided for @resultsKpiSelfConsumption.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigenverbrauch'**
+  String get resultsKpiSelfConsumption;
+
+  /// No description provided for @resultsKpiGridImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Netzimport'**
+  String get resultsKpiGridImport;
+
+  /// No description provided for @resultsKpiGridExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Netzeinspeisung'**
+  String get resultsKpiGridExport;
+
+  /// No description provided for @resultsKpiCurtailDc.
+  ///
+  /// In de, this message translates to:
+  /// **'Abregelung DC (MPPT)'**
+  String get resultsKpiCurtailDc;
+
+  /// No description provided for @resultsKpiCurtailAc.
+  ///
+  /// In de, this message translates to:
+  /// **'Abregelung AC (WR-Limit)'**
+  String get resultsKpiCurtailAc;
+
+  /// No description provided for @resultsKpiCurtailExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Abregelung Einspeisung'**
+  String get resultsKpiCurtailExport;
+
+  /// No description provided for @resultsKpiBatteryCharge.
+  ///
+  /// In de, this message translates to:
+  /// **'Batt-Ladung'**
+  String get resultsKpiBatteryCharge;
+
+  /// No description provided for @resultsKpiBatteryDischarge.
+  ///
+  /// In de, this message translates to:
+  /// **'Batt-Entladung'**
+  String get resultsKpiBatteryDischarge;
+
+  /// No description provided for @resultsKpiAutarky.
+  ///
+  /// In de, this message translates to:
+  /// **'Autarkie'**
+  String get resultsKpiAutarky;
+
+  /// No description provided for @resultsKpiSelfConsumptionRate.
+  ///
+  /// In de, this message translates to:
+  /// **'EV-Quote'**
+  String get resultsKpiSelfConsumptionRate;
+
+  /// No description provided for @resultsBatterySection.
+  ///
+  /// In de, this message translates to:
+  /// **'Batterien (End-SOC)'**
+  String get resultsBatterySection;
+
+  /// No description provided for @resultsBatteryLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher {n}'**
+  String resultsBatteryLabel(int n);
+
+  /// No description provided for @resultsMonthly.
+  ///
+  /// In de, this message translates to:
+  /// **'Monatliche Bilanz'**
+  String get resultsMonthly;
+
+  /// No description provided for @resultsCsvSteps.
+  ///
+  /// In de, this message translates to:
+  /// **'CSV-Export Schritte'**
+  String get resultsCsvSteps;
+
+  /// No description provided for @resultsCsvMonthly.
+  ///
+  /// In de, this message translates to:
+  /// **'CSV-Export Monat'**
+  String get resultsCsvMonthly;
+
+  /// No description provided for @resultsCsvPending.
+  ///
+  /// In de, this message translates to:
+  /// **'CSV bereit ({size} Zeichen). Export folgt im Persistence-Layer.'**
+  String resultsCsvPending(int size);
+
+  /// No description provided for @resultsExported.
+  ///
+  /// In de, this message translates to:
+  /// **'Exportiert: {filename}'**
+  String resultsExported(String filename);
+
+  /// No description provided for @resultsExportFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Export fehlgeschlagen: {error}'**
+  String resultsExportFailed(String error);
+
+  /// No description provided for @resultsSyntheticNote.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinweis: synthetisches Demo-Strahlungsmodell — keine validierte Ertragsprognose.'**
+  String get resultsSyntheticNote;
+
+  /// No description provided for @monthlyColMonth.
+  ///
+  /// In de, this message translates to:
+  /// **'Monat'**
+  String get monthlyColMonth;
+
+  /// No description provided for @monthlyColPvAc.
+  ///
+  /// In de, this message translates to:
+  /// **'PV AC (kWh)'**
+  String get monthlyColPvAc;
+
+  /// No description provided for @monthlyColLoad.
+  ///
+  /// In de, this message translates to:
+  /// **'Last (kWh)'**
+  String get monthlyColLoad;
+
+  /// No description provided for @monthlyColSelfConsumption.
+  ///
+  /// In de, this message translates to:
+  /// **'EV (kWh)'**
+  String get monthlyColSelfConsumption;
+
+  /// No description provided for @monthlyColBatteryCharge.
+  ///
+  /// In de, this message translates to:
+  /// **'Bat-Lad. (kWh)'**
+  String get monthlyColBatteryCharge;
+
+  /// No description provided for @monthlyColBatteryDischarge.
+  ///
+  /// In de, this message translates to:
+  /// **'Bat-Entl. (kWh)'**
+  String get monthlyColBatteryDischarge;
+
+  /// No description provided for @monthlyColImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Import (kWh)'**
+  String get monthlyColImport;
+
+  /// No description provided for @monthlyColExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Export (kWh)'**
+  String get monthlyColExport;
+
+  /// No description provided for @monthJan.
+  ///
+  /// In de, this message translates to:
+  /// **'Jan'**
+  String get monthJan;
+
+  /// No description provided for @monthFeb.
+  ///
+  /// In de, this message translates to:
+  /// **'Feb'**
+  String get monthFeb;
+
+  /// No description provided for @monthMar.
+  ///
+  /// In de, this message translates to:
+  /// **'Mär'**
+  String get monthMar;
+
+  /// No description provided for @monthApr.
+  ///
+  /// In de, this message translates to:
+  /// **'Apr'**
+  String get monthApr;
+
+  /// No description provided for @monthMay.
+  ///
+  /// In de, this message translates to:
+  /// **'Mai'**
+  String get monthMay;
+
+  /// No description provided for @monthJun.
+  ///
+  /// In de, this message translates to:
+  /// **'Jun'**
+  String get monthJun;
+
+  /// No description provided for @monthJul.
+  ///
+  /// In de, this message translates to:
+  /// **'Jul'**
+  String get monthJul;
+
+  /// No description provided for @monthAug.
+  ///
+  /// In de, this message translates to:
+  /// **'Aug'**
+  String get monthAug;
+
+  /// No description provided for @monthSep.
+  ///
+  /// In de, this message translates to:
+  /// **'Sep'**
+  String get monthSep;
+
+  /// No description provided for @monthOct.
+  ///
+  /// In de, this message translates to:
+  /// **'Okt'**
+  String get monthOct;
+
+  /// No description provided for @monthNov.
+  ///
+  /// In de, this message translates to:
+  /// **'Nov'**
+  String get monthNov;
+
+  /// No description provided for @monthDec.
+  ///
+  /// In de, this message translates to:
+  /// **'Dez'**
+  String get monthDec;
+
+  /// No description provided for @geocodingTimeout.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitüberschreitung bei der Adresssuche.'**
+  String get geocodingTimeout;
+
+  /// No description provided for @geocodingNetworkError.
+  ///
+  /// In de, this message translates to:
+  /// **'Netzwerkfehler: {error}'**
+  String geocodingNetworkError(String error);
+
+  /// No description provided for @geocodingRateLimit.
+  ///
+  /// In de, this message translates to:
+  /// **'Nominatim hat das Limit erreicht (429). Bitte einen Moment warten.'**
+  String get geocodingRateLimit;
+
+  /// No description provided for @geocodingBadStatus.
+  ///
+  /// In de, this message translates to:
+  /// **'Nominatim antwortete mit Status {code}.'**
+  String geocodingBadStatus(int code);
+
+  /// No description provided for @geocodingInvalidJson.
+  ///
+  /// In de, this message translates to:
+  /// **'Antwort von Nominatim ist kein gültiges JSON.'**
+  String get geocodingInvalidJson;
+
+  /// No description provided for @geocodingInvalidFormat.
+  ///
+  /// In de, this message translates to:
+  /// **'Unerwartetes Antwortformat von Nominatim.'**
+  String get geocodingInvalidFormat;
+
+  /// No description provided for @pvgisApiInvalidRequest.
+  ///
+  /// In de, this message translates to:
+  /// **'Ungültige PVGIS-Anfrage: {error}'**
+  String pvgisApiInvalidRequest(String error);
+
+  /// No description provided for @pvgisApiTimeout.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitüberschreitung bei PVGIS-Abfrage.'**
+  String get pvgisApiTimeout;
+
+  /// No description provided for @pvgisApiNetworkError.
+  ///
+  /// In de, this message translates to:
+  /// **'Netzwerkfehler bei PVGIS-Abfrage: {error}'**
+  String pvgisApiNetworkError(String error);
+
+  /// No description provided for @pvgisApiBadStatus.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS antwortete mit Status {code}. {message}'**
+  String pvgisApiBadStatus(int code, String message);
+
+  /// No description provided for @pvgisApiParseFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'PVGIS-Antwort konnte nicht gelesen werden: {error}'**
+  String pvgisApiParseFailed(String error);
+
+  /// No description provided for @demoArrayLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Süddach'**
+  String get demoArrayLabel;
+
+  /// No description provided for @demoInverterLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Hauptwechselrichter'**
+  String get demoInverterLabel;
+
+  /// No description provided for @demoBatteryLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Hauptspeicher'**
+  String get demoBatteryLabel;
+}
+
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
+  const _AppLocalizationsDelegate();
+
+  @override
+  Future<AppLocalizations> load(Locale locale) {
+    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
+  }
+
+  @override
+  bool isSupported(Locale locale) =>
+      <String>['de', 'en', 'es', 'fr'].contains(locale.languageCode);
+
+  @override
+  bool shouldReload(_AppLocalizationsDelegate old) => false;
+}
+
+AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Lookup logic when only language code is specified.
+  switch (locale.languageCode) {
+    case 'de':
+      return AppLocalizationsDe();
+    case 'en':
+      return AppLocalizationsEn();
+    case 'es':
+      return AppLocalizationsEs();
+    case 'fr':
+      return AppLocalizationsFr();
+  }
+
+  throw FlutterError(
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
+}

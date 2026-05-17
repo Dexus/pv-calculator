@@ -1,11 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pv_calculator_app/main.dart';
+import 'package:pv_calculator_app/state/settings_controller.dart';
 import 'package:pv_calculator_app/widgets/project_list_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('mounts the project list landing page on first launch', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    // Pin the locale so the German title assertions below stay stable
+    // regardless of the host machine's default locale.
+    SharedPreferences.setMockInitialValues({
+      SettingsController.localeKey: 'de',
+    });
     await tester.pumpWidget(const PvCalculatorApp());
     await tester.pumpAndSettle();
 

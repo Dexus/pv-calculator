@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'l10n/generated/app_localizations.dart';
 import 'state/project_controller.dart';
 import 'state/settings_controller.dart';
 import 'widgets/project_list_page.dart';
@@ -19,8 +20,11 @@ class PvCalculatorApp extends StatelessWidget {
       ],
       child: Consumer<SettingsController>(
         builder: (context, settings, _) => MaterialApp(
-          title: 'PV Calculator',
+          onGenerateTitle: (ctx) => AppLocalizations.of(ctx).projectListTitle,
           themeMode: settings.themeMode,
+          locale: settings.locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: _buildTheme(Brightness.light),
           darkTheme: _buildTheme(Brightness.dark),
           home: const ProjectListPage(),

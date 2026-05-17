@@ -47,9 +47,26 @@ class ProjectController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void newProject({String name = 'Neues Projekt'}) {
+  void newProject({
+    String name = 'New project',
+    String? defaultArrayLabel,
+    String? defaultInverterLabel,
+    String? defaultBatteryLabel,
+  }) {
     _projectName = name;
     _draft = ConfigDraft.demo();
+    // The demo draft ships German labels by default — when the UI
+    // provides localized fallbacks, swap them in so a freshly created
+    // project reads coherently in the user's language.
+    if (defaultArrayLabel != null && _draft.arrays.isNotEmpty) {
+      _draft.arrays.first.label = defaultArrayLabel;
+    }
+    if (defaultInverterLabel != null && _draft.inverters.isNotEmpty) {
+      _draft.inverters.first.label = defaultInverterLabel;
+    }
+    if (defaultBatteryLabel != null && _draft.batteries.isNotEmpty) {
+      _draft.batteries.first.label = defaultBatteryLabel;
+    }
     _result = null;
     _lastError = null;
     notifyListeners();

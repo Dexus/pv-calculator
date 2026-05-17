@@ -6,6 +6,8 @@ import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/forms/editor_page.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '_test_localization.dart';
+
 /// Test-only stand-in that lets us mount the editor in the rare state
 /// where validation passes but the simulator still failed (e.g. an
 /// engine throw past validate()). Overriding the [lastError] getter
@@ -140,7 +142,7 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: const EditorPage(),
@@ -166,7 +168,7 @@ void main() {
   testWidgets('enables Run for the demo project and runs successfully', (tester) async {
     final controller = ProjectController();
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: const EditorPage(),
@@ -193,7 +195,7 @@ void main() {
     final controller = ProjectController();
     expect(controller.draft.validationIssue(), isNull);
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: const EditorPage(),
@@ -237,7 +239,7 @@ void main() {
       message: 'Synthetic engine failure',
     );
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: const EditorPage(),
@@ -271,7 +273,7 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(germanMaterialApp(
       home: ChangeNotifierProvider<ProjectController>.value(
         value: controller,
         child: const EditorPage(),
