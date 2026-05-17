@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pv_calculator_app/main.dart';
+import 'package:pv_calculator_app/persistence/database.dart';
 import 'package:pv_calculator_app/state/settings_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,7 +15,7 @@ void main() {
       SettingsController.themeModeKey: 'dark',
     });
 
-    await tester.pumpWidget(const PvCalculatorApp());
+    await tester.pumpWidget(PvCalculatorApp(database: AppDatabase.memory()));
     await tester.pumpAndSettle();
 
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
@@ -26,7 +27,7 @@ void main() {
       SettingsController.localeKey: 'es',
     });
 
-    await tester.pumpWidget(const PvCalculatorApp());
+    await tester.pumpWidget(PvCalculatorApp(database: AppDatabase.memory()));
     await tester.pumpAndSettle();
 
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
@@ -36,7 +37,7 @@ void main() {
   testWidgets('empty store leaves MaterialApp at system defaults', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
-    await tester.pumpWidget(const PvCalculatorApp());
+    await tester.pumpWidget(PvCalculatorApp(database: AppDatabase.memory()));
     await tester.pumpAndSettle();
 
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));

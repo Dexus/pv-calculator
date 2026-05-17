@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pv_calculator_app/main.dart';
+import 'package:pv_calculator_app/persistence/database.dart';
 import 'package:pv_calculator_app/state/settings_controller.dart';
 import 'package:pv_calculator_app/widgets/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +11,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       SettingsController.localeKey: 'de',
     });
-    await tester.pumpWidget(const PvCalculatorApp());
+    await tester.pumpWidget(PvCalculatorApp(database: AppDatabase.memory()));
     await tester.pumpAndSettle();
 
     final scaffoldFinder = find.byType(Scaffold).first;
