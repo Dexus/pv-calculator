@@ -45,18 +45,36 @@ The engine itself remains zero-runtime-dep; sqlite3 only enters here.
 
 ### Browser persistence
 
-On web, `WasmDatabase.open` (via `package:sqlite3`'s WASM build) picks
-the best of OPFS → IndexedDB → in-memory at runtime. Until the
-`sqlite3.wasm` + `drift_worker.js` assets land under `web/` (tracked in
-`docs/ROADMAP.md` §Phase 7 Verschoben), the web build falls back to
-**in-memory** with a logged warning — project data won't survive a
-reload until the asset is bundled.
+On web, `connection_web.dart` loads `web/sqlite3.wasm` (bundled in this
+repo — pinned to the version that matches `package:sqlite3`) and opens
+an **in-memory** database on top. The page compiles and runs, but the
+project list resets on every reload — there is no OPFS/IndexedDB VFS
+wired up yet. The plumbing is in place (`SimpleOpfsFileSystem` and
+`IndexedDbFileSystem` are exported from `package:sqlite3/wasm.dart`); a
+follow-up needs to add a worker bootstrap. Tracked under
+`docs/ROADMAP.md` §Phase 7 Verschoben.
+
+Native (mobile/desktop) builds keep a real file under
+`getApplicationDocumentsDirectory()`, so project data persists normally.
 
 To verify which tier was chosen at runtime, inspect the startup log line:
 
 ```
 main: AppDatabase storage tier = native|memory.
 ```
+
+### Updating sqlite3
+
+If you bump `package:sqlite3` in `pubspec.yaml`, also refresh the
+matching wasm bundle:
+
+```bash
+curl -L -o web/sqlite3.wasm \
+  https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-<version>/sqlite3.wasm
+```
+
+A mismatched wasm version causes runtime errors on the first
+`AppDatabase.open()` call in the browser.
 
 ## Phase-7 manual smoke list
 

@@ -31,7 +31,7 @@ dependencies:
   # native shared library for mobile/desktop. On web `sqlite3.wasm` is
   # shipped as a `web/` asset and loaded via `package:sqlite3` web entry
   # points. Pure SQL (no codegen) keeps the build lightweight.
-  sqlite3: ^2.4.5
+  sqlite3: ^3.3.0
   sqlite3_flutter_libs: ^0.5.27
   path_provider: ^2.1.4
   path: ^1.9.0

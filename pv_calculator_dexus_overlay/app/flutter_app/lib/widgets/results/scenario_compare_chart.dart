@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../../state/scenario_comparison_controller.dart';
 
 /// Grouped bar chart for the Scenario-Compare page. One group per scenario,
@@ -12,11 +13,11 @@ class ScenarioCompareChart extends StatelessWidget {
 
   final List<ScenarioCompareEntry> entries;
 
-  static const List<_Kpi> _kpis = [
-    _Kpi('PV AC', Color(0xFFFFB300)),
-    _Kpi('Eigenverbr.', Color(0xFF66BB6A)),
-    _Kpi('Netzbezug', Color(0xFFE53935)),
-    _Kpi('Einspeisung', Color(0xFF42A5F5)),
+  static const List<Color> _kpiColors = [
+    Color(0xFFFFB300), // PV AC
+    Color(0xFF66BB6A), // self-consumption
+    Color(0xFFE53935), // grid import
+    Color(0xFF42A5F5), // grid export
   ];
 
   @override
@@ -24,6 +25,13 @@ class ScenarioCompareChart extends StatelessWidget {
     if (entries.isEmpty) {
       return const SizedBox.shrink();
     }
+    final l = AppLocalizations.of(context);
+    final kpiLabels = <String>[
+      l.compareChartPvAc,
+      l.compareChartSelfConsumption,
+      l.compareChartGridImport,
+      l.compareChartGridExport,
+    ];
     final groups = <BarChartGroupData>[];
     for (var i = 0; i < entries.length; i++) {
       final s = entries[i].summary;
@@ -37,11 +45,11 @@ class ScenarioCompareChart extends StatelessWidget {
         x: i,
         barsSpace: 4,
         barRods: [
-          for (var k = 0; k < _kpis.length; k++)
+          for (var k = 0; k < _kpiColors.length; k++)
             BarChartRodData(
               toY: values[k],
               width: 14,
-              color: _kpis[k].color,
+              color: _kpiColors[k],
               borderRadius: BorderRadius.circular(2),
             ),
         ],
@@ -57,11 +65,11 @@ class ScenarioCompareChart extends StatelessWidget {
           spacing: 12,
           runSpacing: 4,
           children: [
-            for (final k in _kpis)
+            for (var k = 0; k < _kpiColors.length; k++)
               Row(mainAxisSize: MainAxisSize.min, children: [
-                Container(width: 12, height: 12, color: k.color),
+                Container(width: 12, height: 12, color: _kpiColors[k]),
                 const SizedBox(width: 4),
-                Text(k.label, style: Theme.of(context).textTheme.bodySmall),
+                Text(kpiLabels[k], style: Theme.of(context).textTheme.bodySmall),
               ]),
           ],
         ),
@@ -116,10 +124,4 @@ class ScenarioCompareChart extends StatelessWidget {
     }
     return max == 0 ? 1 : max;
   }
-}
-
-class _Kpi {
-  const _Kpi(this.label, this.color);
-  final String label;
-  final Color color;
 }

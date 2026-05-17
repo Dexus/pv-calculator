@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:pv_calculator_app/l10n/generated/app_localizations.dart';
 import 'package:pv_calculator_app/pages/scenario_compare_page.dart';
 import 'package:pv_calculator_app/persistence/database.dart';
 import 'package:pv_calculator_app/persistence/project_repository.dart';
@@ -21,7 +22,12 @@ Widget _host({
       Provider<SimulationRunRepository>.value(value: SimulationRunRepository(db)),
       ChangeNotifierProvider<ScenarioComparisonController>.value(value: controller),
     ],
-    child: const MaterialApp(home: ScenarioComparePage()),
+    child: MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const ScenarioComparePage(),
+    ),
   );
 }
 
