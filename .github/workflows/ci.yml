@@ -47,3 +47,20 @@ jobs:
       - name: Test
         working-directory: pv_calculator_dexus_overlay/app/flutter_app
         run: flutter test
+
+  pvgis-proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        working-directory: pv_calculator_dexus_overlay/cloudflare-pvgis-proxy
+        run: npm ci
+      - name: Typecheck
+        working-directory: pv_calculator_dexus_overlay/cloudflare-pvgis-proxy
+        run: npm run typecheck
+      - name: Test
+        working-directory: pv_calculator_dexus_overlay/cloudflare-pvgis-proxy
+        run: npm test

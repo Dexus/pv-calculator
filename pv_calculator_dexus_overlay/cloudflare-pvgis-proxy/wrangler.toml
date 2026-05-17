@@ -1,6 +1,9 @@
 name = "pv-calculator"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
+# Required by @cloudflare/vitest-pool-workers; no effect on the production
+# request path (the worker only uses Web/Workers APIs).
+compatibility_flags = ["nodejs_compat"]
 
 [[r2_buckets]]
 binding = "PVGIS_CACHE"
