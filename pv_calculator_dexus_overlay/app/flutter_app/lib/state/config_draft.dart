@@ -414,9 +414,10 @@ class LoadProfileDraft {
       LoadProfileDraft(dailyKwh: p.dailyKwh, hourlyShape: List<double>.from(p.hourlyShape));
 }
 
-/// Mutable working copy of a [MicroInverterBank]. Schedules are stored
-/// in the same simplified form that the UI exposes: either always-on or
-/// a list of time windows.
+/// Mutable working copy of a [MicroInverterBank]. The UI only edits
+/// always-on and time-window schedules. Other engine schedule kinds
+/// (e.g. [HourlySchedule]) are preserved verbatim in [preservedSchedule]
+/// so opening and saving a project does not silently rewrite them.
 class MicroInverterBankDraft {
   MicroInverterBankDraft({
     required this.id,
@@ -427,6 +428,7 @@ class MicroInverterBankDraft {
     this.minSocShutdown = 0.0,
     this.inverterEfficiency = 0.95,
     List<TimeWindowDraft>? windows,
+    this.preservedSchedule,
   }) : windows = windows ?? <TimeWindowDraft>[];
 
   String id;
@@ -437,14 +439,25 @@ class MicroInverterBankDraft {
   double minSocShutdown;
   double inverterEfficiency;
 
-  /// Empty list = `AlwaysOnSchedule`. Non-empty = `TimeWindowSchedule`.
+  /// Empty list = fall back to [preservedSchedule] or
+  /// [AlwaysOnSchedule]. Non-empty = [TimeWindowSchedule].
   final List<TimeWindowDraft> windows;
 
+  /// Engine schedule the draft was loaded from when it is not one of
+  /// the kinds the UI can edit directly (currently: [HourlySchedule]).
+  /// Survives round-trip until the user explicitly adds a window, at
+  /// which point [buildSchedule] returns the new [TimeWindowSchedule].
+  BankSchedule? preservedSchedule;
+
   BankSchedule buildSchedule() {
-    if (windows.isEmpty) return const AlwaysOnSchedule();
-    return TimeWindowSchedule(
-      windows.map((w) => TimeWindow(startHour: w.startHour, endHour: w.endHour, factor: w.factor)).toList(growable: false),
-    );
+    if (windows.isNotEmpty) {
+      return TimeWindowSchedule(
+        windows
+            .map((w) => TimeWindow(startHour: w.startHour, endHour: w.endHour, factor: w.factor))
+            .toList(growable: false),
+      );
+    }
+    return preservedSchedule ?? const AlwaysOnSchedule();
   }
 
   MicroInverterBank build() => MicroInverterBank(
@@ -475,6 +488,8 @@ class MicroInverterBankDraft {
             endHour: w.endHour,
             factor: w.factor,
           )));
+    } else if (sched is! AlwaysOnSchedule) {
+      draft.preservedSchedule = sched;
     }
     return draft;
   }

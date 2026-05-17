@@ -112,6 +112,11 @@ class EnergyRouter {
     final bankDeliveries = List<double>.filled(banks.length, 0.0);
     final bankShortfalls = List<double>.filled(banks.length, 0.0);
 
+    // Per-battery cumulative AC kWh already drawn this step (direct
+    // discharge in Step 2 plus prior banks). Used to honour the battery
+    // rate cap when multiple banks share one source battery.
+    final batteryAcUsed = List<double>.from(actualDirectDischarge);
+
     for (var b = 0; b < banks.length; b++) {
       final bank = banks[b];
       final requested = plan.bankDeliveryRequestsKwh[bank.id] ?? 0.0;
@@ -137,7 +142,11 @@ class EnergyRouter {
       final acFromStored = usableStored *
           dischargeEfficiency[battIdx] *
           bank.inverterEfficiency;
-      final battRateAc = maxDischargeKw[battIdx] * stepHours * bank.inverterEfficiency;
+      // Remaining headroom on this battery's discharge cap, after
+      // direct-discharge and any earlier banks in declared order.
+      final battAcRemaining =
+          math.max(0.0, maxDischargeKw[battIdx] * stepHours - batteryAcUsed[battIdx]);
+      final battRateAc = battAcRemaining * bank.inverterEfficiency;
       final delivered = math.min(targetKwh, math.min(math.min(acRateCap, acFromStored), battRateAc));
       if (delivered <= 0) {
         bankShortfalls[b] = targetKwh;
@@ -149,6 +158,13 @@ class EnergyRouter {
           ? 0.0
           : delivered / bank.inverterEfficiency / dischargeEfficiency[battIdx];
       socs[battIdx] -= storedWithdrawal;
+      // Track AC-equivalent draw against the battery's rate cap. We
+      // count `delivered / inverterEfficiency` (the AC-side draw before
+      // the bank's own inverter loss) so the cap holds in the same units
+      // as `maxDischargeKw[i] * stepHours` used above.
+      batteryAcUsed[battIdx] += bank.inverterEfficiency == 0
+          ? 0.0
+          : delivered / bank.inverterEfficiency;
     }
 
     // Step 4: Bank AC output → covers remaining load, then export.

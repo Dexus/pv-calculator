@@ -229,6 +229,68 @@ void main() {
     });
   });
 
+  group('Shared-battery rate cap', () {
+    test('two banks sharing one battery never exceed battery maxDischargeKw', () {
+      // Two 800 W banks fed by one battery rated at 1.0 kW discharge.
+      // Without the per-step cap, both banks would each deliver 0.8 kWh
+      // in a 1-h step (1.6 kWh combined), violating the battery's rate.
+      final result = const PvSimulator().run(_config(
+        batteries: const [
+          BatteryConfig(
+            id: 'b1',
+            capacityKwh: 20.0,
+            maxChargeKw: 5.0,
+            maxDischargeKw: 1.0,
+            initialSocKwh: 20.0,
+          ),
+        ],
+        load: const LoadProfile(dailyKwh: 0),
+        peakKw: 0.001,
+        policy: const ConstantFeed24hPolicy(),
+        banks: const [
+          MicroInverterBank(
+            id: 'bank-a',
+            batteryId: 'b1',
+            count: 1,
+            unitRatedPowerW: 800,
+            minSocShutdown: 0.0,
+            inverterEfficiency: 1.0,
+          ),
+          MicroInverterBank(
+            id: 'bank-b',
+            batteryId: 'b1',
+            count: 1,
+            unitRatedPowerW: 800,
+            minSocShutdown: 0.0,
+            inverterEfficiency: 1.0,
+          ),
+        ],
+      ));
+      const stepHours = 1.0;
+      const rateCapAcKwh = 1.0 * stepHours;
+      for (final step in result.steps) {
+        // Per-battery cumulative AC discharge for this step.
+        expect(
+          step.batteryDischargesKwh[0],
+          lessThanOrEqualTo(rateCapAcKwh + 1e-9),
+          reason: 'Battery AC discharge ${step.batteryDischargesKwh[0]} '
+              'exceeded cap $rateCapAcKwh at hour ${step.hourOfDay}',
+        );
+        // Combined bank delivery is also limited by the same cap
+        // (inverterEfficiency = 1.0 here, so AC and DC coincide).
+        expect(
+          step.microInverterDeliveredKwh,
+          lessThanOrEqualTo(rateCapAcKwh + 1e-9),
+        );
+      }
+      // Sanity: the first bank should saturate at 0.8 kWh, the second
+      // gets whatever remains under the 1.0 kWh battery cap.
+      final firstStep = result.steps.first;
+      expect(firstStep.microInverterDeliveriesKwh[0], closeTo(0.8, 1e-6));
+      expect(firstStep.microInverterDeliveriesKwh[1], closeTo(0.2, 1e-6));
+    });
+  });
+
   group('Validation', () {
     test('rejects micro-inverter bank with unknown battery', () {
       expect(
