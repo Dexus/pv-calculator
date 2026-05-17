@@ -167,6 +167,10 @@ class _ProjectsTabState extends State<ProjectsTab> {
 
   Future<void> _deleteProject(ProjectRow project) async {
     final l = AppLocalizations.of(context);
+    // Capture the controller before the await so we don't reach back into
+    // `context` once the confirm dialog returns (the host widget could
+    // have been disposed in the meantime).
+    final controller = context.read<ProjectController>();
     final ok = await _confirm(
       title: l.projectListDeleteTitle,
       body: l.projectListDeleteBody(project.name),
@@ -174,6 +178,14 @@ class _ProjectsTabState extends State<ProjectsTab> {
       cancel: l.commonCancel,
     );
     if (!ok) return;
+    // Cascade deletes the scenarios too, so any of them that the editor is
+    // currently holding is about to disappear. Reset the controller to an
+    // unsaved demo draft before the row goes away — otherwise the editor
+    // keeps a stale (projectId, scenarioId) and the next Save Current
+    // tries to UPDATE a deleted row, which throws inside `findById(id)!`.
+    if (controller.projectId == project.id) {
+      _resetActiveDraft(controller, l);
+    }
     _projects.deleteProject(project.id);
     _refresh();
   }
@@ -219,6 +231,7 @@ class _ProjectsTabState extends State<ProjectsTab> {
 
   Future<void> _deleteScenario(ScenarioRow scenario) async {
     final l = AppLocalizations.of(context);
+    final controller = context.read<ProjectController>();
     final ok = await _confirm(
       title: l.projectsTabDeleteScenarioTitle,
       body: l.projectsTabDeleteScenarioBody(scenario.name),
@@ -226,9 +239,29 @@ class _ProjectsTabState extends State<ProjectsTab> {
       cancel: l.commonCancel,
     );
     if (!ok) return;
+    // Same Save-Current trap as _deleteProject: if the editor is holding
+    // this scenario, swap it for an unsaved demo draft before the row
+    // disappears.
+    if (controller.scenarioId == scenario.id) {
+      _resetActiveDraft(controller, l);
+    }
     _scenarios.delete(scenario.id);
     _compareIds.remove(scenario.id);
     _refresh();
+  }
+
+  /// Resets [controller] to an unsaved fresh demo draft. Used after the
+  /// active project or scenario gets deleted out from under it.
+  void _resetActiveDraft(ProjectController controller, AppLocalizations l) {
+    controller.newProject(
+      name: _uniqueName(
+        l.projectListNewDefaultName,
+        _projectList.map((p) => p.name).toSet(),
+      ),
+      defaultArrayLabel: l.demoArrayLabel,
+      defaultInverterLabel: l.demoInverterLabel,
+      defaultBatteryLabel: l.demoBatteryLabel,
+    );
   }
 
   Future<void> _exportScenario(ScenarioRow scenario) async {
