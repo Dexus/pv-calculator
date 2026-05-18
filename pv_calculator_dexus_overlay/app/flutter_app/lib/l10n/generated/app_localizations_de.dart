@@ -18,6 +18,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get commonCancel => 'Abbrechen';
 
   @override
+  String get commonOk => 'OK';
+
+  @override
   String get commonDelete => 'Löschen';
 
   @override
@@ -348,6 +351,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get pdfSectionMonthlyFinalYear => 'Monatswerte (nur letztes Jahr)';
+
+  @override
+  String get pdfSectionMonthlyCashflow => 'Monatlicher Cashflow';
 
   @override
   String get pdfSectionArrays => 'PV-Module';
@@ -866,6 +872,30 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get monthlyColExport => 'Export (kWh)';
+
+  @override
+  String get monthlyColImportCost => 'Bezugskosten (€)';
+
+  @override
+  String get monthlyColExportRevenue => 'Einspeise-Erlös (€)';
+
+  @override
+  String get monthlyColNetCost => 'Netto (€)';
+
+  @override
+  String get catalogPickButton => 'Aus Bibliothek wählen';
+
+  @override
+  String get catalogPickerTitle => 'Komponente wählen';
+
+  @override
+  String get catalogSearchHint => 'Suchen';
+
+  @override
+  String get catalogEmptyState => 'Keine passenden Einträge';
+
+  @override
+  String get catalogModuleCountPrompt => 'Anzahl Module';
 
   @override
   String get monthJan => 'Jan';

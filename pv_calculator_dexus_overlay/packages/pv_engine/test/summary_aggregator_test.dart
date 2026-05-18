@@ -39,6 +39,41 @@ void main() {
       expect(sumOf((b) => b.curtailedDcKwh), closeTo(result.summary.curtailedDcKwh, 1e-9));
       expect(sumOf((b) => b.curtailedAcKwh), closeTo(result.summary.curtailedAcKwh, 1e-9));
       expect(sumOf((b) => b.curtailedExportKwh), closeTo(result.summary.curtailedExportKwh, 1e-9));
+      // No tariff configured → all cashflow buckets must be zero.
+      expect(sumOf((b) => b.importCostEur), 0);
+      expect(sumOf((b) => b.exportRevenueEur), 0);
+      expect(sumOf((b) => b.netCostEur), 0);
+    });
+
+    test('monthly cashflow buckets sum to annual SimulationSummary scalars', () {
+      final config = SimulationConfig(
+        arrays: const [
+          PvArray(id: 'r', label: 'R', peakKw: 4.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        batteries: const [BatteryConfig(id: 'b', capacityKwh: 5, maxChargeKw: 2, maxDischargeKw: 2)],
+        loadProfile: const LoadProfile(dailyKwh: 8),
+        days: 365,
+        latitudeDeg: 50.0,
+        tariff: const TariffConfig(
+          importPricePerKwh: 0.30,
+          exportPricePerKwh: 0.08,
+        ),
+      );
+      final result = const PvSimulator().run(config);
+      final monthly = SummaryAggregator.monthly(result.steps);
+
+      double sumOf(double Function(MonthlyBucket b) selector) =>
+          monthly.fold<double>(0, (acc, b) => acc + selector(b));
+
+      expect(result.summary.importCostEur, isNotNull);
+      expect(result.summary.exportRevenueEur, isNotNull);
+      expect(sumOf((b) => b.importCostEur),
+          closeTo(result.summary.importCostEur!, 1e-9));
+      expect(sumOf((b) => b.exportRevenueEur),
+          closeTo(result.summary.exportRevenueEur!, 1e-9));
+      expect(sumOf((b) => b.netCostEur),
+          closeTo(result.summary.netCostEur!, 1e-9));
     });
 
     test('one-day run lands in the expected month bucket', () {
@@ -110,7 +145,45 @@ void main() {
             closeTo(viaList[i].curtailedAcKwh, 1e-9));
         expect(viaBuffer[i].curtailedExportKwh,
             closeTo(viaList[i].curtailedExportKwh, 1e-9));
+        expect(viaBuffer[i].importCostEur,
+            closeTo(viaList[i].importCostEur, 1e-9));
+        expect(viaBuffer[i].exportRevenueEur,
+            closeTo(viaList[i].exportRevenueEur, 1e-9));
       }
+    });
+
+    test('buffer fast path matches list fallback for cashflow buckets', () {
+      // Same parity invariant as above, but with a tariff configured so
+      // the cashflow columns carry non-zero values that must line up
+      // between the buffer fast path and the per-step list fallback.
+      final config = SimulationConfig(
+        arrays: const [
+          PvArray(id: 'r', label: 'R', peakKw: 4.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        batteries: const [BatteryConfig(id: 'b', capacityKwh: 5, maxChargeKw: 2, maxDischargeKw: 2)],
+        loadProfile: const LoadProfile(dailyKwh: 8),
+        days: 365,
+        latitudeDeg: 50.0,
+        tariff: const TariffConfig(
+          importPricePerKwh: 0.30,
+          exportPricePerKwh: 0.08,
+        ),
+      );
+      final result = const PvSimulator().run(config);
+      final viaBuffer = SummaryAggregator.monthly(result.steps);
+      final viaList = SummaryAggregator.monthly(
+        List<SimulationStep>.of(result.steps),
+      );
+      double total = 0;
+      for (var i = 0; i < 12; i++) {
+        total += viaBuffer[i].importCostEur;
+        expect(viaBuffer[i].importCostEur,
+            closeTo(viaList[i].importCostEur, 1e-9));
+        expect(viaBuffer[i].exportRevenueEur,
+            closeTo(viaList[i].exportRevenueEur, 1e-9));
+      }
+      expect(total, greaterThan(0));
     });
   });
 }

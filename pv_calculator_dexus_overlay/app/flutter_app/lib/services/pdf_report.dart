@@ -78,6 +78,11 @@ Future<Uint8List> buildReportPdf({
           _monthlyTable(l, monthly),
           pw.SizedBox(height: 16),
         ],
+        if (monthly.isNotEmpty && s.netCostEur != null) ...[
+          _section(l.pdfSectionMonthlyCashflow),
+          _monthlyCashflowTable(l, monthly),
+          pw.SizedBox(height: 16),
+        ],
         if (draft.arrays.isNotEmpty) ...[
           _section(l.pdfSectionArrays),
           _arraysTable(l, draft.arrays),
@@ -192,6 +197,33 @@ pw.Widget _perYearTable(AppLocalizations l, List<SimulationSummary> years) {
       3: pw.Alignment.centerRight,
       4: pw.Alignment.centerRight,
       5: pw.Alignment.centerRight,
+    },
+    border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+  );
+}
+
+pw.Widget _monthlyCashflowTable(AppLocalizations l, List<MonthlyBucket> rows) {
+  final data = <List<String>>[
+    [
+      l.pdfColMonth,
+      l.monthlyColImportCost,
+      l.monthlyColExportRevenue,
+      l.monthlyColNetCost,
+    ],
+    for (final b in rows)
+      [
+        b.month.toString(),
+        b.importCostEur.toStringAsFixed(2),
+        b.exportRevenueEur.toStringAsFixed(2),
+        b.netCostEur.toStringAsFixed(2),
+      ],
+  ];
+  return pw.TableHelper.fromTextArray(
+    data: data,
+    headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+    cellStyle: const pw.TextStyle(fontSize: 9),
+    cellAlignments: {
+      for (var i = 1; i <= 3; i++) i: pw.Alignment.centerRight,
     },
     border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
   );

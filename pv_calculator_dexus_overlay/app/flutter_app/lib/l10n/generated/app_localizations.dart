@@ -120,6 +120,12 @@ abstract class AppLocalizations {
   /// **'Abbrechen'**
   String get commonCancel;
 
+  /// No description provided for @commonOk.
+  ///
+  /// In de, this message translates to:
+  /// **'OK'**
+  String get commonOk;
+
   /// No description provided for @commonDelete.
   ///
   /// In de, this message translates to:
@@ -701,6 +707,12 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Monatswerte (nur letztes Jahr)'**
   String get pdfSectionMonthlyFinalYear;
+
+  /// No description provided for @pdfSectionMonthlyCashflow.
+  ///
+  /// In de, this message translates to:
+  /// **'Monatlicher Cashflow'**
+  String get pdfSectionMonthlyCashflow;
 
   /// No description provided for @pdfSectionArrays.
   ///
@@ -1596,6 +1608,54 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Export (kWh)'**
   String get monthlyColExport;
+
+  /// No description provided for @monthlyColImportCost.
+  ///
+  /// In de, this message translates to:
+  /// **'Bezugskosten (€)'**
+  String get monthlyColImportCost;
+
+  /// No description provided for @monthlyColExportRevenue.
+  ///
+  /// In de, this message translates to:
+  /// **'Einspeise-Erlös (€)'**
+  String get monthlyColExportRevenue;
+
+  /// No description provided for @monthlyColNetCost.
+  ///
+  /// In de, this message translates to:
+  /// **'Netto (€)'**
+  String get monthlyColNetCost;
+
+  /// No description provided for @catalogPickButton.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus Bibliothek wählen'**
+  String get catalogPickButton;
+
+  /// No description provided for @catalogPickerTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Komponente wählen'**
+  String get catalogPickerTitle;
+
+  /// No description provided for @catalogSearchHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Suchen'**
+  String get catalogSearchHint;
+
+  /// No description provided for @catalogEmptyState.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine passenden Einträge'**
+  String get catalogEmptyState;
+
+  /// No description provided for @catalogModuleCountPrompt.
+  ///
+  /// In de, this message translates to:
+  /// **'Anzahl Module'**
+  String get catalogModuleCountPrompt;
 
   /// No description provided for @monthJan.
   ///

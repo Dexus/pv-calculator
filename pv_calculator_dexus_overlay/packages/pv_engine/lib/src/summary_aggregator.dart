@@ -100,6 +100,8 @@ class MonthlyBucket {
     required this.curtailedDcKwh,
     required this.curtailedAcKwh,
     required this.curtailedExportKwh,
+    this.importCostEur = 0.0,
+    this.exportRevenueEur = 0.0,
   });
 
   final int month;
@@ -119,6 +121,18 @@ class MonthlyBucket {
 
   /// AC-side grid-export-limit curtailment in **AC kWh**.
   final double curtailedExportKwh;
+
+  /// Grid-import cost in € for the month. `0.0` whenever no tariff was
+  /// configured. Sum across all 12 buckets matches
+  /// `SimulationSummary.importCostEur` within floating-point tolerance.
+  final double importCostEur;
+
+  /// Grid-export revenue in € for the month. Same zero-when-no-tariff
+  /// convention as [importCostEur].
+  final double exportRevenueEur;
+
+  /// Derived net cost: [importCostEur] minus [exportRevenueEur].
+  double get netCostEur => importCostEur - exportRevenueEur;
 }
 
 class SummaryAggregator {
@@ -156,6 +170,8 @@ class SummaryAggregator {
     final curtailedDc = Float64List(12);
     final curtailedAc = Float64List(12);
     final curtailedExport = Float64List(12);
+    final importCost = Float64List(12);
+    final exportRevenue = Float64List(12);
 
     for (var i = 0; i < buf.length; i++) {
       final m = monthOfDayOfYear(buf.dayOfYear[i]) - 1;
@@ -169,6 +185,8 @@ class SummaryAggregator {
       curtailedDc[m] += buf.curtailedDcKwh[i];
       curtailedAc[m] += buf.curtailedAcKwh[i];
       curtailedExport[m] += buf.curtailedExportKwh[i];
+      importCost[m] += buf.importCostEur[i];
+      exportRevenue[m] += buf.exportRevenueEur[i];
     }
 
     return List<MonthlyBucket>.generate(
@@ -185,6 +203,8 @@ class SummaryAggregator {
         curtailedDcKwh: curtailedDc[i],
         curtailedAcKwh: curtailedAc[i],
         curtailedExportKwh: curtailedExport[i],
+        importCostEur: importCost[i],
+        exportRevenueEur: exportRevenue[i],
       ),
     );
   }
@@ -200,6 +220,8 @@ class SummaryAggregator {
     final curtailedDc = List<double>.filled(12, 0);
     final curtailedAc = List<double>.filled(12, 0);
     final curtailedExport = List<double>.filled(12, 0);
+    final importCost = List<double>.filled(12, 0);
+    final exportRevenue = List<double>.filled(12, 0);
 
     for (final step in steps) {
       final m = monthOfDayOfYear(step.dayOfYear) - 1;
@@ -213,6 +235,8 @@ class SummaryAggregator {
       curtailedDc[m] += step.curtailedDcKwh;
       curtailedAc[m] += step.curtailedAcKwh;
       curtailedExport[m] += step.curtailedExportKwh;
+      importCost[m] += step.importCostEur;
+      exportRevenue[m] += step.exportRevenueEur;
     }
 
     return List<MonthlyBucket>.generate(
@@ -229,6 +253,8 @@ class SummaryAggregator {
         curtailedDcKwh: curtailedDc[i],
         curtailedAcKwh: curtailedAc[i],
         curtailedExportKwh: curtailedExport[i],
+        importCostEur: importCost[i],
+        exportRevenueEur: exportRevenue[i],
       ),
     );
   }

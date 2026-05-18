@@ -4,6 +4,7 @@
   "commonAdd": "Ajouter",
   "commonRemove": "Supprimer",
   "commonCancel": "Annuler",
+  "commonOk": "OK",
   "commonDelete": "Supprimer",
   "commonSearch": "Rechercher",
 
@@ -113,6 +114,7 @@
   "pdfSectionPerYear": "Répartition annuelle",
   "pdfSectionMonthly": "Mensuel",
   "pdfSectionMonthlyFinalYear": "Mensuel (dernière année uniquement)",
+  "pdfSectionMonthlyCashflow": "Flux mensuel",
   "pdfSectionArrays": "Modules PV",
   "pdfSectionBanks": "Bancs de micro-onduleurs",
   "pdfSectionWarnings": "Avertissements",
@@ -274,6 +276,15 @@
   "monthlyColBatteryDischarge": "Bat-déch. (kWh)",
   "monthlyColImport": "Import (kWh)",
   "monthlyColExport": "Export (kWh)",
+  "monthlyColImportCost": "Coût import (€)",
+  "monthlyColExportRevenue": "Revenu export (€)",
+  "monthlyColNetCost": "Net (€)",
+
+  "catalogPickButton": "Choisir dans la bibliothèque",
+  "catalogPickerTitle": "Choisir un composant",
+  "catalogSearchHint": "Rechercher",
+  "catalogEmptyState": "Aucun résultat",
+  "catalogModuleCountPrompt": "Nombre de modules",
 
   "monthJan": "Jan",
   "monthFeb": "Fév",
