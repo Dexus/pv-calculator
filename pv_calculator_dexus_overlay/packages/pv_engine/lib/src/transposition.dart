@@ -30,6 +30,41 @@ const double _albedo = 0.2;
 ///     models (Hay-Davies / Perez). Upgrade path is to swap this function
 ///     out behind the same signature.
 ///   * Air-mass absorption and IAM (incidence-angle modifier) ignored.
+/// Sun zenith + azimuth in radians for a given site and instant.
+///
+/// Cached by [HorizontalToPoaSource] so multiple arrays sampled at the
+/// same `(dayOfYear, hourOfDay)` reuse one trig pass per step instead
+/// of re-deriving the geometry per array.
+class SolarPosition {
+  const SolarPosition({required this.zenithRad, required this.azimuthRad});
+  final double zenithRad;
+  final double azimuthRad;
+}
+
+/// Derives [SolarPosition] for a site at one instant. The UTC-to-local
+/// conversion baked into [transposeToPoa] lives here too so callers can
+/// precompute once and pass the result back in.
+SolarPosition solarPositionFor({
+  required double latitudeDeg,
+  required double longitudeDeg,
+  required int dayOfYear,
+  required double hourOfDay, // UTC hour [0, 24)
+}) {
+  final solarHourOfDay = hourOfDay + longitudeDeg / 15.0;
+  final zenithRad = _solarZenithRad(
+    latitudeDeg: latitudeDeg,
+    dayOfYear: dayOfYear,
+    hourOfDay: solarHourOfDay,
+  );
+  final azimuthRad = _solarAzimuthRad(
+    latitudeDeg: latitudeDeg,
+    dayOfYear: dayOfYear,
+    hourOfDay: solarHourOfDay,
+    zenithRad: zenithRad,
+  );
+  return SolarPosition(zenithRad: zenithRad, azimuthRad: azimuthRad);
+}
+
 WeatherSample transposeToPoa({
   required HorizontalIrradianceSample h,
   required double tiltDeg,
@@ -38,6 +73,7 @@ WeatherSample transposeToPoa({
   required double longitudeDeg,
   required int dayOfYear,
   required double hourOfDay, // UTC hour [0, 24)
+  SolarPosition? solarPosition,
 }) {
   if (h.globalHorizontalWPerM2 <= 0) {
     return WeatherSample(
@@ -47,19 +83,17 @@ WeatherSample transposeToPoa({
     );
   }
 
-  // PVGIS timestamps are UTC. Convert to local solar time so the hour
-  // angle is correct for sites away from the prime meridian.
-  final solarHourOfDay = hourOfDay + longitudeDeg / 15.0;
+  final position = solarPosition ??
+      solarPositionFor(
+        latitudeDeg: latitudeDeg,
+        longitudeDeg: longitudeDeg,
+        dayOfYear: dayOfYear,
+        hourOfDay: hourOfDay,
+      );
 
   final tiltRad = tiltDeg * math.pi / 180.0;
   final cosTilt = math.cos(tiltRad);
-
-  final zenithRad = _solarZenithRad(
-    latitudeDeg: latitudeDeg,
-    dayOfYear: dayOfYear,
-    hourOfDay: solarHourOfDay,
-  );
-  final cosZenith = math.cos(zenithRad);
+  final cosZenith = math.cos(position.zenithRad);
 
   final ghi = h.globalHorizontalWPerM2;
   final dhi = h.diffuseHorizontalWPerM2.clamp(0.0, ghi).toDouble();
@@ -72,14 +106,9 @@ WeatherSample transposeToPoa({
     final bhi = math.max(0.0, ghi - dhi);
     final dni = bhi / cosZenith;
     final cosIncidence = _cosIncidence(
-      zenithRad: zenithRad,
+      zenithRad: position.zenithRad,
       surfaceTiltRad: tiltRad,
-      solarAzimuthRad: _solarAzimuthRad(
-        latitudeDeg: latitudeDeg,
-        dayOfYear: dayOfYear,
-        hourOfDay: solarHourOfDay,
-        zenithRad: zenithRad,
-      ),
+      solarAzimuthRad: position.azimuthRad,
       surfaceAzimuthRad: azimuthDeg * math.pi / 180.0,
     );
     if (cosIncidence > 0) {
