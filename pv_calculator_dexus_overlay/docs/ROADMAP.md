@@ -109,7 +109,7 @@ Ziel: App für Endnutzer nutzbar, validiert, barrierefrei (PRD Kap. 7, 8.1).
 - [x] **Slice 3: CSV-Zeitreihen-Export mit Array-Aufschlüsselung**. `SimulationStep` um `dcKwhByArray` / `acKwhByArray` erweitert (per-Array-AC entsteht durch Skalierung mit dem Inverter-Verlust-Verhältnis, Energieerhaltung im Test `sums to step.pvDcKwh/pvAcKwh`). `stepsCsv(arrayIds: [...])` ergänzt eine `dcKwh_<id>` / `acKwh_<id>`-Spalte pro Array; Identifier werden auf `[A-Za-z0-9_\-]` sanitisiert. Call-Site in `ResultsTab` reicht `draft.arrays.map((a) => a.id)` durch.
 - [x] **Slice 4: Release-Prozess**. `appVersion` in `lib/app_info.dart` (0.1.0 → 0.2.0) synchronisiert mit `pubspec.yaml`; About-Dialog zeigt jetzt `appVersion (engine kEngineVersion)`. Neue Datei `pv_calculator_dexus_overlay/CHANGELOG.md` (Keep a Changelog, SemVer) listet die Phase-8-Slices.
 - [x] **Slice 5: Erste a11y-Schicht**. `_KpiCard` bündelt Label + Wert in einem `Semantics`-Knoten (`excludeSemantics: true` auf den `Text`-Kindern), damit Screenreader „Eigenverbrauch, 1234 kWh" statt zweier losgelöster Text-Knoten lesen. PRD NFR-07; weitere Designsystem-Schritte (Kontrast, skalierbare Schrift) folgen in einer eigenen Slice.
-- [ ] PDF/DOCX-Bericht (Pro, später).
+- [x] **PDF-Bericht (Pro)**: `lib/services/pdf_report.dart` rendert A4-Bericht (Titel, KPI-Tabelle, Per-Jahr-Aufschlüsselung, Monatswerte, Arrays, Bank-Coverage, Warnungen, AGPL-Footer mit Synth-Hinweis). Über `package:pdf` + `package:printing`; Engine bleibt runtime-dep-free. Eintrag „Bericht exportieren (PDF)" im Auswertung-Tab, im Free-Build deaktiviert mit `(Pro)`-Tooltip. DOCX-Variante verschoben (siehe unten).
 
 ### Verschoben
 
@@ -117,6 +117,7 @@ Ziel: App für Endnutzer nutzbar, validiert, barrierefrei (PRD Kap. 7, 8.1).
 - **Auto-Enable Expertenmodus beim Laden eines Expert-Szenarios**: Aktuell zeigt der Auswertung-Tab nur ein Banner. Ein automatisches Umschalten im `ProjectController.loadDraft`-Pfad wäre invasiver (UX-Preference vs. Szenario-State); im Banner-Status belassen, bis genug Telemetrie zeigt, dass Nutzer das Banner übersehen.
 - **Strukturierte Engine-Warnings**: aktuell laufen die nicht-blockierenden Warnungen UI-seitig (`ConfigDraft.validationWarnings()`). Sobald ein Server-Lauf der Engine zustande kommt (Phase 10 Backend), müssen die gleichen Regeln im Kern leben. Trigger: erster Backend-Endpoint, der eine Simulation ohne UI fährt.
 - **CSV-Übersetzung der Engine-Fehlertexte**: `ArgumentError.message`-Strings sind weiterhin englisch; UI-Karten haben lokalisierte Titel und englische Bodies. Trigger: erste echte fremdsprachige Anwender-Beschwerde.
+- **DOCX-Variante des Berichts**: Phase 8 listete „PDF/DOCX". Geliefert ist nur PDF — DOCX-Roundtrip mit Word/LibreOffice erfordert eine separate Dart-Bibliothek (Stand 05/2026 keine etablierte). Trigger: erster Kunde, der explizit eine editierbare Office-Version verlangt.
 
 ---
 
@@ -151,10 +152,16 @@ Ziel: Reale Wetterdaten, Komponentenbibliothek, optional Cloud (PRD FR-02, FR-04
 - [ ] Weather-Proxy-Backend: API-Keys serverseitig, Caching, Normalisierung (PVGIS, Global Solar Atlas).
 - [ ] Komponentenbibliothek: Module, Wechselrichter, Speicher lokal pflegbar, später remote aktualisierbar.
 - [ ] CSV-Lastprofile aus Smartmeter/Home Assistant/Shelly importieren.
-- [ ] Mehrjährige Simulation mit Degradationsmodell.
-- [ ] Tarifmodell: Einspeisevergütung, dynamische Strompreise.
+- [x] **Mehrjährige Simulation mit Degradationsmodell** (Pro): `SimulationConfig.simulationYears` (1..30) + `PvArray.degradationPctPerYear`. Engine läuft den existierenden Linear-Pfad pro Jahr mit deratiertem `peakKw` und SOC-Carry-over; Per-Jahr-KPIs in `SimulationSummary.perYearSummaries`. Im UI Pro-gated (Free-Build clamped auf `1`). Schema v4. Engine `0.7.0 → 0.8.0`.
+- [x] **Tarifmodell** (Free: Pauschalpreise · Pro: 24-Slot-TOU): `TariffConfig` in `lib/src/tariff.dart`, optionale `SimulationConfig.tariff`. Im UI `widgets/forms/tariff_section.dart` mit Master-Switch und Pro-gated TOU-Grid. Neue €-KPIs `importCostEur`/`exportRevenueEur`/`netCostEur` im Auswertung-Tab. Schema v5. Engine `0.8.0 → 0.9.0`.
 - [ ] Optimierer: Speichergröße, Ausgangsleistung, Array-Mix automatisch variieren (Budget-begrenzt).
 - [ ] Lizenz/Account-Service (Freemium/Abo), opt-in Cloud-Sync.
+
+### Verschoben
+
+- **Persistierte Per-Jahr-Zeitreihen für Multi-Year**: nur `perYearSummaries` (Skalare) wandern in `simulation_runs.summary_json`. Pro Jahr 8760×N Schritte wäre für eine 30-Jahres-Simulation untragbar (>10 M Floats). Trigger: erste konkrete Anforderung an Per-Jahr-Charts.
+- **Monatliche Cashflow-Aufschlüsselung**: aktuell nur Jahres-€-KPIs. `SimulationStep` müsste `importCostEur`/`exportRevenueEur` tragen, damit `SummaryAggregator.monthly` summieren kann — ein größerer Refactor des kolumnaren Step-Buffers. Trigger: erster Nutzer, der Monatswerte für €-Cashflow im UI erwartet.
+- **CSV-Spalten für €-Kosten**: dieselbe Voraussetzung wie monatliche Cashflows.
 
 ---
 
