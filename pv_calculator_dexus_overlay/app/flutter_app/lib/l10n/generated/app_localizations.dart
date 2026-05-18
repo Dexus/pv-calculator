@@ -1585,6 +1585,30 @@ abstract class AppLocalizations {
   /// **'Simulation fehlgeschlagen'**
   String get resultsErrorTitle;
 
+  /// No description provided for @resultsRunStarting.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird gestartet…'**
+  String get resultsRunStarting;
+
+  /// No description provided for @resultsRunPhasePreRun.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher-SOC einlaufen (Vorlauf)'**
+  String get resultsRunPhasePreRun;
+
+  /// No description provided for @resultsRunPhaseReporting.
+  ///
+  /// In de, this message translates to:
+  /// **'Berichtsjahr wird simuliert'**
+  String get resultsRunPhaseReporting;
+
+  /// No description provided for @resultsRunPhaseConvergence.
+  ///
+  /// In de, this message translates to:
+  /// **'Zyklische Konvergenz Iteration {iteration}'**
+  String resultsRunPhaseConvergence(int iteration);
+
   /// No description provided for @arraysTabHint.
   ///
   /// In de, this message translates to:

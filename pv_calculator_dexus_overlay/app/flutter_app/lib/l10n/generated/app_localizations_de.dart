@@ -869,6 +869,20 @@ class AppLocalizationsDe extends AppLocalizations {
   String get resultsErrorTitle => 'Simulation fehlgeschlagen';
 
   @override
+  String get resultsRunStarting => 'Wird gestartet…';
+
+  @override
+  String get resultsRunPhasePreRun => 'Speicher-SOC einlaufen (Vorlauf)';
+
+  @override
+  String get resultsRunPhaseReporting => 'Berichtsjahr wird simuliert';
+
+  @override
+  String resultsRunPhaseConvergence(int iteration) {
+    return 'Zyklische Konvergenz Iteration $iteration';
+  }
+
+  @override
   String get arraysTabHint =>
       'Kein PVGIS-Aufruf pro Array — alle Module beziehen ihre POA-Werte aus den im Tab „Einstrahlung“ geladenen Standortdaten.';
 

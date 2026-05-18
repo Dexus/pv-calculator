@@ -867,6 +867,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resultsErrorTitle => 'Simulation failed';
 
   @override
+  String get resultsRunStarting => 'Starting…';
+
+  @override
+  String get resultsRunPhasePreRun => 'Settling battery SOC (pre-run)';
+
+  @override
+  String get resultsRunPhaseReporting => 'Simulating reporting year';
+
+  @override
+  String resultsRunPhaseConvergence(int iteration) {
+    return 'Cyclic convergence iteration $iteration';
+  }
+
+  @override
   String get arraysTabHint =>
       'No per-array PVGIS call — every module derives POA from the site-level horizontal data loaded on the Irradiance tab.';
 

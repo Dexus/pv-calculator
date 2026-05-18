@@ -100,7 +100,7 @@ void main() {
 
     final settings = await _settings();
     await tester.pumpWidget(_resultsHost(controller, settings));
-    controller.run();
+    await controller.run();
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('pre-run-mode-card')), findsOneWidget);

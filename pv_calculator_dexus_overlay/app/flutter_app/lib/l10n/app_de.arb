@@ -313,6 +313,15 @@
   "resultsRun": "Simulation starten",
   "resultsRunMissingData": "Bitte zuerst Strahlungsdaten und mindestens ein PV-Array eintragen.",
   "resultsErrorTitle": "Simulation fehlgeschlagen",
+  "resultsRunStarting": "Wird gestartet…",
+  "resultsRunPhasePreRun": "Speicher-SOC einlaufen (Vorlauf)",
+  "resultsRunPhaseReporting": "Berichtsjahr wird simuliert",
+  "resultsRunPhaseConvergence": "Zyklische Konvergenz Iteration {iteration}",
+  "@resultsRunPhaseConvergence": {
+    "placeholders": {
+      "iteration": { "type": "int" }
+    }
+  },
 
   "arraysTabHint": "Kein PVGIS-Aufruf pro Array — alle Module beziehen ihre POA-Werte aus den im Tab „Einstrahlung“ geladenen Standortdaten.",
   "arraysSelectForCompass": "Für Kompass-Auswahl markiert",

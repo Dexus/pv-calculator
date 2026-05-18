@@ -269,6 +269,15 @@
   "resultsRun": "Lancer la simulation",
   "resultsRunMissingData": "Chargez d’abord les données d’irradiance et ajoutez au moins un champ PV.",
   "resultsErrorTitle": "Simulation échouée",
+  "resultsRunStarting": "Démarrage…",
+  "resultsRunPhasePreRun": "Stabilisation du SOC de la batterie (pré-exécution)",
+  "resultsRunPhaseReporting": "Simulation de l’année de référence",
+  "resultsRunPhaseConvergence": "Convergence cyclique, itération {iteration}",
+  "@resultsRunPhaseConvergence": {
+    "placeholders": {
+      "iteration": { "type": "int" }
+    }
+  },
 
   "arraysTabHint": "Aucun appel PVGIS par champ — tous les modules dérivent leur POA des données horizontales du site, chargées dans l’onglet « Irradiance ».",
   "arraysSelectForCompass": "Sélectionné pour la boussole",
