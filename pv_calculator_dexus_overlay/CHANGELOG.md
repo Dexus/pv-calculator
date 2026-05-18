@@ -14,6 +14,74 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-05-18 (app) / [0.9.0] — 2026-05-18 (engine)
+
+Phase 10 — Multi-year simulation, tariff model & PDF reports.
+
+### Added — Engine
+- **`SimulationConfig.simulationYears`** (default `1`, max `30`). When
+  `> 1`, the engine runs the existing per-year linear path once per
+  year with each array's `peakKw` derated by
+  `(1 - degradationPctPerYear/100)^year` and the SOC ledger carried
+  across year boundaries. The configured warm-up (singleWarmUp) runs
+  once in year 0 only. Schema bump to v4 only when a multi-year or
+  degradation knob is non-default.
+- **`PvArray.degradationPctPerYear`** (default `0.0`). Annual module
+  power loss in %/year; only effective with `simulationYears > 1`.
+- **`SimulationSummary.perYearSummaries`** (default `[]`). Length
+  equals `simulationYears` for multi-year runs, empty otherwise. The
+  top-level summary is the scalar sum across all years.
+- **`SimulationSummary.toJson` / `fromJson`** — engine-side
+  serialisation so per-year detail survives a persistence round-trip.
+- **`TariffConfig`** in `lib/src/tariff.dart`: flat €/kWh import /
+  export prices plus optional 24-slot time-of-use schedules.
+  Validated for non-negative prices and length 24.
+- **`SimulationConfig.tariff`** (nullable). When non-null, the
+  simulator multiplies finalised `gridImportKwh`/`gridExportKwh` by
+  the per-hour tariff slot **after** dispatch step 6 — the locked
+  1..6 dispatch order is preserved. Schema v5 is emitted only when a
+  tariff is configured.
+- **`SimulationSummary.importCostEur` / `exportRevenueEur` /
+  `netCostEur`** — nullable cashflow KPIs, populated whenever a
+  tariff is configured.
+
+### Changed — Engine
+- `keepSteps: true && simulationYears > 1` retains only the final
+  year's per-step data. Concatenation across years would corrupt
+  `SummaryAggregator.monthly`'s `dayOfYear` keying.
+- Engine version bumped `0.7.0 → 0.8.0` (multi-year + degradation)
+  then `0.8.0 → 0.9.0` (tariff model & cashflow KPIs).
+
+### Added — App
+- **Simulationsjahre NumberField** in the Auswertung tab's
+  simulation-parameters tile, behind the existing `kProFeatures`
+  Pro flag. Disabled with a `(Pro)` suffix in free builds.
+- **Per-array `degradationPctPerYear` NumberField** in the PV-Arrays
+  tab — shown unconditionally since `0.0` is a no-op default.
+- **`TariffSection`** in `widgets/forms/tariff_section.dart`: master
+  enable switch, flat €/kWh fields (Free), and a 24-slot TOU grid
+  (Pro-only, behind `kProFeatures`).
+- **Cashflow KPIs** (`Bezugskosten`, `Einspeise-Erlös`,
+  `Netto-Stromkosten`) rendered on the Auswertung tab when a tariff
+  is configured.
+- **PDF report export (Pro)** — `services/pdf_report.dart` builds an
+  A4 report with title block, KPI summary, per-year breakdown,
+  monthly table, PV arrays, micro-inverter bank coverage, warnings,
+  and an AGPL footer (plus a synthetic-irradiance disclaimer when
+  applicable). New "Bericht exportieren (PDF)" button on the
+  Auswertung tab; disabled with a `(Pro)` tooltip in free builds.
+- Adds `package:pdf` and `package:printing` as Flutter-app-only
+  dependencies; engine remains zero-runtime-dep.
+
+### Changed — App
+- `_ResultsBody` accepts injected `proFeatures` and `onSharePdf` so
+  widget tests can flip the gate without `--dart-define`.
+- `NumberField` gains an `enabled` flag for the new Pro gates.
+- Persistence helpers in `simulation_run_repository.dart`
+  serialise `SimulationSummary.perYearSummaries` so multi-year
+  scenario runs survive in `simulation_runs.summary_json`.
+- App version bumped `0.3.0 → 0.4.0`.
+
 ## [0.3.0] — 2026-05-18 (app) / [0.7.0] — 2026-05-18 (engine)
 
 Phase 9 — Performance & 15-Minute Resolution.
