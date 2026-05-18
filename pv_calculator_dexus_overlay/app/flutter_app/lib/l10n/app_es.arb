@@ -228,6 +228,10 @@
   "loadTitle": "Perfil de carga",
   "loadFieldDaily": "Consumo diario",
   "loadHourlyHint": "Forma horaria: perfil estándar de hogar alemán (24 valores). La edición manual de la forma horaria está prevista para una versión posterior.",
+  "loadCsvImportButton": "Importar CSV",
+  "loadCsvImportSuccess": "Perfil de carga importado desde CSV ({dailyKwh} kWh/día).",
+  "loadCsvImportError": "Importación fallida: {error}",
+  "loadHourlySummary": "Perfil horario desde importación (pico {peakHour}:00 — {peakKwh} kWh).",
 
   "resultsTitle": "Resultado — {name}",
   "resultsEmpty": "No se ha ejecutado ninguna simulación.",

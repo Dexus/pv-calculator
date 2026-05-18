@@ -715,6 +715,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'Hourly shape: German household standard profile (24 values). Manual editing of the hourly shape is planned for a later release.';
 
   @override
+  String get loadCsvImportButton => 'Import CSV';
+
+  @override
+  String loadCsvImportSuccess(String dailyKwh) {
+    return 'Load profile imported from CSV ($dailyKwh kWh/day).';
+  }
+
+  @override
+  String loadCsvImportError(String error) {
+    return 'Import failed: $error';
+  }
+
+  @override
+  String loadHourlySummary(int peakHour, String peakKwh) {
+    return 'Hourly profile from import (peak $peakHour:00 — $peakKwh kWh).';
+  }
+
+  @override
   String resultsTitle(String name) {
     return 'Result — $name';
   }

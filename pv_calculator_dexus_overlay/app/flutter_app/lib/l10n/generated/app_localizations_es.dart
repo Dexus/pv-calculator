@@ -718,6 +718,24 @@ class AppLocalizationsEs extends AppLocalizations {
       'Forma horaria: perfil estándar de hogar alemán (24 valores). La edición manual de la forma horaria está prevista para una versión posterior.';
 
   @override
+  String get loadCsvImportButton => 'Importar CSV';
+
+  @override
+  String loadCsvImportSuccess(String dailyKwh) {
+    return 'Perfil de carga importado desde CSV ($dailyKwh kWh/día).';
+  }
+
+  @override
+  String loadCsvImportError(String error) {
+    return 'Importación fallida: $error';
+  }
+
+  @override
+  String loadHourlySummary(int peakHour, String peakKwh) {
+    return 'Perfil horario desde importación (pico $peakHour:00 — $peakKwh kWh).';
+  }
+
+  @override
   String resultsTitle(String name) {
     return 'Resultado — $name';
   }

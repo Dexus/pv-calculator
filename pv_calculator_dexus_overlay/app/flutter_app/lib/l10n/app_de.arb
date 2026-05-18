@@ -258,6 +258,13 @@
   "loadTitle": "Lastprofil",
   "loadFieldDaily": "Tagesverbrauch",
   "loadHourlyHint": "Stundenform: deutsches Haushalts-Standardprofil (24 Werte). Eine manuelle Anpassung der Stundenform ist für eine spätere Version vorgesehen.",
+  "loadCsvImportButton": "CSV importieren",
+  "loadCsvImportSuccess": "Lastprofil aus CSV übernommen ({dailyKwh} kWh/Tag).",
+  "@loadCsvImportSuccess": {"placeholders": {"dailyKwh": {"type": "String"}}},
+  "loadCsvImportError": "Import fehlgeschlagen: {error}",
+  "@loadCsvImportError": {"placeholders": {"error": {"type": "String"}}},
+  "loadHourlySummary": "Stundenprofil aus Import (Spitze {peakHour} Uhr: {peakKwh} kWh).",
+  "@loadHourlySummary": {"placeholders": {"peakHour": {"type": "int"}, "peakKwh": {"type": "String"}}},
 
   "resultsTitle": "Ergebnis — {name}",
   "@resultsTitle": {"placeholders": {"name": {"type": "String"}}},

@@ -228,6 +228,10 @@
   "loadTitle": "Load profile",
   "loadFieldDaily": "Daily consumption",
   "loadHourlyHint": "Hourly shape: German household standard profile (24 values). Manual editing of the hourly shape is planned for a later release.",
+  "loadCsvImportButton": "Import CSV",
+  "loadCsvImportSuccess": "Load profile imported from CSV ({dailyKwh} kWh/day).",
+  "loadCsvImportError": "Import failed: {error}",
+  "loadHourlySummary": "Hourly profile from import (peak {peakHour}:00 — {peakKwh} kWh).",
 
   "resultsTitle": "Result — {name}",
   "resultsEmpty": "No simulation has been run.",

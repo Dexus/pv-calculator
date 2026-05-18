@@ -717,6 +717,24 @@ class AppLocalizationsDe extends AppLocalizations {
       'Stundenform: deutsches Haushalts-Standardprofil (24 Werte). Eine manuelle Anpassung der Stundenform ist für eine spätere Version vorgesehen.';
 
   @override
+  String get loadCsvImportButton => 'CSV importieren';
+
+  @override
+  String loadCsvImportSuccess(String dailyKwh) {
+    return 'Lastprofil aus CSV übernommen ($dailyKwh kWh/Tag).';
+  }
+
+  @override
+  String loadCsvImportError(String error) {
+    return 'Import fehlgeschlagen: $error';
+  }
+
+  @override
+  String loadHourlySummary(int peakHour, String peakKwh) {
+    return 'Stundenprofil aus Import (Spitze $peakHour Uhr: $peakKwh kWh).';
+  }
+
+  @override
   String resultsTitle(String name) {
     return 'Ergebnis — $name';
   }

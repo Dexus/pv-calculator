@@ -1333,6 +1333,30 @@ abstract class AppLocalizations {
   /// **'Stundenform: deutsches Haushalts-Standardprofil (24 Werte). Eine manuelle Anpassung der Stundenform ist für eine spätere Version vorgesehen.'**
   String get loadHourlyHint;
 
+  /// No description provided for @loadCsvImportButton.
+  ///
+  /// In de, this message translates to:
+  /// **'CSV importieren'**
+  String get loadCsvImportButton;
+
+  /// No description provided for @loadCsvImportSuccess.
+  ///
+  /// In de, this message translates to:
+  /// **'Lastprofil aus CSV übernommen ({dailyKwh} kWh/Tag).'**
+  String loadCsvImportSuccess(String dailyKwh);
+
+  /// No description provided for @loadCsvImportError.
+  ///
+  /// In de, this message translates to:
+  /// **'Import fehlgeschlagen: {error}'**
+  String loadCsvImportError(String error);
+
+  /// No description provided for @loadHourlySummary.
+  ///
+  /// In de, this message translates to:
+  /// **'Stundenprofil aus Import (Spitze {peakHour} Uhr: {peakKwh} kWh).'**
+  String loadHourlySummary(int peakHour, String peakKwh);
+
   /// No description provided for @resultsTitle.
   ///
   /// In de, this message translates to:
