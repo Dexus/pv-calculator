@@ -257,33 +257,58 @@ class _ArrayCard extends StatelessWidget {
   }
 }
 
-Future<int?> _promptModuleCount(BuildContext context, AppLocalizations l) async {
-  final ctrl = TextEditingController(text: '1');
-  final result = await showDialog<int>(
+Future<int?> _promptModuleCount(BuildContext context, AppLocalizations l) {
+  return showDialog<int>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(l.catalogModuleCountPrompt),
+    builder: (ctx) => _ModuleCountDialog(l: l),
+  );
+}
+
+/// Stateful so the [TextEditingController] is owned by the dialog
+/// widget and disposed only after the dialog is unmounted — pre-dispose
+/// races (caret callbacks firing after pop) would otherwise trigger
+/// "TextEditingController was used after being disposed" assertions.
+class _ModuleCountDialog extends StatefulWidget {
+  const _ModuleCountDialog({required this.l});
+
+  final AppLocalizations l;
+
+  @override
+  State<_ModuleCountDialog> createState() => _ModuleCountDialogState();
+}
+
+class _ModuleCountDialogState extends State<_ModuleCountDialog> {
+  final TextEditingController _ctrl = TextEditingController(text: '1');
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.l.catalogModuleCountPrompt),
       content: TextField(
-        controller: ctrl,
+        controller: _ctrl,
         keyboardType: const TextInputType.numberWithOptions(decimal: false),
         autofocus: true,
         decoration: const InputDecoration(border: OutlineInputBorder()),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(ctx).pop(),
-          child: Text(l.commonCancel),
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.l.commonCancel),
         ),
         FilledButton(
           onPressed: () {
-            final n = int.tryParse(ctrl.text.trim());
-            Navigator.of(ctx).pop(n);
+            final n = int.tryParse(_ctrl.text.trim());
+            Navigator.of(context).pop(n);
           },
-          child: Text(l.commonOk),
+          child: Text(widget.l.commonOk),
         ),
       ],
-    ),
-  );
-  ctrl.dispose();
-  return result;
+    );
+  }
 }

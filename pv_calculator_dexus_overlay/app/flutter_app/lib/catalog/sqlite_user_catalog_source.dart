@@ -7,8 +7,10 @@ import '../persistence/database.dart';
 /// Writable [CatalogSource] backed by the `component_catalog` table in
 /// the Phase-7 sqlite store. Rows persist the entry as JSON in
 /// `payload_json`; serialisation goes through
-/// `CatalogEntry.toJson`/`fromJson` so adding new entry kinds requires
-/// no schema work.
+/// `CatalogEntry.toJson`/`fromJson` so **new fields** on existing
+/// kinds need no schema work. Adding a new [ComponentKind] still
+/// requires a migration to widen the `kind` CHECK constraint in
+/// `persistence/schema.dart`.
 class SqliteUserCatalogSource extends CatalogSource {
   SqliteUserCatalogSource(this._db);
 

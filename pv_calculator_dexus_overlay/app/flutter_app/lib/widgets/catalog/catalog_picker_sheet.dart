@@ -117,6 +117,20 @@ class _PickerSheetState<T extends CatalogEntry>
                     if (snap.connectionState != ConnectionState.done) {
                       return const Center(child: CircularProgressIndicator());
                     }
+                    if (snap.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            '${l.catalogLoadError}\n\n${snap.error}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
                     final all = snap.data ?? const [];
                     final filtered = query.isEmpty
                         ? all
@@ -136,7 +150,7 @@ class _PickerSheetState<T extends CatalogEntry>
                         return ListTile(
                           key: Key('catalog-picker-item-${e.id}'),
                           title: Text(e.displayName),
-                          subtitle: Text(_summarize(e)),
+                          subtitle: Text(_summarize(e, l)),
                           onTap: () => Navigator.of(ctx).pop(e),
                         );
                       },
@@ -151,14 +165,14 @@ class _PickerSheetState<T extends CatalogEntry>
     );
   }
 
-  String _summarize(CatalogEntry e) {
+  String _summarize(CatalogEntry e, AppLocalizations l) {
     if (e is ModuleCatalogEntry) {
       final w = (e.peakKwPerModule * 1000).toStringAsFixed(0);
       return '$w W'
           '${e.cellTechnology != null ? ' · ${e.cellTechnology}' : ''}';
     }
     if (e is InverterCatalogEntry) {
-      return '${e.maxAcKw.toStringAsFixed(1)} kW AC · ${_role(e.role)}';
+      return '${e.maxAcKw.toStringAsFixed(1)} kW AC · ${_role(e.role, l)}';
     }
     if (e is BatteryCatalogEntry) {
       return '${e.capacityKwh.toStringAsFixed(1)} kWh · '
@@ -168,9 +182,9 @@ class _PickerSheetState<T extends CatalogEntry>
     return '';
   }
 
-  String _role(CatalogInverterRole r) => switch (r) {
-        CatalogInverterRole.grid => 'grid',
-        CatalogInverterRole.batteryCoupled => 'battery',
-        CatalogInverterRole.microInverter800W => 'micro 800 W',
+  String _role(CatalogInverterRole r, AppLocalizations l) => switch (r) {
+        CatalogInverterRole.grid => l.catalogRoleGrid,
+        CatalogInverterRole.batteryCoupled => l.catalogRoleBattery,
+        CatalogInverterRole.microInverter800W => l.catalogRoleMicro,
       };
 }

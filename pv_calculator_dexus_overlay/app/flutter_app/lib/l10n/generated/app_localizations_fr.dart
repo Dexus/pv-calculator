@@ -358,6 +358,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pdfSectionMonthlyCashflow => 'Flux mensuel';
 
   @override
+  String get pdfSectionMonthlyCashflowFinalYear =>
+      'Flux mensuel (dernière année uniquement)';
+
+  @override
   String get pdfSectionArrays => 'Modules PV';
 
   @override
@@ -897,6 +901,18 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get catalogModuleCountPrompt => 'Nombre de modules';
+
+  @override
+  String get catalogRoleGrid => 'réseau';
+
+  @override
+  String get catalogRoleBattery => 'batterie';
+
+  @override
+  String get catalogRoleMicro => 'micro 800 W';
+
+  @override
+  String get catalogLoadError => 'Impossible de charger la bibliothèque :';
 
   @override
   String get monthJan => 'Jan';

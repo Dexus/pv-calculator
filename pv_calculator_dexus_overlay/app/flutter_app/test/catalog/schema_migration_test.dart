@@ -58,5 +58,35 @@ void main() {
           .single['value'];
       expect(ver, '2');
     });
+
+    test('AppDatabase._upgrade runs against a real v1-pinned database', () {
+      // Pre-seed a CommonDatabase with v1 schema_version, then wrap
+      // it in AppDatabase so _ensureSchema → _upgrade runs the real
+      // production code path (not the migration SQL out-of-band).
+      final raw = sqlite3.openInMemory();
+      addTearDown(raw.close);
+      raw.execute(
+          'CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+      raw.execute(
+          "INSERT INTO app_meta(key, value) VALUES ('schema_version', '1')");
+
+      // Wrap — constructor runs _ensureSchema which sees v1 and calls
+      // the real _upgrade ladder. Component_catalog table also gets
+      // created by createStatements (IF NOT EXISTS makes both paths
+      // safe), and the version row is bumped to 2.
+      final db = AppDatabase.wrapForTesting(raw);
+      addTearDown(db.close);
+
+      final ver = raw
+          .select("SELECT value FROM app_meta WHERE key = 'schema_version'")
+          .single['value'];
+      expect(ver, '2');
+      final tables = raw
+          .select(
+              "SELECT name FROM sqlite_master WHERE type='table' AND name='component_catalog'")
+          .map((r) => r['name'])
+          .toList();
+      expect(tables, ['component_catalog']);
+    });
   });
 }

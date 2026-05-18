@@ -124,7 +124,11 @@ class MonthlyBucket {
 
   /// Grid-import cost in € for the month. `0.0` whenever no tariff was
   /// configured. Sum across all 12 buckets matches
-  /// `SimulationSummary.importCostEur` within floating-point tolerance.
+  /// `SimulationSummary.importCostEur` within floating-point tolerance
+  /// **for single-year runs only**: on a multi-year result the engine
+  /// keeps `steps` for the final year while the summary aggregates
+  /// every year, so the buckets reflect the final year while the
+  /// summary scalar covers the whole horizon.
   final double importCostEur;
 
   /// Grid-export revenue in € for the month. Same zero-when-no-tariff

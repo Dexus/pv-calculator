@@ -377,7 +377,10 @@ class MergedCatalog {
         merged[entry.id] = entry;
       }
     }
-    final list = merged.values.toList(growable: false);
+    // Unmodifiable view so callers can't corrupt the memoised cache
+    // by mutating the returned list. Entries themselves are immutable
+    // value classes, so a shallow guard is sufficient.
+    final list = List<CatalogEntry>.unmodifiable(merged.values);
     _cache = list;
     return list;
   }
@@ -394,10 +397,26 @@ class MergedCatalog {
 /// inferred from the section it appears in (the section name is the
 /// authoritative source; an explicit `kind` on the JSON object is also
 /// accepted for forward-compatibility with mixed-section dumps).
+/// The seed-catalog versions this parser understands. Bump when the
+/// document shape changes incompatibly (e.g. renamed sections, removed
+/// required fields). Forward-compatible field additions on entries
+/// are absorbed silently by the per-entry `fromJson` factories.
+const Set<int> kSupportedSeedCatalogVersions = {1};
+
 List<CatalogEntry> parseSeedCatalog(String jsonText) {
   final raw = jsonDecode(jsonText);
   if (raw is! Map<String, dynamic>) {
     throw ArgumentError('Seed catalog must be a JSON object.');
+  }
+  final version = raw['version'];
+  if (version is! int) {
+    throw ArgumentError(
+        'Seed catalog must declare an integer `version` field.');
+  }
+  if (!kSupportedSeedCatalogVersions.contains(version)) {
+    throw ArgumentError(
+        'Unsupported seed catalog version: $version '
+        '(supported: $kSupportedSeedCatalogVersions).');
   }
   final out = <CatalogEntry>[];
   for (final section in const [

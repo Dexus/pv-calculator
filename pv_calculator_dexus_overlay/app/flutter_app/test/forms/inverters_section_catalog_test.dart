@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_calculator_app/catalog/catalog_repository.dart';
-import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/forms/inverters_section.dart';
 import 'package:pv_engine/pv_engine.dart' as pve;
