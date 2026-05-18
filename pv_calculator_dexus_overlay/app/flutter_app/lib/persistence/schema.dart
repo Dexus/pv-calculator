@@ -11,7 +11,7 @@
 /// `currentSchemaVersion` is the on-disk version this build understands.
 /// Bump it when adding columns or tables and add a corresponding `from N to
 /// N+1` block in [AppDatabase._upgrade].
-const int currentSchemaVersion = 1;
+const int currentSchemaVersion = 2;
 
 /// Statements executed on a fresh database. Listed once here so tests and
 /// production share the same source of truth. `IF NOT EXISTS` keeps re-runs
@@ -77,7 +77,37 @@ const List<String> createStatements = [
       value TEXT NOT NULL
     )
   ''',
+  '''
+    CREATE TABLE IF NOT EXISTS component_catalog (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('module','inverter','battery')),
+      payload_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      origin TEXT NOT NULL DEFAULT 'user'
+    )
+  ''',
   'CREATE INDEX IF NOT EXISTS scenarios_project_idx ON scenarios(project_id)',
   'CREATE INDEX IF NOT EXISTS sites_project_idx ON sites(project_id)',
   'CREATE INDEX IF NOT EXISTS runs_scenario_idx ON simulation_runs(scenario_id)',
+  'CREATE INDEX IF NOT EXISTS component_catalog_kind_idx ON component_catalog(kind)',
+];
+
+/// SQL statements executed when migrating a v1 store up to v2 (introduces
+/// the `component_catalog` table). Kept separate from [createStatements]
+/// so the migration ladder is the single execution point on existing
+/// databases — `_ensureSchema` would re-issue every `IF NOT EXISTS`
+/// statement otherwise.
+const List<String> migrationV1ToV2 = [
+  '''
+    CREATE TABLE IF NOT EXISTS component_catalog (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('module','inverter','battery')),
+      payload_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      origin TEXT NOT NULL DEFAULT 'user'
+    )
+  ''',
+  'CREATE INDEX IF NOT EXISTS component_catalog_kind_idx ON component_catalog(kind)',
 ];

@@ -1,11 +1,20 @@
+import 'package:component_catalog/component_catalog.dart' as cc;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '../../catalog/catalog_repository.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
+import '../catalog/catalog_picker_sheet.dart';
 import '_field.dart';
+
+InverterRole _mapRole(cc.CatalogInverterRole r) => switch (r) {
+      cc.CatalogInverterRole.grid => InverterRole.grid,
+      cc.CatalogInverterRole.batteryCoupled => InverterRole.batteryCoupled,
+      cc.CatalogInverterRole.microInverter800W => InverterRole.microInverter800W,
+    };
 
 class InvertersSection extends StatelessWidget {
   const InvertersSection({super.key});
@@ -22,6 +31,31 @@ class InvertersSection extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Text(l.invertersTitle, style: Theme.of(context).textTheme.titleMedium)),
+            TextButton.icon(
+              key: const Key('inverters-pick-catalog'),
+              onPressed: () async {
+                final repo = context.read<CatalogRepository>();
+                final entry = await showCatalogPicker<cc.InverterCatalogEntry>(
+                  context,
+                  repository: repo,
+                  kind: cc.ComponentKind.inverter,
+                );
+                if (entry == null) return;
+                final n = draft.inverters.length + 1;
+                draft.inverters.add(InverterDraft(
+                  id: 'inverter-$n',
+                  label: entry.displayName,
+                  maxAcKw: entry.maxAcKw,
+                  efficiency: entry.efficiency,
+                  role: _mapRole(entry.role),
+                  maxDcInputKw: entry.maxDcInputKw,
+                ));
+                controller.touch();
+              },
+              icon: const Icon(Icons.library_books_outlined),
+              label: Text(l.catalogPickButton),
+            ),
+            const SizedBox(width: 8),
             FilledButton.tonalIcon(
               onPressed: () {
                 final n = draft.inverters.length + 1;

@@ -1,9 +1,12 @@
+import 'package:component_catalog/component_catalog.dart' as cc;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../catalog/catalog_repository.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../state/config_draft.dart';
 import '../state/project_controller.dart';
+import '../widgets/catalog/catalog_picker_sheet.dart';
 import '../widgets/forms/_field.dart';
 
 /// PV-Arrays tab — per-array editor. Reads the cached horizontal
@@ -60,6 +63,36 @@ class ArraysTab extends StatelessWidget {
             ),
           Row(children: [
             Expanded(child: Text(l.arraysTitle, style: Theme.of(context).textTheme.titleMedium)),
+            TextButton.icon(
+              key: const Key('arrays-pick-catalog'),
+              onPressed: () async {
+                final repo = context.read<CatalogRepository>();
+                final entry = await showCatalogPicker<cc.ModuleCatalogEntry>(
+                  context,
+                  repository: repo,
+                  kind: cc.ComponentKind.module,
+                );
+                if (!context.mounted || entry == null) return;
+                final count = await _promptModuleCount(context, l);
+                if (count == null || count <= 0) return;
+                final n = draft.arrays.length + 1;
+                draft.arrays.add(PvArrayDraft(
+                  id: 'array-$n',
+                  label: '${entry.displayName} × $count',
+                  peakKw: entry.peakKwPerModule * count,
+                  inverterId: inverterIds.isNotEmpty ? inverterIds.first : '',
+                  temperatureCoefficientPctPerC:
+                      entry.temperatureCoefficientPctPerC,
+                  nominalOperatingCellTempC:
+                      entry.nominalOperatingCellTempC,
+                  degradationPctPerYear: entry.degradationPctPerYear,
+                ));
+                controller.touch();
+              },
+              icon: const Icon(Icons.library_books_outlined),
+              label: Text(l.catalogPickButton),
+            ),
+            const SizedBox(width: 8),
             FilledButton.tonalIcon(
               onPressed: () {
                 final n = draft.arrays.length + 1;
@@ -222,4 +255,35 @@ class _ArrayCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<int?> _promptModuleCount(BuildContext context, AppLocalizations l) async {
+  final ctrl = TextEditingController(text: '1');
+  final result = await showDialog<int>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l.catalogModuleCountPrompt),
+      content: TextField(
+        controller: ctrl,
+        keyboardType: const TextInputType.numberWithOptions(decimal: false),
+        autofocus: true,
+        decoration: const InputDecoration(border: OutlineInputBorder()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(l.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            final n = int.tryParse(ctrl.text.trim());
+            Navigator.of(ctx).pop(n);
+          },
+          child: Text(l.commonOk),
+        ),
+      ],
+    ),
+  );
+  ctrl.dispose();
+  return result;
 }

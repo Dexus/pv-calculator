@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "id": "seed-module-400-mono",
+      "manufacturer": "Generic",
+      "model": "Mono 400 W",
+      "peakKwPerModule": 0.4,
+      "cellTechnology": "Mono PERC",
+      "temperatureCoefficientPctPerC": -0.35,
+      "nominalOperatingCellTempC": 45.0,
+      "degradationPctPerYear": 0.5,
+      "notes": "Typical mainstream mono-PERC 400 W panel."
+    },
+    {
+      "id": "seed-module-440-topcon",
+      "manufacturer": "Generic",
+      "model": "TOPCon 440 W",
+      "peakKwPerModule": 0.44,
+      "cellTechnology": "TOPCon",
+      "temperatureCoefficientPctPerC": -0.30,
+      "nominalOperatingCellTempC": 44.0,
+      "degradationPctPerYear": 0.4,
+      "notes": "Higher-efficiency TOPCon 440 W panel."
+    },
+    {
+      "id": "seed-module-500-hjt",
+      "manufacturer": "Generic",
+      "model": "HJT 500 W",
+      "peakKwPerModule": 0.5,
+      "cellTechnology": "HJT",
+      "temperatureCoefficientPctPerC": -0.26,
+      "nominalOperatingCellTempC": 42.0,
+      "degradationPctPerYear": 0.25,
+      "notes": "Premium heterojunction 500 W panel."
+    },
+    {
+      "id": "seed-module-balcony-410",
+      "manufacturer": "Generic",
+      "model": "Balcony 410 W",
+      "peakKwPerModule": 0.41,
+      "cellTechnology": "Mono PERC",
+      "temperatureCoefficientPctPerC": -0.35,
+      "nominalOperatingCellTempC": 45.0,
+      "degradationPctPerYear": 0.5,
+      "notes": "Glass-glass 410 W typical for balcony/Balkonkraftwerk kits."
+    }
+  ],
+  "inverters": [
+    {
+      "id": "seed-inverter-string-5kw",
+      "manufacturer": "Generic",
+      "model": "String 5 kW",
+      "maxAcKw": 5.0,
+      "maxDcInputKw": 7.5,
+      "efficiency": 0.97,
+      "role": "grid",
+      "notes": "Single-phase hybrid string inverter, ~1.5 DC/AC ratio."
+    },
+    {
+      "id": "seed-inverter-string-10kw",
+      "manufacturer": "Generic",
+      "model": "String 10 kW",
+      "maxAcKw": 10.0,
+      "maxDcInputKw": 15.0,
+      "efficiency": 0.975,
+      "role": "grid",
+      "notes": "Three-phase string inverter."
+    },
+    {
+      "id": "seed-inverter-hybrid-8kw",
+      "manufacturer": "Generic",
+      "model": "Hybrid 8 kW",
+      "maxAcKw": 8.0,
+      "maxDcInputKw": 12.0,
+      "efficiency": 0.965,
+      "role": "batteryCoupled",
+      "notes": "Battery-coupled hybrid inverter, 8 kW AC."
+    },
+    {
+      "id": "seed-inverter-micro-800w",
+      "manufacturer": "Generic",
+      "model": "Micro 800 W",
+      "maxAcKw": 0.8,
+      "maxDcInputKw": 1.2,
+      "efficiency": 0.95,
+      "role": "microInverter800W",
+      "notes": "Plug-and-play balcony micro-inverter capped at 800 W AC."
+    }
+  ],
+  "batteries": [
+    {
+      "id": "seed-battery-lfp-5kwh",
+      "manufacturer": "Generic",
+      "model": "LFP 5 kWh",
+      "capacityKwh": 5.0,
+      "maxChargeKw": 2.5,
+      "maxDischargeKw": 2.5,
+      "chemistry": "LFP",
+      "roundTripEfficiency": 0.92,
+      "minSocKwh": 0.25,
+      "notes": "Entry-level residential LFP battery."
+    },
+    {
+      "id": "seed-battery-lfp-10kwh",
+      "manufacturer": "Generic",
+      "model": "LFP 10 kWh",
+      "capacityKwh": 10.0,
+      "maxChargeKw": 5.0,
+      "maxDischargeKw": 5.0,
+      "chemistry": "LFP",
+      "roundTripEfficiency": 0.92,
+      "minSocKwh": 0.5,
+      "notes": "Common 10 kWh residential LFP storage."
+    },
+    {
+      "id": "seed-battery-lfp-15kwh",
+      "manufacturer": "Generic",
+      "model": "LFP 15 kWh",
+      "capacityKwh": 15.0,
+      "maxChargeKw": 7.5,
+      "maxDischargeKw": 7.5,
+      "chemistry": "LFP",
+      "roundTripEfficiency": 0.92,
+      "minSocKwh": 0.75,
+      "notes": "Larger residential LFP storage stack."
+    }
+  ]
+}

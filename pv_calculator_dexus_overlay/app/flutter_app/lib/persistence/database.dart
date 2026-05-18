@@ -112,9 +112,18 @@ class AppDatabase {
   void _upgrade({required int from, required int to}) {
     var v = from;
     while (v < to) {
-      // No migrations defined yet — the only valid case is from == to,
-      // which the caller already short-circuited.
+      if (v == 1) {
+        _migrateV1ToV2();
+        v = 2;
+        continue;
+      }
       throw StateError('No migration path from schema v$v to v${v + 1}.');
+    }
+  }
+
+  void _migrateV1ToV2() {
+    for (final stmt in migrationV1ToV2) {
+      _db.execute(stmt);
     }
   }
 }
