@@ -26,7 +26,12 @@ class OptimizerPage extends StatefulWidget {
 }
 
 class _OptimizerPageState extends State<OptimizerPage> {
-  // Sweep ranges. Min/Max/Steps; "" means no sweep (keep baseline).
+  // Sweep ranges. The Min/Max/Steps fields are required — `_SweepInputs
+  // .toList()` always returns at least one value, so every sweep
+  // dimension is realised in the Cartesian product. Pin a dimension by
+  // setting `Steps = 1` (collapses to `[Min]`). The engine still
+  // accepts empty sweep arrays for non-UI callers; the page just
+  // doesn't expose that gesture.
   final _SweepInputs _battery = _SweepInputs(min: 5.0, max: 15.0, steps: 3);
   final _SweepInputs _inverter = _SweepInputs(min: 4.0, max: 8.0, steps: 3);
   final _SweepInputs _pvScale = _SweepInputs(min: 0.8, max: 1.4, steps: 4);

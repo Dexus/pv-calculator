@@ -288,6 +288,16 @@ class Optimizer {
     final baselineJsonString = jsonEncode(spec.baseline.toJson());
     final baselineBatteryKwh =
         spec.baseline.batteries.isEmpty ? 0.0 : spec.baseline.batteries.first.capacityKwh;
+    // Per-candidate investment must price the WHOLE system, not just
+    // the swept [0] device. These constants sum the kWh / kW of every
+    // device EXCEPT batteries[0] / inverters[0], so the per-candidate
+    // calculation just adds the swept value on top.
+    final fixedBatteryKwhSum = spec.baseline.batteries
+        .skip(1)
+        .fold<double>(0.0, (sum, b) => sum + b.capacityKwh);
+    final fixedInverterKwSum = spec.baseline.inverters
+        .skip(1)
+        .fold<double>(0.0, (sum, i) => sum + i.maxAcKw);
 
     final candidates = <OptimizerCandidate>[];
     var evaluated = 0;
@@ -304,9 +314,15 @@ class Optimizer {
                 spec.baseline.arrays.where((a) => !disabled.contains(a.id));
             final pvKwp =
                 enabledArrays.fold<double>(0.0, (sum, a) => sum + a.peakKw * pvScale);
+            // Account for fixed (non-swept) inverters/batteries in the
+            // baseline. The optimizer only varies the [0] device per
+            // dimension; the rest are passed through unchanged and so
+            // contribute their full nominal cost to the system price.
+            final totalInverterKw = inverterKw + fixedInverterKwSum;
+            final totalBatteryKwh = batteryKwh + fixedBatteryKwhSum;
             final investment = pvKwp * spec.prices.eurPerKwpPv +
-                inverterKw * spec.prices.eurPerKwAcInverter +
-                batteryKwh * spec.prices.eurPerKwhBattery;
+                totalInverterKw * spec.prices.eurPerKwAcInverter +
+                totalBatteryKwh * spec.prices.eurPerKwhBattery;
 
             if (spec.budgetEur != null && investment > spec.budgetEur!) {
               skippedOverBudget++;
