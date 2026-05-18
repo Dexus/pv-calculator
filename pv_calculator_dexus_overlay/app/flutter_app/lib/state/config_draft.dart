@@ -391,81 +391,28 @@ class ConfigDraft {
   SimulationConfig buildForRun() => applyProGates(build());
 
   /// Computes the non-blocking warnings that the UI should surface
-  /// alongside the engine's blocking errors. Returns codes + numeric
-  /// arguments so the widget layer can localize the message; never
-  /// throws on an in-progress draft (a half-edited project can still
-  /// surface warnings without first passing engine validation).
+  /// alongside the engine's blocking errors. Engine-owned design
+  /// rules (inverter oversizing, bank-vs-battery, deep minSOC) live in
+  /// `SimulationConfigWarnings.nonBlockingWarnings()`; this method maps
+  /// each engine code to its owning [ConfigSection] and appends the one
+  /// UI-only hint (synthetic-irradiance fallback) that depends on draft
+  /// state the engine doesn't see.
   List<ValidationWarning> validationWarnings() {
     final out = <ValidationWarning>[];
 
-    // 1) Inverter oversizing: when arrays pointing at one inverter sum
-    //    to more than 1.3× the inverter's AC cap, daytime clipping
-    //    becomes chronic. Threshold chosen to match the PRD example
-    //    "Array peak power >> inverter AC rating".
-    for (final inv in inverters) {
-      final dcPeak = arrays
-          .where((a) => a.inverterId == inv.id)
-          .fold<double>(0, (s, a) => s + a.peakKw);
-      if (inv.maxAcKw <= 0) continue;
-      final ratio = dcPeak / inv.maxAcKw;
-      if (ratio > 1.3) {
-        out.add(ValidationWarning(
-          code: 'inverter-oversized',
-          severity: WarningSeverity.warning,
-          section: ConfigSection.inverters,
-          args: {
-            'inverter': inv.label.isEmpty ? inv.id : inv.label,
-            'ratio': ratio.toStringAsFixed(2),
-          },
-        ));
-      }
+    // Engine-owned design rules.
+    final engineWarnings = build().nonBlockingWarnings();
+    for (final w in engineWarnings) {
+      out.add(ValidationWarning(
+        code: w.code,
+        severity: WarningSeverity.warning,
+        section: _sectionForWarning(w.code),
+        args: w.args,
+      ));
     }
 
-    // 2) Bank target > battery discharge: when the rated AC output of
-    //    a bank exceeds the coupled battery's maxDischargeKw, the bank
-    //    chronically runs into shortfall. Phase-4 already reports the
-    //    shortfall in the run summary, but at edit time we want to warn
-    //    before the simulation runs.
-    for (final bank in microInverterBanks) {
-      final batteries = this.batteries.where((b) => b.id == bank.batteryId);
-      if (batteries.isEmpty) continue;
-      final battery = batteries.first;
-      final bankAcKw = bank.count * bank.unitRatedPowerW / 1000.0;
-      if (bankAcKw > battery.maxDischargeKw + 1e-9) {
-        out.add(ValidationWarning(
-          code: 'bank-exceeds-discharge',
-          severity: WarningSeverity.warning,
-          section: ConfigSection.banks,
-          args: {
-            'bank': bank.label.isEmpty ? bank.id : bank.label,
-            'bankKw': bankAcKw.toStringAsFixed(2),
-            'dischargeKw': battery.maxDischargeKw.toStringAsFixed(2),
-          },
-        ));
-      }
-    }
-
-    // 3) Deep minSOC: minSocKwh above half of capacity locks away more
-    //    than half of the nominal energy — almost always a misclick.
-    for (final battery in batteries) {
-      if (battery.capacityKwh <= 0) continue;
-      final minFraction = battery.minSocKwh / battery.capacityKwh;
-      if (minFraction > 0.5) {
-        out.add(ValidationWarning(
-          code: 'battery-min-soc-high',
-          severity: WarningSeverity.warning,
-          section: ConfigSection.batteries,
-          args: {
-            'battery': battery.label.isEmpty ? battery.id : battery.label,
-            'pct': (minFraction * 100).toStringAsFixed(0),
-          },
-        ));
-      }
-    }
-
-    // 4) Hint — synthetic irradiance fallback. Already a permanent
-    //    footer note on Results, but as a per-edit hint it nudges
-    //    users toward the Einstrahlung tab.
+    // UI-only hint — depends on the draft's irradiance cache, which the
+    // engine doesn't model. Nudges users toward the Einstrahlung tab.
     if (siteIrradiance.samples == null) {
       out.add(const ValidationWarning(
         code: 'irradiance-missing',
@@ -475,6 +422,19 @@ class ConfigDraft {
     }
 
     return out;
+  }
+
+  static ConfigSection _sectionForWarning(String code) {
+    switch (code) {
+      case 'inverter-oversized':
+        return ConfigSection.inverters;
+      case 'bank-exceeds-discharge':
+        return ConfigSection.banks;
+      case 'battery-min-soc-high':
+        return ConfigSection.batteries;
+      default:
+        return ConfigSection.unknown;
+    }
   }
 
   /// Returns the first engine-validation failure as a [ValidationIssue]
