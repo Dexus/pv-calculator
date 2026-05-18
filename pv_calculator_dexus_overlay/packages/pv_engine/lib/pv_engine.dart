@@ -21,12 +21,15 @@ export 'src/hash.dart';
 export 'src/micro_inverter_bank.dart';
 export 'src/pvgis.dart';
 export 'src/pvgis_client.dart';
-export 'src/summary_aggregator.dart';
 export 'src/tariff.dart';
 export 'src/temperature_model.dart';
 export 'src/topology.dart';
 export 'src/transposition.dart';
 export 'src/weather.dart';
+
+// summary_aggregator lives as a `part of` file so it can read the
+// engine-private `_StepBuffer` columns directly without exposing them.
+part 'src/summary_aggregator.dart';
 
 /// Version of the simulation engine — must track
 /// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
