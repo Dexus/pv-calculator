@@ -7,6 +7,7 @@ import 'src/dispatch_policy.dart';
 import 'src/energy_router.dart';
 import 'src/hash.dart';
 import 'src/micro_inverter_bank.dart';
+import 'src/tariff.dart';
 import 'src/temperature_model.dart';
 import 'src/topology.dart';
 import 'src/weather.dart';
@@ -20,6 +21,7 @@ export 'src/micro_inverter_bank.dart';
 export 'src/pvgis.dart';
 export 'src/pvgis_client.dart';
 export 'src/summary_aggregator.dart';
+export 'src/tariff.dart';
 export 'src/temperature_model.dart';
 export 'src/topology.dart';
 export 'src/transposition.dart';
@@ -29,7 +31,7 @@ export 'src/weather.dart';
 /// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
 /// change that can shift simulation results. Persisted alongside scenarios
 /// and simulation runs for reproducibility (PRD NFR-05).
-const String kEngineVersion = '0.8.0';
+const String kEngineVersion = '0.9.0';
 
 /// Reproducibility helpers on [SimulationConfig]. Kept as an extension so
 /// the core class stays pure data — adding `inputHash` here makes it clear
@@ -385,6 +387,7 @@ class SimulationConfig {
     this.temperatureModel = const NoctTemperatureModel(),
     this.keepSteps = true,
     this.simulationYears = 1,
+    this.tariff,
   });
 
   final List<PvArray> arrays;
@@ -466,6 +469,14 @@ class SimulationConfig {
   /// always available via [SimulationSummary.perYearSummaries].
   final int simulationYears;
 
+  /// Optional electricity tariff. When non-null the engine computes
+  /// per-step import cost / export revenue and surfaces them as
+  /// `SimulationSummary.importCostEur` / `exportRevenueEur` /
+  /// `netCostEur`. When null no economics are computed and those
+  /// summary fields remain null. UI-side Pro gating for time-of-use
+  /// arrays lives outside the engine.
+  final TariffConfig? tariff;
+
   IrradianceSource get effectiveWeatherSource => weatherSource ?? const SyntheticIrradianceSource();
 
   /// Topology used by the simulator: explicit if given, otherwise an
@@ -513,6 +524,7 @@ class SimulationConfig {
     }
     _require(simulationYears >= 1 && simulationYears <= 30,
         'simulationYears must be in [1, 30].');
+    tariff?.validate();
     if (simulationYears > 1) {
       // Multi-year is a full-year construct; partial years would corrupt
       // the per-year summary semantics. And combining with cyclic
@@ -576,11 +588,14 @@ class SimulationConfig {
         maxConvergenceIterations != 10;
     final hasPhase10 = simulationYears != 1 ||
         arrays.any((a) => a.degradationPctPerYear != 0.0);
-    final version = hasPhase10
-        ? 4
-        : hasPhase5
-            ? 3
-            : (hasPhase4 ? 2 : 1);
+    final hasTariff = tariff != null;
+    final version = hasTariff
+        ? 5
+        : hasPhase10
+            ? 4
+            : hasPhase5
+                ? 3
+                : (hasPhase4 ? 2 : 1);
     final json = <String, dynamic>{
       'schemaVersion': version,
       'arrays': arrays.map((a) => a.toJson()).toList(),
@@ -617,12 +632,15 @@ class SimulationConfig {
     if (hasPhase10) {
       json['simulationYears'] = simulationYears;
     }
+    if (hasTariff) {
+      json['tariff'] = tariff!.toJson();
+    }
     return json;
   }
 
   static SimulationConfig fromJson(Map<String, dynamic> json) {
     final version = json['schemaVersion'] as int? ?? 1;
-    if (version != 1 && version != 2 && version != 3 && version != 4) {
+    if (version < 1 || version > 5) {
       throw ArgumentError('Unknown SimulationConfig schemaVersion: $version');
     }
     final batteries = <BatteryConfig>[];
@@ -688,6 +706,9 @@ class SimulationConfig {
       longitudeDeg: _toDouble(json['longitudeDeg'] ?? 10.0),
       keepSteps: (json['keepSteps'] as bool?) ?? true,
       simulationYears: (json['simulationYears'] as num?)?.toInt() ?? 1,
+      tariff: json['tariff'] is Map
+          ? TariffConfig.fromJson((json['tariff'] as Map).cast<String, dynamic>())
+          : null,
     );
   }
 }
@@ -824,6 +845,9 @@ class SimulationSummary {
     this.convergenceIterations = 0,
     this.converged = true,
     this.perYearSummaries = const [],
+    this.importCostEur,
+    this.exportRevenueEur,
+    this.netCostEur,
   });
 
   final double pvDcKwh;
@@ -897,6 +921,21 @@ class SimulationSummary {
   /// `perYearSummaries = const []` (no nesting).
   final List<SimulationSummary> perYearSummaries;
 
+  /// Total cost paid for grid imports over the reporting horizon, in
+  /// €. `null` when `SimulationConfig.tariff` is null (no economics
+  /// computed). Sign-positive (always a cost).
+  final double? importCostEur;
+
+  /// Total revenue earned from grid exports over the reporting
+  /// horizon, in €. `null` when no tariff is configured.
+  /// Sign-positive (always a credit).
+  final double? exportRevenueEur;
+
+  /// Net electricity cost = [importCostEur] − [exportRevenueEur]. A
+  /// negative value means the export revenue exceeds import cost. `null`
+  /// when no tariff is configured.
+  final double? netCostEur;
+
   double get selfConsumptionRate => pvAcKwh <= 0 ? 0 : selfConsumptionKwh / pvAcKwh;
   double get autarkyRate => loadKwh <= 0 ? 0 : selfConsumptionKwh / loadKwh;
 
@@ -933,6 +972,9 @@ class SimulationSummary {
       json['perYearSummaries'] =
           perYearSummaries.map((s) => s.toJson()).toList(growable: false);
     }
+    if (importCostEur != null) json['importCostEur'] = importCostEur;
+    if (exportRevenueEur != null) json['exportRevenueEur'] = exportRevenueEur;
+    if (netCostEur != null) json['netCostEur'] = netCostEur;
     return json;
   }
 
@@ -972,6 +1014,15 @@ class SimulationSummary {
       convergenceIterations: (json['convergenceIterations'] as num?)?.toInt() ?? 0,
       converged: (json['converged'] as bool?) ?? true,
       perYearSummaries: perYear,
+      importCostEur: json['importCostEur'] == null
+          ? null
+          : _toDouble(json['importCostEur']),
+      exportRevenueEur: json['exportRevenueEur'] == null
+          ? null
+          : _toDouble(json['exportRevenueEur']),
+      netCostEur: json['netCostEur'] == null
+          ? null
+          : _toDouble(json['netCostEur']),
     );
   }
 }
@@ -1029,6 +1080,8 @@ class _StepAccumulator {
   double microInverterDeliveredKwh = 0;
   double microInverterShortfallKwh = 0;
   double unservedLoadKwh = 0;
+  double importCostEur = 0;
+  double exportRevenueEur = 0;
 
   /// Reads scalar columns of `buf` at index `idx` and accumulates.
   /// This is the hot-path entry: avoids materialising a `SimulationStep`
@@ -1048,6 +1101,11 @@ class _StepAccumulator {
     microInverterDeliveredKwh += buf.microInverterDeliveredKwh[idx];
     microInverterShortfallKwh += buf.microInverterShortfallKwh[idx];
     unservedLoadKwh += buf.unservedLoadKwh[idx];
+    // Tariff columns are zero-initialised when no tariff is configured,
+    // so unconditional accumulation is safe and the no-tariff hot loop
+    // pays one extra add of 0.0 per step — negligible vs. dispatch.
+    importCostEur += buf.importCostEur[idx];
+    exportRevenueEur += buf.exportRevenueEur[idx];
   }
 }
 
@@ -1092,6 +1150,8 @@ class _StepBuffer {
         microInverterDeliveredKwh = Float64List(capacity),
         microInverterShortfallKwh = Float64List(capacity),
         unservedLoadKwh = Float64List(capacity),
+        importCostEur = Float64List(capacity),
+        exportRevenueEur = Float64List(capacity),
         batteryCharges = Float64List(capacity * batteryCount),
         batteryDischarges = Float64List(capacity * batteryCount),
         batterySocs = Float64List(capacity * batteryCount),
@@ -1128,6 +1188,14 @@ class _StepBuffer {
   final Float64List microInverterDeliveredKwh;
   final Float64List microInverterShortfallKwh;
   final Float64List unservedLoadKwh;
+
+  /// Per-step grid-import cost in €. Zero-filled when
+  /// `SimulationConfig.tariff` is null — the engine doesn't pay the
+  /// branching cost in the hot loop, summary stays null instead.
+  final Float64List importCostEur;
+
+  /// Per-step grid-export revenue in €. Same zero-filling convention.
+  final Float64List exportRevenueEur;
 
   // Row-major 2D: index = `step * dim + slot`.
   final Float64List batteryCharges;
@@ -1313,6 +1381,7 @@ class PvSimulator {
         // ~9 MiB quarter-hourly buffer allocation per year.
         keepSteps: config.keepSteps && y == years - 1,
         simulationYears: 1,
+        tariff: config.tariff,
       );
       final yearProgress = onProgress == null
           ? null
@@ -1369,6 +1438,13 @@ class PvSimulator {
         del = 0.0,
         sh = 0.0,
         unserved = 0.0;
+    // Tariff KPIs only carry meaning when every year produced one; if
+    // some did and some didn't, the sum would mix € with null — treat
+    // any null as "no economics".
+    var importCost = 0.0;
+    var exportRev = 0.0;
+    var anyTariff = false;
+    var allTariff = true;
     for (final s in perYear) {
       pvDc += s.pvDcKwh;
       pvAc += s.pvAcKwh;
@@ -1384,7 +1460,15 @@ class PvSimulator {
       del += s.microInverterDeliveredKwh;
       sh += s.microInverterShortfallKwh;
       unserved += s.unservedLoadKwh;
+      if (s.importCostEur != null && s.exportRevenueEur != null) {
+        importCost += s.importCostEur!;
+        exportRev += s.exportRevenueEur!;
+        anyTariff = true;
+      } else {
+        allTariff = false;
+      }
     }
+    final tariffActive = anyTariff && allTariff;
     return SimulationSummary(
       pvDcKwh: pvDc,
       pvAcKwh: pvAc,
@@ -1411,6 +1495,9 @@ class PvSimulator {
       convergenceIterations: preRunActive ? 1 : 0,
       converged: true,
       perYearSummaries: List<SimulationSummary>.unmodifiable(perYear),
+      importCostEur: tariffActive ? importCost : null,
+      exportRevenueEur: tariffActive ? exportRev : null,
+      netCostEur: tariffActive ? importCost - exportRev : null,
     );
   }
 
@@ -1497,6 +1584,7 @@ class PvSimulator {
         startSocsUsedKwh: reportedStartSocs,
         convergenceIterations: preRunActive ? 1 : 0,
         converged: true,
+        tariff: config.tariff,
       ),
     );
   }
@@ -1593,6 +1681,7 @@ class PvSimulator {
         startSocsUsedKwh: startSocs,
         convergenceIterations: iterations,
         converged: converged || batteries.isEmpty,
+        tariff: config.tariff,
       ),
     );
   }
@@ -1816,6 +1905,17 @@ class PvSimulator {
     buf.microInverterDeliveredKwh[writeIdx] = totalDelivered;
     buf.microInverterShortfallKwh[writeIdx] = totalShortfall;
     buf.unservedLoadKwh[writeIdx] = flows.unservedLoadKwh;
+
+    // Tariff accounting AFTER the dispatch finalises grid I/O — the
+    // locked dispatch order (steps 1..6) is untouched. When no tariff
+    // is configured the columns stay at their zero-initialised default.
+    final tariff = config.tariff;
+    if (tariff != null) {
+      buf.importCostEur[writeIdx] =
+          flows.gridImportKwh * tariff.importPriceAtHour(hourOfDay);
+      buf.exportRevenueEur[writeIdx] =
+          flows.gridExportKwh * tariff.exportPriceAtHour(hourOfDay);
+    }
   }
 
   double _dcPowerKwFromWeather(PvArray array, WeatherSample weather, TemperatureModel tempModel) {
@@ -1837,7 +1937,9 @@ class PvSimulator {
     required List<double> startSocsUsedKwh,
     required int convergenceIterations,
     required bool converged,
+    TariffConfig? tariff,
   }) {
+    final hasTariff = tariff != null;
     return SimulationSummary(
       pvDcKwh: acc.pvDcKwh,
       pvAcKwh: acc.pvAcKwh,
@@ -1860,6 +1962,9 @@ class PvSimulator {
       startSocsUsedKwh: List<double>.unmodifiable(startSocsUsedKwh),
       convergenceIterations: convergenceIterations,
       converged: converged,
+      importCostEur: hasTariff ? acc.importCostEur : null,
+      exportRevenueEur: hasTariff ? acc.exportRevenueEur : null,
+      netCostEur: hasTariff ? acc.importCostEur - acc.exportRevenueEur : null,
     );
   }
 
