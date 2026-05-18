@@ -45,6 +45,92 @@ extension SimulationConfigReproducibility on SimulationConfig {
   String get inputHash => fnv1a64Hex(canonicalJsonEncode(toJson()));
 }
 
+/// Stable, non-blocking design check emitted by
+/// [SimulationConfigWarnings.nonBlockingWarnings]. [code] is a stable
+/// identifier; callers map it to a localized message and substitute the
+/// per-warning [args] into the placeholders.
+class SimulationWarning {
+  const SimulationWarning({required this.code, this.args = const {}});
+
+  final String code;
+  final Map<String, String> args;
+}
+
+extension SimulationConfigWarnings on SimulationConfig {
+  /// Non-blocking design checks. Never throws. Independent of
+  /// [SimulationConfig.validate]: a configuration may simultaneously
+  /// produce validation errors and warnings, and warnings may fire on a
+  /// partially-edited draft. Returns stable codes plus the numeric data
+  /// the caller needs to compose a message — no text, no localization.
+  List<SimulationWarning> nonBlockingWarnings() {
+    final out = <SimulationWarning>[];
+
+    // 1) Inverter oversizing — DC peak summed across attached arrays
+    //    exceeding 1.3× the inverter's AC cap chronically clips daytime
+    //    output. Strict `>` so the threshold itself stays silent.
+    for (final inv in inverters) {
+      if (inv.maxAcKw <= 0) continue;
+      final dcPeak = arrays
+          .where((a) => a.inverterId == inv.id)
+          .fold<double>(0, (s, a) => s + a.peakKw);
+      final ratio = dcPeak / inv.maxAcKw;
+      if (ratio > 1.3) {
+        out.add(SimulationWarning(
+          code: 'inverter-oversized',
+          args: {
+            'inverter': inv.label.isEmpty ? inv.id : inv.label,
+            'ratio': ratio.toStringAsFixed(2),
+          },
+        ));
+      }
+    }
+
+    // 2) Bank target exceeds battery discharge — the rated AC output of
+    //    a bank above the coupled battery's `maxDischargeKw` produces a
+    //    chronic shortfall. `1e-9` epsilon so floats at the cap stay
+    //    silent.
+    for (final bank in microInverterBanks) {
+      BatteryConfig? battery;
+      for (final b in batteries) {
+        if (b.id == bank.batteryId) {
+          battery = b;
+          break;
+        }
+      }
+      if (battery == null) continue;
+      final bankAcKw = bank.count * bank.unitRatedPowerW / 1000.0;
+      if (bankAcKw > battery.maxDischargeKw + 1e-9) {
+        out.add(SimulationWarning(
+          code: 'bank-exceeds-discharge',
+          args: {
+            'bank': bank.label.isEmpty ? bank.id : bank.label,
+            'bankKw': bankAcKw.toStringAsFixed(2),
+            'dischargeKw': battery.maxDischargeKw.toStringAsFixed(2),
+          },
+        ));
+      }
+    }
+
+    // 3) Deep min-SOC — locking away more than half of nominal capacity
+    //    is almost always a misclick.
+    for (final battery in batteries) {
+      if (battery.capacityKwh <= 0) continue;
+      final fraction = battery.minSocKwh / battery.capacityKwh;
+      if (fraction > 0.5) {
+        out.add(SimulationWarning(
+          code: 'battery-min-soc-high',
+          args: {
+            'battery': battery.label.isEmpty ? battery.id : battery.label,
+            'pct': (fraction * 100).toStringAsFixed(0),
+          },
+        ));
+      }
+    }
+
+    return out;
+  }
+}
+
 enum InverterRole { grid, microInverter800W, batteryCoupled }
 
 enum TimeStep {
