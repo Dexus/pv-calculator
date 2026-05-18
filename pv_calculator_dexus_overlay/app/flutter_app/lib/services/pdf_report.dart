@@ -23,10 +23,15 @@ Future<Uint8List> buildReportPdf({
   required String projectName,
   required DateTime runTimestamp,
   required String engineVersion,
+  bool compress = true,
 }) async {
   final doc = pw.Document(
     title: 'PV Calculator - $projectName',
     subject: 'Simulation report',
+    // `compress: false` keeps text streams uncompressed so tests can
+    // grep the raw bytes for expected labels without pulling in a
+    // flate decoder. Production callers always default to compressed.
+    compress: compress,
   );
   final s = result.summary;
   final warnings = draft.validationWarnings();
