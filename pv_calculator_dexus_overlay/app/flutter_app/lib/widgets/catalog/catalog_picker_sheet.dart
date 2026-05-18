@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../catalog/catalog_repository.dart';
 import '../../l10n/generated/app_localizations.dart';
+import 'catalog_entry_summary.dart';
 
 /// Modal bottom-sheet picker for catalog entries of kind [T].
 ///
@@ -150,7 +151,7 @@ class _PickerSheetState<T extends CatalogEntry>
                         return ListTile(
                           key: Key('catalog-picker-item-${e.id}'),
                           title: Text(e.displayName),
-                          subtitle: Text(_summarize(e, l)),
+                          subtitle: Text(summariseCatalogEntry(e, l)),
                           onTap: () => Navigator.of(ctx).pop(e),
                         );
                       },
@@ -165,26 +166,4 @@ class _PickerSheetState<T extends CatalogEntry>
     );
   }
 
-  String _summarize(CatalogEntry e, AppLocalizations l) {
-    if (e is ModuleCatalogEntry) {
-      final w = (e.peakKwPerModule * 1000).toStringAsFixed(0);
-      return '$w W'
-          '${e.cellTechnology != null ? ' · ${e.cellTechnology}' : ''}';
-    }
-    if (e is InverterCatalogEntry) {
-      return '${e.maxAcKw.toStringAsFixed(1)} kW AC · ${_role(e.role, l)}';
-    }
-    if (e is BatteryCatalogEntry) {
-      return '${e.capacityKwh.toStringAsFixed(1)} kWh · '
-          '${e.maxChargeKw.toStringAsFixed(1)}/${e.maxDischargeKw.toStringAsFixed(1)} kW'
-          '${e.chemistry != null ? ' · ${e.chemistry}' : ''}';
-    }
-    return '';
-  }
-
-  String _role(CatalogInverterRole r, AppLocalizations l) => switch (r) {
-        CatalogInverterRole.grid => l.catalogRoleGrid,
-        CatalogInverterRole.batteryCoupled => l.catalogRoleBattery,
-        CatalogInverterRole.microInverter800W => l.catalogRoleMicro,
-      };
 }

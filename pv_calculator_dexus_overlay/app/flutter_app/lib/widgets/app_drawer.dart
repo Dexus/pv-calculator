@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import '../pages/catalog_management_page.dart';
 import 'settings_page.dart';
 
 /// Navigation drawer attached to top-level pages (currently only the
@@ -46,6 +47,19 @@ class AppDrawer extends StatelessWidget {
               leading: const Icon(Icons.folder_outlined),
               title: Text(l.drawerProjects),
               onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              key: const Key('drawer-catalog'),
+              leading: const Icon(Icons.library_books_outlined),
+              title: Text(l.drawerCatalog),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CatalogManagementPage(),
+                  ),
+                );
+              },
             ),
             ListTile(
               key: const Key('drawer-settings'),

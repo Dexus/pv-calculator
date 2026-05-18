@@ -14,6 +14,56 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-05-18 (app)
+
+Phase 10 — Catalog v2 management UI and JSON import/export. Closes the
+in-app CRUD + user-catalog file I/O sub-items of the Phase 10 component
+library deferred entry. Engine and `component_catalog` package versions
+are unchanged.
+
+### Added — App
+- **Drawer entry "Komponentenbibliothek"** (`Key('drawer-catalog')`)
+  opens the new `CatalogManagementPage` from the projects-tab drawer.
+- **`CatalogManagementPage`** with three tabs (Module / Wechselrichter /
+  Batterien). Each tab lists user entries (editable, deletable) above a
+  read-only seed section; a "Als eigenen Eintrag kopieren" action on
+  every seed row pre-fills the editor with the seed values under a
+  fresh id and a `"Eigene Kopie — "` manufacturer prefix.
+- **`CatalogEntryEditor`** — full-screen form with kind-specific fields
+  (module / inverter / battery) backed by `CatalogEntry.validate()`.
+  IDs auto-slug from manufacturer/model on create, lock on edit. A
+  collision dialog confirms overwrites when a freshly typed id already
+  exists in the user source.
+- **JSON import/export** (`catalog_file_io.dart`) using the seed-shaped
+  envelope `{ version: 1, modules, inverters, batteries }`. Import goes
+  through a dry-run confirmation dialog showing "N neu, M ersetzen"
+  before any writes; export skips file I/O entirely when no user
+  entries exist. File size cap matches the project importer (1 MiB).
+
+### Added — `CatalogRepository`
+- `userEntries()` / `seedEntries()` — read accessors that expose the
+  individual sources for management UIs that need to distinguish them.
+- `importUserEntries(entries)` — bulk upsert returning
+  `({added, updated})` counts; invalidates the merge cache and notifies
+  listeners exactly once.
+- `previewImportConflicts(candidates)` — read-only dry-run partition
+  for confirmation dialogs.
+- `exportUserCatalogJson()` — pretty-printed JSON in the seed shape.
+  User-exported catalogs round-trip back through `parseSeedCatalog`.
+
+### Refactored
+- Extracted `summariseCatalogEntry()` and `catalogRoleLabel()` into a
+  shared helper (`widgets/catalog/catalog_entry_summary.dart`); the
+  existing picker sheet delegates instead of carrying its own
+  per-kind subtitle code.
+
+### Changed
+- App version `0.6.0 → 0.7.0` (`pubspec.yaml`, `lib/app_info.dart`).
+  Engine `kEngineVersion` and `component_catalog 0.1.0` unchanged —
+  this slice is consumer-side only.
+- No sqlite schema migration: the Phase-10 `component_catalog` table
+  already supports the full CRUD path via the `payload_json` column.
+
 ## [0.6.0] — 2026-05-18 (app) / [0.11.0] — 2026-05-18 (engine) / [0.1.0] — 2026-05-18 (component_catalog)
 
 Phase 10 — Component library (local seed + user-pluggable). Plus two

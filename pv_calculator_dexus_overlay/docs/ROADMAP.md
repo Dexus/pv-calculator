@@ -156,7 +156,7 @@ Ziel: Reale Wetterdaten, Komponentenbibliothek, optional Cloud (PRD FR-02, FR-04
 ### Verschoben
 
 - **Persistierte Per-Jahr-Zeitreihen für Multi-Year**: nur `perYearSummaries` (Skalare) wandern in `simulation_runs.summary_json`. Pro Jahr 8760×N Schritte wäre für eine 30-Jahres-Simulation untragbar (>10 M Floats). Trigger: erste konkrete Anforderung an Per-Jahr-Charts.
-- **Komponentenbibliothek v2 — Datenquellen & Management**: das Paket `packages/component_catalog/` lädt aktuell nur den mitgelieferten Seed-Katalog + sqlite-Userzeilen. Offen: weitere `CatalogSource`-Implementierungen (PVsol-Export-Importer, NREL SAM Library Konverter, Remote-HTTP-Source gegen ein zukünftiges Weather-/Catalog-Backend, Community-Datensatz), In-App-UI zum Anlegen / Bearbeiten / Löschen von User-Einträgen, JSON-Import/Export ganzer User-Kataloge, Anhang von Datenblättern. Trigger: konkreter externer Datensatz zum Importieren, oder so viele Seed-Einträge dass In-App-Pflege drängt.
+- **Komponentenbibliothek v2 — externe Datenquellen & Anhänge**: das Paket `packages/component_catalog/` lädt aktuell den mitgelieferten Seed-Katalog plus sqlite-Userzeilen, und seit App `0.7.0` gibt es eine In-App-Verwaltung (`CatalogManagementPage`) sowie JSON-Import/Export ganzer User-Kataloge im Seed-Format (siehe CHANGELOG). Offen: weitere `CatalogSource`-Implementierungen (PVsol-Export-Importer, NREL SAM Library Konverter, Remote-HTTP-Source gegen ein zukünftiges Weather-/Catalog-Backend, Community-Datensatz) und Anhang von Datenblättern (Binärspeicher-Entscheidung). Trigger: konkreter externer Datensatz zum Importieren bzw. erste Kundenanforderung nach PDF-Datenblättern pro Eintrag.
 
 ---
 

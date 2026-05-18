@@ -915,6 +915,201 @@ class AppLocalizationsEs extends AppLocalizations {
   String get catalogLoadError => 'No se pudo cargar la biblioteca:';
 
   @override
+  String get drawerCatalog => 'Biblioteca de componentes';
+
+  @override
+  String get catalogManagerTitle => 'Gestionar biblioteca de componentes';
+
+  @override
+  String get catalogManagerTabModules => 'Módulos';
+
+  @override
+  String get catalogManagerTabInverters => 'Inversores';
+
+  @override
+  String get catalogManagerTabBatteries => 'Baterías';
+
+  @override
+  String get catalogManagerUserSection => 'Entradas propias';
+
+  @override
+  String get catalogManagerSeedSection => 'Catálogo incluido (solo lectura)';
+
+  @override
+  String get catalogManagerEmptyUser => 'Aún no hay entradas propias.';
+
+  @override
+  String get catalogManagerImportTooltip => 'Importar';
+
+  @override
+  String get catalogManagerExportTooltip => 'Exportar';
+
+  @override
+  String get catalogManagerExportEmpty =>
+      'No hay entradas propias que exportar.';
+
+  @override
+  String get catalogManagerEditTooltip => 'Editar';
+
+  @override
+  String get catalogManagerDeleteTooltip => 'Eliminar';
+
+  @override
+  String get catalogManagerDuplicateTooltip => 'Copiar como entrada propia';
+
+  @override
+  String get catalogManagerDuplicatePrefix => 'Copia de — ';
+
+  @override
+  String get catalogManagerAddModuleFab => 'Añadir módulo';
+
+  @override
+  String get catalogManagerAddInverterFab => 'Añadir inversor';
+
+  @override
+  String get catalogManagerAddBatteryFab => 'Añadir batería';
+
+  @override
+  String get catalogManagerDeleteConfirmTitle => '¿Eliminar entrada?';
+
+  @override
+  String catalogManagerDeleteConfirmBody(String name) {
+    return '\"$name\" se eliminará de tu biblioteca.';
+  }
+
+  @override
+  String get catalogManagerImportConfirmTitle => 'Confirmar importación';
+
+  @override
+  String catalogManagerImportConfirmBody(int newCount, int overwriteCount) {
+    return '$newCount nuevas, $overwriteCount entradas existentes serán sobrescritas.';
+  }
+
+  @override
+  String get catalogManagerImportConfirmAccept => 'Aplicar';
+
+  @override
+  String catalogManagerImportSuccess(int added, int updated) {
+    return 'Importadas: $added nuevas, $updated actualizadas.';
+  }
+
+  @override
+  String catalogManagerImportFailed(String error) {
+    return 'Importación fallida: $error';
+  }
+
+  @override
+  String catalogManagerExportSuccess(String filename) {
+    return 'Exportado: $filename';
+  }
+
+  @override
+  String get catalogManagerExportCancelled => 'Exportación cancelada';
+
+  @override
+  String catalogManagerExportFailed(String error) {
+    return 'Exportación fallida: $error';
+  }
+
+  @override
+  String get catalogEditorTitleNewModule => 'Nuevo módulo';
+
+  @override
+  String get catalogEditorTitleNewInverter => 'Nuevo inversor';
+
+  @override
+  String get catalogEditorTitleNewBattery => 'Nueva batería';
+
+  @override
+  String catalogEditorTitleEdit(String name) {
+    return 'Editar: $name';
+  }
+
+  @override
+  String get catalogEditorSave => 'Guardar';
+
+  @override
+  String get catalogEditorFieldId => 'ID';
+
+  @override
+  String get catalogEditorFieldIdHelp =>
+      'Identificador único. Bloqueado al editar — elimina y vuelve a crear para renombrar.';
+
+  @override
+  String get catalogEditorFieldManufacturer => 'Fabricante';
+
+  @override
+  String get catalogEditorFieldModel => 'Modelo';
+
+  @override
+  String get catalogEditorFieldSourceUrl => 'Fuente/URL';
+
+  @override
+  String get catalogEditorFieldNotes => 'Notas';
+
+  @override
+  String get catalogEditorFieldPeakKwPerModule =>
+      'Potencia pico por módulo (kWp)';
+
+  @override
+  String get catalogEditorFieldCellTech => 'Tecnología de célula';
+
+  @override
+  String get catalogEditorFieldTempCoef => 'Coef. de temperatura (%/°C)';
+
+  @override
+  String get catalogEditorFieldNoct => 'NOCT (°C)';
+
+  @override
+  String get catalogEditorFieldDegradation => 'Degradación (%/año)';
+
+  @override
+  String get catalogEditorFieldMaxAcKw => 'Potencia AC máx. (kW)';
+
+  @override
+  String get catalogEditorFieldMaxDcKw => 'Entrada DC máx. (kW)';
+
+  @override
+  String get catalogEditorFieldEfficiency => 'Eficiencia';
+
+  @override
+  String get catalogEditorFieldRole => 'Rol';
+
+  @override
+  String get catalogEditorFieldCapacityKwh => 'Capacidad (kWh)';
+
+  @override
+  String get catalogEditorFieldChargeKw => 'Potencia de carga máx. (kW)';
+
+  @override
+  String get catalogEditorFieldDischargeKw => 'Potencia de descarga máx. (kW)';
+
+  @override
+  String get catalogEditorFieldChemistry => 'Química';
+
+  @override
+  String get catalogEditorFieldRoundtrip => 'Eficiencia de ida y vuelta';
+
+  @override
+  String get catalogEditorFieldMinSoc => 'SOC mín. (kWh)';
+
+  @override
+  String catalogEditorValidationFailed(String error) {
+    return 'Validación fallida: $error';
+  }
+
+  @override
+  String get catalogEditorIdConflictTitle => 'La ID ya existe';
+
+  @override
+  String catalogEditorIdConflictBody(String id) {
+    return 'Ya existe una entrada propia con la ID \"$id\". ¿Sobrescribir?';
+  }
+
+  @override
+  String get catalogEditorIdConflictOverwrite => 'Sobrescribir';
+
+  @override
   String get monthJan => 'Ene';
 
   @override

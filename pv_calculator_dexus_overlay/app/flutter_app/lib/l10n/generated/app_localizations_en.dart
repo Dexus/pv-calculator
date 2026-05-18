@@ -912,6 +912,199 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catalogLoadError => 'Could not load the catalog:';
 
   @override
+  String get drawerCatalog => 'Component library';
+
+  @override
+  String get catalogManagerTitle => 'Manage component library';
+
+  @override
+  String get catalogManagerTabModules => 'Modules';
+
+  @override
+  String get catalogManagerTabInverters => 'Inverters';
+
+  @override
+  String get catalogManagerTabBatteries => 'Batteries';
+
+  @override
+  String get catalogManagerUserSection => 'Your entries';
+
+  @override
+  String get catalogManagerSeedSection => 'Bundled seed (read-only)';
+
+  @override
+  String get catalogManagerEmptyUser => 'No user entries yet.';
+
+  @override
+  String get catalogManagerImportTooltip => 'Import';
+
+  @override
+  String get catalogManagerExportTooltip => 'Export';
+
+  @override
+  String get catalogManagerExportEmpty => 'No user entries to export.';
+
+  @override
+  String get catalogManagerEditTooltip => 'Edit';
+
+  @override
+  String get catalogManagerDeleteTooltip => 'Delete';
+
+  @override
+  String get catalogManagerDuplicateTooltip => 'Copy as user entry';
+
+  @override
+  String get catalogManagerDuplicatePrefix => 'Copy of — ';
+
+  @override
+  String get catalogManagerAddModuleFab => 'Add module';
+
+  @override
+  String get catalogManagerAddInverterFab => 'Add inverter';
+
+  @override
+  String get catalogManagerAddBatteryFab => 'Add battery';
+
+  @override
+  String get catalogManagerDeleteConfirmTitle => 'Delete entry?';
+
+  @override
+  String catalogManagerDeleteConfirmBody(String name) {
+    return '\"$name\" will be removed from your library.';
+  }
+
+  @override
+  String get catalogManagerImportConfirmTitle => 'Confirm import';
+
+  @override
+  String catalogManagerImportConfirmBody(int newCount, int overwriteCount) {
+    return '$newCount new, $overwriteCount existing entries will be overwritten.';
+  }
+
+  @override
+  String get catalogManagerImportConfirmAccept => 'Apply';
+
+  @override
+  String catalogManagerImportSuccess(int added, int updated) {
+    return 'Imported: $added new, $updated updated.';
+  }
+
+  @override
+  String catalogManagerImportFailed(String error) {
+    return 'Import failed: $error';
+  }
+
+  @override
+  String catalogManagerExportSuccess(String filename) {
+    return 'Exported: $filename';
+  }
+
+  @override
+  String get catalogManagerExportCancelled => 'Export cancelled';
+
+  @override
+  String catalogManagerExportFailed(String error) {
+    return 'Export failed: $error';
+  }
+
+  @override
+  String get catalogEditorTitleNewModule => 'New module';
+
+  @override
+  String get catalogEditorTitleNewInverter => 'New inverter';
+
+  @override
+  String get catalogEditorTitleNewBattery => 'New battery';
+
+  @override
+  String catalogEditorTitleEdit(String name) {
+    return 'Edit: $name';
+  }
+
+  @override
+  String get catalogEditorSave => 'Save';
+
+  @override
+  String get catalogEditorFieldId => 'ID';
+
+  @override
+  String get catalogEditorFieldIdHelp =>
+      'Unique identifier. Locked while editing — delete and re-create to rename.';
+
+  @override
+  String get catalogEditorFieldManufacturer => 'Manufacturer';
+
+  @override
+  String get catalogEditorFieldModel => 'Model';
+
+  @override
+  String get catalogEditorFieldSourceUrl => 'Source/URL';
+
+  @override
+  String get catalogEditorFieldNotes => 'Notes';
+
+  @override
+  String get catalogEditorFieldPeakKwPerModule => 'Peak power per module (kWp)';
+
+  @override
+  String get catalogEditorFieldCellTech => 'Cell technology';
+
+  @override
+  String get catalogEditorFieldTempCoef => 'Temp. coeff. (%/°C)';
+
+  @override
+  String get catalogEditorFieldNoct => 'NOCT (°C)';
+
+  @override
+  String get catalogEditorFieldDegradation => 'Degradation (%/year)';
+
+  @override
+  String get catalogEditorFieldMaxAcKw => 'Max AC power (kW)';
+
+  @override
+  String get catalogEditorFieldMaxDcKw => 'Max DC input (kW)';
+
+  @override
+  String get catalogEditorFieldEfficiency => 'Efficiency';
+
+  @override
+  String get catalogEditorFieldRole => 'Role';
+
+  @override
+  String get catalogEditorFieldCapacityKwh => 'Capacity (kWh)';
+
+  @override
+  String get catalogEditorFieldChargeKw => 'Max charge power (kW)';
+
+  @override
+  String get catalogEditorFieldDischargeKw => 'Max discharge power (kW)';
+
+  @override
+  String get catalogEditorFieldChemistry => 'Chemistry';
+
+  @override
+  String get catalogEditorFieldRoundtrip => 'Round-trip efficiency';
+
+  @override
+  String get catalogEditorFieldMinSoc => 'Min SOC (kWh)';
+
+  @override
+  String catalogEditorValidationFailed(String error) {
+    return 'Validation failed: $error';
+  }
+
+  @override
+  String get catalogEditorIdConflictTitle => 'ID already exists';
+
+  @override
+  String catalogEditorIdConflictBody(String id) {
+    return 'A user entry with the ID \"$id\" already exists. Overwrite?';
+  }
+
+  @override
+  String get catalogEditorIdConflictOverwrite => 'Overwrite';
+
+  @override
   String get monthJan => 'Jan';
 
   @override
