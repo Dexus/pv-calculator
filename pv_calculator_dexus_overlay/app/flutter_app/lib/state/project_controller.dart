@@ -111,6 +111,11 @@ class ProjectController extends ChangeNotifier {
     _scenarioId = scenarioId;
     _projectId = projectId;
     _result = null;
+    // A different draft may bring a different (non-serialised) weather
+    // source even when the electrical inputs hash the same. Clear the
+    // cache so we don't return the previous draft's result for this
+    // draft's `inputHash`.
+    _resultCache.clear();
     _lastError = null;
     _lastIrradianceError = null;
     _selectedArrayIndex = null;
@@ -140,6 +145,7 @@ class ProjectController extends ChangeNotifier {
     _scenarioId = null;
     _projectId = null;
     _result = null;
+    _resultCache.clear();
     _lastError = null;
     _lastIrradianceError = null;
     _selectedArrayIndex = null;
@@ -203,8 +209,14 @@ class ProjectController extends ChangeNotifier {
       _draft.siteIrradiance.samples = result.series;
       _draft.siteIrradiance.loadedFromCache = result.fromCache;
       // Invalidate any previous simulation: the site weather just
-      // changed under it.
+      // changed under it. The hash-keyed result cache also has to go,
+      // because `SimulationConfig.toJson()` does not serialise the
+      // weather source — so two runs with identical electrical inputs
+      // but different irradiance would otherwise collide on the same
+      // `inputHash` and return a stale cached result. See PR #26
+      // review threads from Codex.
       _result = null;
+      _resultCache.clear();
     } on PvgisApiException catch (e) {
       _lastIrradianceError = e.message;
     } catch (e) {
