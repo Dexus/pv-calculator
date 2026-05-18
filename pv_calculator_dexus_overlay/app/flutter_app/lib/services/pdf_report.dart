@@ -4,13 +4,21 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pv_engine/pv_engine.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../state/config_draft.dart';
+import '../state/validation_warning_l10n.dart';
 
 /// A4 simulation report. Renders KPI tables, monthly breakdown,
 /// validation warnings, optional bank runtime, per-array yield and a
 /// footer with engine version + AGPL note. Pure-pdf — no Flutter widgets,
 /// no async I/O. Caller decides what to do with the bytes (share, save,
 /// preview); `printing.Printing.sharePdf` is the natural fit.
+///
+/// All user-visible labels go through [l] so the report matches the
+/// UI language of the build that generated it (DE/EN/ES/FR currently).
+/// Numeric formatting is locale-independent on purpose so the report
+/// is comparable across builds — the engine itself emits doubles, not
+/// locale-formatted strings.
 ///
 /// Engine policy: the report MUST consume only `SimulationResult` and
 /// `ConfigDraft` data — no simulation re-computation here. Monthly
@@ -20,14 +28,15 @@ import '../state/config_draft.dart';
 Future<Uint8List> buildReportPdf({
   required SimulationResult result,
   required ConfigDraft draft,
+  required AppLocalizations l,
   required String projectName,
   required DateTime runTimestamp,
   required String engineVersion,
   bool compress = true,
 }) async {
   final doc = pw.Document(
-    title: 'PV Calculator - $projectName',
-    subject: 'Simulation report',
+    title: '${l.pdfAppTitle} - $projectName',
+    subject: l.resultsPdfReport,
     // `compress: false` keeps text streams uncompressed so tests can
     // grep the raw bytes for expected labels without pulling in a
     // flate decoder. Production callers always default to compressed.
@@ -53,58 +62,63 @@ Future<Uint8List> buildReportPdf({
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(32),
       build: (context) => [
-        _title(projectName, runTimestamp, engineVersion),
+        _title(l, projectName, runTimestamp, engineVersion),
         pw.SizedBox(height: 16),
-        _summaryTable(s),
+        _summaryTable(l, s),
         pw.SizedBox(height: 16),
         if (s.perYearSummaries.length >= 2) ...[
-          _section('Per-year breakdown'),
-          _perYearTable(s.perYearSummaries),
+          _section(l.pdfSectionPerYear),
+          _perYearTable(l, s.perYearSummaries),
           pw.SizedBox(height: 16),
         ],
         if (monthly.isNotEmpty) ...[
           _section(s.perYearSummaries.length >= 2
-              ? 'Monthly (final year only)'
-              : 'Monthly'),
-          _monthlyTable(monthly),
+              ? l.pdfSectionMonthlyFinalYear
+              : l.pdfSectionMonthly),
+          _monthlyTable(l, monthly),
           pw.SizedBox(height: 16),
         ],
         if (draft.arrays.isNotEmpty) ...[
-          _section('PV arrays'),
-          _arraysTable(draft.arrays),
+          _section(l.pdfSectionArrays),
+          _arraysTable(l, draft.arrays),
           pw.SizedBox(height: 16),
         ],
         if (bankRuntime.isNotEmpty) ...[
-          _section('Micro-inverter banks'),
-          _bankTable(draft.microInverterBanks, bankRuntime),
+          _section(l.pdfSectionBanks),
+          _bankTable(l, draft.microInverterBanks, bankRuntime),
           pw.SizedBox(height: 16),
         ],
         if (warnings.isNotEmpty) ...[
-          _section('Warnings'),
-          _warningsList(warnings),
+          _section(l.pdfSectionWarnings),
+          _warningsList(l, warnings),
           pw.SizedBox(height: 16),
         ],
-        _footer(engineVersion, usingSynthetic: usingSynthetic),
+        _footer(l, engineVersion, usingSynthetic: usingSynthetic),
       ],
     ),
   );
   return doc.save();
 }
 
-pw.Widget _title(String projectName, DateTime ts, String engineVersion) {
+pw.Widget _title(
+  AppLocalizations l,
+  String projectName,
+  DateTime ts,
+  String engineVersion,
+) {
   final stamp = '${ts.year.toString().padLeft(4, '0')}-'
       '${ts.month.toString().padLeft(2, '0')}-'
       '${ts.day.toString().padLeft(2, '0')} '
       '${ts.hour.toString().padLeft(2, '0')}:'
       '${ts.minute.toString().padLeft(2, '0')}';
   return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-    pw.Text('PV Calculator',
+    pw.Text(l.pdfAppTitle,
         style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
     pw.SizedBox(height: 4),
     pw.Text(projectName,
         style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
     pw.SizedBox(height: 2),
-    pw.Text('Generated $stamp  -  engine $engineVersion',
+    pw.Text(l.pdfGeneratedAt(stamp, engineVersion),
         style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
   ]);
 }
@@ -115,27 +129,27 @@ pw.Widget _section(String title) => pw.Padding(
           style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
     );
 
-pw.Widget _summaryTable(SimulationSummary s) {
+pw.Widget _summaryTable(AppLocalizations l, SimulationSummary s) {
   final rows = <List<String>>[
-    ['Metric', 'Value'],
-    ['PV AC', '${s.pvAcKwh.toStringAsFixed(0)} kWh'],
-    ['Load', '${s.loadKwh.toStringAsFixed(0)} kWh'],
-    ['Self-consumption', '${s.selfConsumptionKwh.toStringAsFixed(0)} kWh'],
-    ['Grid import', '${s.gridImportKwh.toStringAsFixed(0)} kWh'],
-    ['Grid export', '${s.gridExportKwh.toStringAsFixed(0)} kWh'],
-    ['Battery charge', '${s.batteryChargeKwh.toStringAsFixed(0)} kWh'],
-    ['Battery discharge', '${s.batteryDischargeKwh.toStringAsFixed(0)} kWh'],
-    ['Autarky rate', '${(s.autarkyRate * 100).toStringAsFixed(1)} %'],
-    ['Self-consumption rate', '${(s.selfConsumptionRate * 100).toStringAsFixed(1)} %'],
-    ['Curtailed (DC)', '${s.curtailedDcKwh.toStringAsFixed(0)} kWh'],
-    ['Curtailed (AC)', '${s.curtailedAcKwh.toStringAsFixed(0)} kWh'],
-    ['Curtailed (export limit)', '${s.curtailedExportKwh.toStringAsFixed(0)} kWh'],
+    [l.pdfColMetric, l.pdfColValue],
+    [l.resultsKpiPvAc, '${s.pvAcKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiLoad, '${s.loadKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiSelfConsumption, '${s.selfConsumptionKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiGridImport, '${s.gridImportKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiGridExport, '${s.gridExportKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiBatteryCharge, '${s.batteryChargeKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiBatteryDischarge, '${s.batteryDischargeKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiAutarky, '${(s.autarkyRate * 100).toStringAsFixed(1)} %'],
+    [l.resultsKpiSelfConsumptionRate, '${(s.selfConsumptionRate * 100).toStringAsFixed(1)} %'],
+    [l.resultsKpiCurtailDc, '${s.curtailedDcKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiCurtailAc, '${s.curtailedAcKwh.toStringAsFixed(0)} kWh'],
+    [l.resultsKpiCurtailExport, '${s.curtailedExportKwh.toStringAsFixed(0)} kWh'],
   ];
   if (s.importCostEur != null) {
     rows.addAll([
-      ['Import cost', '${s.importCostEur!.toStringAsFixed(2)} EUR'],
-      ['Export revenue', '${s.exportRevenueEur!.toStringAsFixed(2)} EUR'],
-      ['Net electricity cost', '${s.netCostEur!.toStringAsFixed(2)} EUR'],
+      [l.resultsKpiImportCost, '${s.importCostEur!.toStringAsFixed(2)} EUR'],
+      [l.resultsKpiExportRevenue, '${s.exportRevenueEur!.toStringAsFixed(2)} EUR'],
+      [l.resultsKpiNetCost, '${s.netCostEur!.toStringAsFixed(2)} EUR'],
     ]);
   }
   return pw.TableHelper.fromTextArray(
@@ -148,9 +162,16 @@ pw.Widget _summaryTable(SimulationSummary s) {
   );
 }
 
-pw.Widget _perYearTable(List<SimulationSummary> years) {
+pw.Widget _perYearTable(AppLocalizations l, List<SimulationSummary> years) {
   final rows = <List<String>>[
-    ['Year', 'PV AC', 'Load', 'Self-cons.', 'Grid import', 'Grid export'],
+    [
+      l.pdfColYear,
+      l.resultsKpiPvAc,
+      l.resultsKpiLoad,
+      l.pdfColSelfShort,
+      l.resultsKpiGridImport,
+      l.resultsKpiGridExport,
+    ],
     for (var i = 0; i < years.length; i++)
       [
         (i + 1).toString(),
@@ -176,9 +197,18 @@ pw.Widget _perYearTable(List<SimulationSummary> years) {
   );
 }
 
-pw.Widget _monthlyTable(List<MonthlyBucket> rows) {
+pw.Widget _monthlyTable(AppLocalizations l, List<MonthlyBucket> rows) {
   final data = <List<String>>[
-    ['Month', 'PV AC', 'Load', 'Self', 'Charge', 'Discharge', 'Import', 'Export'],
+    [
+      l.pdfColMonth,
+      l.resultsKpiPvAc,
+      l.resultsKpiLoad,
+      l.pdfColSelfTight,
+      l.pdfColCharge,
+      l.pdfColDischarge,
+      l.pdfColImport,
+      l.pdfColExport,
+    ],
     for (final b in rows)
       [
         b.month.toString(),
@@ -202,9 +232,17 @@ pw.Widget _monthlyTable(List<MonthlyBucket> rows) {
   );
 }
 
-pw.Widget _arraysTable(List<PvArrayDraft> arrays) {
+pw.Widget _arraysTable(AppLocalizations l, List<PvArrayDraft> arrays) {
   final data = <List<String>>[
-    ['ID', 'Label', 'Peak kW', 'Azim.', 'Tilt', 'Inverter', 'Degrad. %/a'],
+    [
+      l.pdfColId,
+      l.pdfColLabel,
+      l.pdfColPeakKw,
+      l.pdfColAzimuth,
+      l.pdfColTilt,
+      l.pdfColInverter,
+      l.pdfColDegradation,
+    ],
     for (final a in arrays)
       [
         a.id,
@@ -231,11 +269,18 @@ pw.Widget _arraysTable(List<PvArrayDraft> arrays) {
 }
 
 pw.Widget _bankTable(
+  AppLocalizations l,
   List<MicroInverterBankDraft> banks,
   List<BankRuntimeStats> stats,
 ) {
   final data = <List<String>>[
-    ['ID', 'Target kWh', 'Delivered kWh', 'Shortfall kWh', 'Coverage %'],
+    [
+      l.pdfColId,
+      l.pdfColTargetKwh,
+      l.pdfColDeliveredKwh,
+      l.pdfColShortfallKwh,
+      l.pdfColCoverage,
+    ],
     for (var i = 0; i < stats.length; i++)
       [
         i < banks.length ? (banks[i].label.isEmpty ? banks[i].id : banks[i].label) : '?',
@@ -259,18 +304,23 @@ pw.Widget _bankTable(
   );
 }
 
-pw.Widget _warningsList(List<ValidationWarning> warnings) {
+pw.Widget _warningsList(AppLocalizations l, List<ValidationWarning> warnings) {
+  // Localized warning text comes from the same mapping the Auswertung
+  // tab uses, so the PDF body matches what the user saw on screen.
   return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
     for (final w in warnings)
       pw.Text(
-        '- [${w.severity.name}] ${w.code}'
-        '${w.args.isEmpty ? '' : ' ${w.args}'}',
+        '- ${localizeValidationWarning(l, w)}',
         style: const pw.TextStyle(fontSize: 9),
       ),
   ]);
 }
 
-pw.Widget _footer(String engineVersion, {required bool usingSynthetic}) {
+pw.Widget _footer(
+  AppLocalizations l,
+  String engineVersion, {
+  required bool usingSynthetic,
+}) {
   return pw.Container(
     padding: const pw.EdgeInsets.only(top: 12),
     decoration: const pw.BoxDecoration(
@@ -279,13 +329,11 @@ pw.Widget _footer(String engineVersion, {required bool usingSynthetic}) {
     child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
       if (usingSynthetic)
         pw.Text(
-          'Note: this report was generated with the synthetic demo '
-          'irradiance model. Numbers are illustrative - not a validated '
-          'yield forecast.',
+          l.pdfFooterSynthetic,
           style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
         ),
       pw.Text(
-        'Generated by PV Calculator (AGPL-3.0)  -  engine $engineVersion',
+        l.pdfFooterAgpl(engineVersion),
         style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
       ),
     ]),
