@@ -50,6 +50,20 @@ class ProjectController extends ChangeNotifier {
   final Map<String, SimulationResult> _resultCache = {};
   static const int _cacheSize = 3;
 
+  /// Monotonic counter bumped on every action that should make any
+  /// in-flight `run()` discard its result: a newer `run()`, draft
+  /// mutation (`touch`), replacement (`loadDraft` / `newProject`),
+  /// or a weather reload. Each `run()` captures the counter at the
+  /// start and only commits the result if the value hasn't changed
+  /// when its `await` returns — guards against the user editing the
+  /// draft while a long isolate simulation is still in flight.
+  int _runGeneration = 0;
+
+  /// Last whole-percent fraction we notified listeners about during the
+  /// current run; reset on every fresh `run()` start. Used to throttle
+  /// progress-event notifications to ≤ 101 per phase.
+  int _lastNotifiedPct = -1;
+
   void _rememberResult(String key, SimulationResult result) {
     if (_resultCache.containsKey(key)) {
       _resultCache.remove(key);
@@ -88,6 +102,7 @@ class ProjectController extends ChangeNotifier {
   void touch() {
     _lastError = null;
     _result = null;
+    _runGeneration++;
     notifyListeners();
   }
 
@@ -116,6 +131,7 @@ class ProjectController extends ChangeNotifier {
     // cache so we don't return the previous draft's result for this
     // draft's `inputHash`.
     _resultCache.clear();
+    _runGeneration++;
     _lastError = null;
     _lastIrradianceError = null;
     _selectedArrayIndex = null;
@@ -146,6 +162,7 @@ class ProjectController extends ChangeNotifier {
     _projectId = null;
     _result = null;
     _resultCache.clear();
+    _runGeneration++;
     _lastError = null;
     _lastIrradianceError = null;
     _selectedArrayIndex = null;
@@ -217,6 +234,9 @@ class ProjectController extends ChangeNotifier {
       // review threads from Codex.
       _result = null;
       _resultCache.clear();
+      // Bump the run generation: a `run()` started before this reload
+      // must not commit its (stale-weather) result over the new state.
+      _runGeneration++;
     } on PvgisApiException catch (e) {
       _lastIrradianceError = e.message;
     } catch (e) {
@@ -236,8 +256,10 @@ class ProjectController extends ChangeNotifier {
   /// returns instantly. The cache is bounded so it never holds more than
   /// a small number of full-year step lists in memory at once.
   Future<bool> run() async {
+    final generation = ++_runGeneration;
     _running = true;
     _progress = null;
+    _lastNotifiedPct = -1;
     notifyListeners();
     try {
       final config = _draft.build();
@@ -245,28 +267,61 @@ class ProjectController extends ChangeNotifier {
       final cacheKey = '${config.inputHash}@$kEngineVersion';
       final cached = _resultCache[cacheKey];
       if (cached != null) {
+        if (generation != _runGeneration) return false;
         _result = cached;
         _lastError = null;
         return true;
       }
-      _result = await _runner.run(config, onProgress: (p) {
+      final outcome = await _runner.run(config, onProgress: (p) {
+        // Drop progress events from a superseded run so the UI doesn't
+        // see a half-finished bar from an old config.
+        if (generation != _runGeneration) return;
         _progress = p;
-        notifyListeners();
+        // Throttle UI rebuilds. The engine emits one event per simulated
+        // day (365 × N for cyclic mode). On the in-process / web path
+        // these fire synchronously inside `PvSimulator.run`, so a
+        // `notifyListeners()` per event would queue ~1 000+ back-to-back
+        // Provider rebuilds and starve any later `pumpAndSettle` in
+        // tests. Notify only when the integer-percent fraction advances
+        // (≤ 101 notifies per phase) or on the final tick.
+        final lastPct = _lastNotifiedPct;
+        final pct = p.totalDays == 0
+            ? 100
+            : (p.completedDays * 100) ~/ p.totalDays;
+        if (pct != lastPct || p.completedDays == p.totalDays) {
+          _lastNotifiedPct = pct;
+          notifyListeners();
+        }
       });
-      _rememberResult(cacheKey, _result!);
+      // The user may have touched the draft, loaded another project, or
+      // reloaded irradiance while we were awaiting the isolate. In any
+      // of those cases `_runGeneration` has moved on and committing
+      // this result would overwrite their fresher state.
+      if (generation != _runGeneration) return false;
+      _result = outcome;
+      _rememberResult(cacheKey, outcome);
       _lastError = null;
       return true;
     } on ArgumentError catch (e) {
+      if (generation != _runGeneration) return false;
       _result = null;
       _lastError = e.message?.toString() ?? e.toString();
       return false;
     } catch (e) {
+      if (generation != _runGeneration) return false;
       _result = null;
       _lastError = e.toString();
       return false;
     } finally {
-      _running = false;
-      _progress = null;
+      // Only clear the running flag if we are still the current
+      // generation — otherwise a newer `run()` is in flight and is
+      // responsible for clearing it. Without this guard, finishing
+      // a superseded run would flip `_running` off while a fresher
+      // run is still going, hiding its progress bar mid-stream.
+      if (generation == _runGeneration) {
+        _running = false;
+        _progress = null;
+      }
       notifyListeners();
     }
   }

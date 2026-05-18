@@ -1099,11 +1099,18 @@ class PvSimulator {
     var reportedStartSocs = startSocs;
 
     final reportedSteps = config.days * config.timeStep.stepsPerDay;
+    // When the caller doesn't want the per-step series, allocate a
+    // 1-slot scratch buffer and overwrite it on every reported step.
+    // The accumulator still reads scalars from index 0 — annual totals
+    // are unchanged — but the 35 040-slot buffer's worth of memory is
+    // no longer allocated. Pre-Phase-9-equivalent: ~5 MiB of scalar
+    // columns + ~4 MiB of 2D rows per quarter-hourly year.
+    final bufCapacity = config.keepSteps ? reportedSteps : 1;
     final buf = _StepBuffer(
       batteryCount: config.batteries.length,
       bankCount: config.microInverterBanks.length,
       arrayCount: config.arrays.length,
-      capacity: reportedSteps,
+      capacity: bufCapacity,
     );
     final arrayDcScratch = Float64List(config.arrays.length);
     final arrayAcScratch = Float64List(config.arrays.length);
@@ -1120,10 +1127,14 @@ class PvSimulator {
         }
         final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
         if (dayIndex >= 0) {
+          // With `keepSteps: false` the scratch buffer has capacity 1
+          // and every step writes to index 0; with `keepSteps: true`
+          // we advance the cursor to record each step.
+          final slot = config.keepSteps ? writeIdx : 0;
           _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay,
-              buf, writeIdx, arrayDcScratch, arrayAcScratch);
-          accumulator.addFromBuffer(buf, writeIdx);
-          writeIdx++;
+              buf, slot, arrayDcScratch, arrayAcScratch);
+          accumulator.addFromBuffer(buf, slot);
+          if (config.keepSteps) writeIdx++;
         } else {
           // Pre-run: advance SOC only; no buffer write, no allocation.
           _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay,
@@ -1187,12 +1198,15 @@ class PvSimulator {
     final reportedSteps = 365 * config.timeStep.stepsPerDay;
     // Reused across iterations — only the last cycle's data needs to
     // survive into `SimulationResult.steps`, and `writeIdx` resets to 0
-    // at the start of every cycle so we overwrite in place.
+    // at the start of every cycle so we overwrite in place. When the
+    // caller doesn't want the per-step series, the buffer shrinks to a
+    // single scratch slot — see the same logic in `_runLinear`.
+    final bufCapacity = config.keepSteps ? reportedSteps : 1;
     final buf = _StepBuffer(
       batteryCount: batteries.length,
       bankCount: config.microInverterBanks.length,
       arrayCount: config.arrays.length,
-      capacity: reportedSteps,
+      capacity: bufCapacity,
     );
     final arrayDcScratch = Float64List(config.arrays.length);
     final arrayAcScratch = Float64List(config.arrays.length);
@@ -1206,10 +1220,11 @@ class PvSimulator {
         final dayOfYear = _wrapDay(config.startDayOfYear + dayIndex);
         for (var stepOfDay = 0; stepOfDay < config.timeStep.stepsPerDay; stepOfDay++) {
           final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
+          final slot = config.keepSteps ? writeIdx : 0;
           _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay,
-              buf, writeIdx, arrayDcScratch, arrayAcScratch);
-          cycleAccumulator.addFromBuffer(buf, writeIdx);
-          writeIdx++;
+              buf, slot, arrayDcScratch, arrayAcScratch);
+          cycleAccumulator.addFromBuffer(buf, slot);
+          if (config.keepSteps) writeIdx++;
         }
         if (onProgress != null) {
           onProgress(SimulationProgress(
