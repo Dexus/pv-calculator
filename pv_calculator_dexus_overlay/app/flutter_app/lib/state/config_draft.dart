@@ -215,7 +215,9 @@ class ConfigDraft {
     DispatchPolicyDraft? dispatchPolicy,
     LoadProfileDraft? loadProfile,
     TopologyGraphDraft? topology,
+    TariffDraft? tariff,
   })  : siteIrradiance = siteIrradiance ?? SiteIrradianceDraft(),
+        tariff = tariff ?? TariffDraft(),
         arrays = arrays ?? <PvArrayDraft>[],
         inverters = inverters ?? <InverterDraft>[],
         batteries = batteries ?? <BatteryDraft>[],
@@ -240,6 +242,12 @@ class ConfigDraft {
   /// `1` so the engine never sees a Pro value smuggled in via an
   /// imported scenario.
   int simulationYears;
+
+  /// Electricity tariff. When [TariffDraft.enabled] is `false`,
+  /// [build] omits the tariff entirely and the engine skips the
+  /// cashflow computation. The 24-slot TOU arrays are gated to
+  /// Pro builds at [build] time.
+  TariffDraft tariff;
 
   /// Site-level PVGIS settings + cached horizontal irradiance.
   SiteIrradianceDraft siteIrradiance;
@@ -311,6 +319,7 @@ class ConfigDraft {
       // year regardless of any value the draft might carry from a Pro-
       // saved scenario (mirrors the cyclicConvergence gating pattern).
       simulationYears: kProFeatures ? simulationYears : 1,
+      tariff: tariff.build(),
     );
   }
 
@@ -436,6 +445,7 @@ class ConfigDraft {
         topology: config.topology == null
             ? TopologyGraphDraft()
             : TopologyGraphDraft.fromGraph(config.topology!),
+        tariff: TariffDraft.fromTariff(config.tariff),
       );
 
   static ConfigDraft demo() => ConfigDraft(
@@ -596,6 +606,67 @@ class LoadProfileDraft {
 
   static LoadProfileDraft fromProfile(LoadProfile p) =>
       LoadProfileDraft(dailyKwh: p.dailyKwh, hourlyShape: List<double>.from(p.hourlyShape));
+}
+
+/// Mutable working copy of a [TariffConfig]. When [enabled] is `false`
+/// [build] returns `null` and the engine skips the cashflow path —
+/// matches the "no tariff" default for legacy projects. When [enabled]
+/// is `true` the flat prices always apply; the 24-slot TOU arrays only
+/// reach the engine in Pro builds (mirrors the cyclic-convergence
+/// gating pattern).
+class TariffDraft {
+  TariffDraft({
+    this.enabled = false,
+    this.importPricePerKwh = 0.30,
+    this.exportPricePerKwh = 0.08,
+    this.touEnabled = false,
+    List<double>? hourlyImportPrices,
+    List<double>? hourlyExportPrices,
+  })  : hourlyImportPrices = hourlyImportPrices ??
+            List<double>.filled(24, 0.30),
+        hourlyExportPrices = hourlyExportPrices ??
+            List<double>.filled(24, 0.08);
+
+  bool enabled;
+  double importPricePerKwh;
+  double exportPricePerKwh;
+
+  /// When `true`, the 24-slot arrays are passed through to the engine
+  /// (assuming Pro is on at build time). Always rendered editable in
+  /// the form so the user can prepare values for an eventual Pro build.
+  bool touEnabled;
+
+  List<double> hourlyImportPrices;
+  List<double> hourlyExportPrices;
+
+  TariffConfig? build() {
+    if (!enabled) return null;
+    // TOU is Pro-only. In free builds the flat prices still apply; the
+    // 24-slot arrays just don't reach the engine.
+    final useTou = touEnabled && kProFeatures;
+    return TariffConfig(
+      importPricePerKwh: importPricePerKwh,
+      exportPricePerKwh: exportPricePerKwh,
+      hourlyImportPrices: useTou ? List<double>.unmodifiable(hourlyImportPrices) : null,
+      hourlyExportPrices: useTou ? List<double>.unmodifiable(hourlyExportPrices) : null,
+    );
+  }
+
+  static TariffDraft fromTariff(TariffConfig? t) {
+    if (t == null) return TariffDraft();
+    return TariffDraft(
+      enabled: true,
+      importPricePerKwh: t.importPricePerKwh,
+      exportPricePerKwh: t.exportPricePerKwh,
+      touEnabled: t.hourlyImportPrices != null || t.hourlyExportPrices != null,
+      hourlyImportPrices: t.hourlyImportPrices == null
+          ? null
+          : List<double>.from(t.hourlyImportPrices!),
+      hourlyExportPrices: t.hourlyExportPrices == null
+          ? null
+          : List<double>.from(t.hourlyExportPrices!),
+    );
+  }
 }
 
 /// Which schedule kind a [MicroInverterBankDraft] is currently editing.

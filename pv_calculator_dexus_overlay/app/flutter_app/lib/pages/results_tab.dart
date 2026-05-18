@@ -16,6 +16,7 @@ import '../widgets/forms/dispatch_policy_section.dart';
 import '../widgets/forms/inverters_section.dart';
 import '../widgets/forms/load_section.dart';
 import '../widgets/forms/micro_inverter_banks_section.dart';
+import '../widgets/forms/tariff_section.dart';
 import '../widgets/forms/topology_section.dart';
 import '../widgets/results/bank_runtime_chart.dart';
 import '../widgets/results/monthly_table.dart';
@@ -80,6 +81,8 @@ class ResultsTab extends StatelessWidget {
         const ExpertOnly(child: DispatchPolicySection()),
         const SizedBox(height: 12),
         const LoadSection(),
+        const SizedBox(height: 12),
+        const TariffSection(),
         const SizedBox(height: 16),
         Center(
           child: FilledButton.icon(
@@ -514,6 +517,26 @@ class _ResultsBody extends StatelessWidget {
         ],
         if (s.unservedLoadKwh > 0)
           _KpiCard(label: l.resultsKpiUnservedLoad, value: '${s.unservedLoadKwh.toStringAsFixed(0)} kWh'),
+        // Phase-10 cashflow KPIs — only when a tariff was configured.
+        // The two pence-precise prices and the net (which can be
+        // negative if export revenue dominates) get their own row.
+        if (s.importCostEur != null) ...[
+          _KpiCard(
+            key: const Key('kpi-import-cost'),
+            label: l.resultsKpiImportCost,
+            value: '${s.importCostEur!.toStringAsFixed(2)} EUR',
+          ),
+          _KpiCard(
+            key: const Key('kpi-export-revenue'),
+            label: l.resultsKpiExportRevenue,
+            value: '${s.exportRevenueEur!.toStringAsFixed(2)} EUR',
+          ),
+          _KpiCard(
+            key: const Key('kpi-net-cost'),
+            label: l.resultsKpiNetCost,
+            value: '${s.netCostEur!.toStringAsFixed(2)} EUR',
+          ),
+        ],
       ]),
       if (batteryCount > 0) ...[
         const SizedBox(height: 24),

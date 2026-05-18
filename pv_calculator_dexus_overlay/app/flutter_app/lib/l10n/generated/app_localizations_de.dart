@@ -288,6 +288,44 @@ class AppLocalizationsDe extends AppLocalizations {
       'Jährlicher Leistungsabbau in %/Jahr. Typisch 0,4–0,7 für kristallines Silizium. Nur wirksam bei Simulationsjahre > 1.';
 
   @override
+  String get tariffSectionTitle => 'Strompreise';
+
+  @override
+  String get tariffEnabled => 'Wirtschaftlichkeit berechnen';
+
+  @override
+  String get tariffEnabledHelp =>
+      'Berechnet Kosten und Einnahmen aus Bezug und Einspeisung anhand der eingegebenen Strompreise.';
+
+  @override
+  String get tariffImportLabel => 'Bezugspreis';
+
+  @override
+  String get tariffExportLabel => 'Einspeisevergütung';
+
+  @override
+  String get tariffTouTitle => 'Zeitabhängige Tarife';
+
+  @override
+  String get tariffTouHelp =>
+      '24 Stunden-Slots für variable Bezugs-/Einspeisepreise. Pro-Feature.';
+
+  @override
+  String get tariffTouImportHeader => 'Bezugspreise je Stunde (EUR/kWh)';
+
+  @override
+  String get tariffTouExportHeader => 'Einspeisevergütung je Stunde (EUR/kWh)';
+
+  @override
+  String get resultsKpiImportCost => 'Bezugskosten';
+
+  @override
+  String get resultsKpiExportRevenue => 'Einspeise-Erlös';
+
+  @override
+  String get resultsKpiNetCost => 'Netto-Stromkosten';
+
+  @override
   String get projectTimeStep => 'Zeitschritt';
 
   @override
