@@ -3461,6 +3461,30 @@ abstract class AppLocalizations {
   /// **'Optimierer läuft …'**
   String get optimizerRunning;
 
+  /// No description provided for @optimizerProgress.
+  ///
+  /// In de, this message translates to:
+  /// **'{done} / {total} Kandidaten'**
+  String optimizerProgress(int done, int total);
+
+  /// No description provided for @optimizerCancelButton.
+  ///
+  /// In de, this message translates to:
+  /// **'Abbrechen'**
+  String get optimizerCancelButton;
+
+  /// No description provided for @optimizerCancelled.
+  ///
+  /// In de, this message translates to:
+  /// **'Optimierung abgebrochen.'**
+  String get optimizerCancelled;
+
+  /// No description provided for @optimizerCancelUnavailable.
+  ///
+  /// In de, this message translates to:
+  /// **'Abbrechen ist auf Web nicht verfügbar.'**
+  String get optimizerCancelUnavailable;
+
   /// No description provided for @optimizerCounters.
   ///
   /// In de, this message translates to:
