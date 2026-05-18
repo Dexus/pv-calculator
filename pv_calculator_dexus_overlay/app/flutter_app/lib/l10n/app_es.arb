@@ -102,6 +102,48 @@
   "resultsKpiNetCost": "Coste neto de electricidad",
   "resultsPdfReport": "Exportar informe (PDF)",
   "resultsPdfReportProTooltip": "Los informes PDF son una función Pro.",
+  "pdfAppTitle": "PV Calculator",
+  "pdfGeneratedAt": "Generado {timestamp}  -  motor {engineVersion}",
+  "@pdfGeneratedAt": {
+    "placeholders": {
+      "timestamp": { "type": "String" },
+      "engineVersion": { "type": "String" }
+    }
+  },
+  "pdfSectionPerYear": "Desglose anual",
+  "pdfSectionMonthly": "Mensual",
+  "pdfSectionMonthlyFinalYear": "Mensual (solo último año)",
+  "pdfSectionArrays": "Generadores FV",
+  "pdfSectionBanks": "Bancos de microinversores",
+  "pdfSectionWarnings": "Avisos",
+  "pdfColMetric": "Métrica",
+  "pdfColValue": "Valor",
+  "pdfColYear": "Año",
+  "pdfColSelfShort": "Autocons.",
+  "pdfColMonth": "Mes",
+  "pdfColSelfTight": "Auto.",
+  "pdfColCharge": "Carga",
+  "pdfColDischarge": "Descarga",
+  "pdfColImport": "Import.",
+  "pdfColExport": "Export.",
+  "pdfColId": "ID",
+  "pdfColLabel": "Etiqueta",
+  "pdfColPeakKw": "Pico kW",
+  "pdfColAzimuth": "Azim.",
+  "pdfColTilt": "Inclin.",
+  "pdfColInverter": "Inversor",
+  "pdfColDegradation": "Degr. %/a",
+  "pdfColTargetKwh": "Objetivo kWh",
+  "pdfColDeliveredKwh": "Entregado kWh",
+  "pdfColShortfallKwh": "Déficit kWh",
+  "pdfColCoverage": "Cobertura %",
+  "pdfFooterSynthetic": "Nota: este informe se generó con el modelo de irradiancia sintético de demostración. Las cifras son ilustrativas y no constituyen una previsión validada.",
+  "pdfFooterAgpl": "Generado por PV Calculator (AGPL-3.0)  -  motor {engineVersion}",
+  "@pdfFooterAgpl": {
+    "placeholders": {
+      "engineVersion": { "type": "String" }
+    }
+  },
   "projectTimeStep": "Paso temporal",
   "projectTimeStepHourly": "Horario",
   "projectTimeStepQuarter": "Cuarto de hora",

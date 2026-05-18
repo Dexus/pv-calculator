@@ -333,6 +333,104 @@ class AppLocalizationsDe extends AppLocalizations {
       'PDF-Berichte sind eine Pro-Funktion.';
 
   @override
+  String get pdfAppTitle => 'PV Calculator';
+
+  @override
+  String pdfGeneratedAt(String timestamp, String engineVersion) {
+    return 'Erstellt $timestamp  -  Engine $engineVersion';
+  }
+
+  @override
+  String get pdfSectionPerYear => 'Jahresweise Aufschlüsselung';
+
+  @override
+  String get pdfSectionMonthly => 'Monatswerte';
+
+  @override
+  String get pdfSectionMonthlyFinalYear => 'Monatswerte (nur letztes Jahr)';
+
+  @override
+  String get pdfSectionArrays => 'PV-Module';
+
+  @override
+  String get pdfSectionBanks => 'Micro-Wechselrichter-Bänke';
+
+  @override
+  String get pdfSectionWarnings => 'Warnungen';
+
+  @override
+  String get pdfColMetric => 'Kennzahl';
+
+  @override
+  String get pdfColValue => 'Wert';
+
+  @override
+  String get pdfColYear => 'Jahr';
+
+  @override
+  String get pdfColSelfShort => 'Eigenverbr.';
+
+  @override
+  String get pdfColMonth => 'Monat';
+
+  @override
+  String get pdfColSelfTight => 'Eigen.';
+
+  @override
+  String get pdfColCharge => 'Ladung';
+
+  @override
+  String get pdfColDischarge => 'Entl.';
+
+  @override
+  String get pdfColImport => 'Bezug';
+
+  @override
+  String get pdfColExport => 'Einsp.';
+
+  @override
+  String get pdfColId => 'ID';
+
+  @override
+  String get pdfColLabel => 'Bezeichnung';
+
+  @override
+  String get pdfColPeakKw => 'Peak kW';
+
+  @override
+  String get pdfColAzimuth => 'Azim.';
+
+  @override
+  String get pdfColTilt => 'Neig.';
+
+  @override
+  String get pdfColInverter => 'WR';
+
+  @override
+  String get pdfColDegradation => 'Degr. %/a';
+
+  @override
+  String get pdfColTargetKwh => 'Soll kWh';
+
+  @override
+  String get pdfColDeliveredKwh => 'Geliefert kWh';
+
+  @override
+  String get pdfColShortfallKwh => 'Fehlbetrag kWh';
+
+  @override
+  String get pdfColCoverage => 'Abdeckung %';
+
+  @override
+  String get pdfFooterSynthetic =>
+      'Hinweis: Dieser Bericht wurde mit dem synthetischen Demo-Einstrahlungsmodell erstellt. Die Zahlen sind illustrativ und keine geprüfte Ertragsprognose.';
+
+  @override
+  String pdfFooterAgpl(String engineVersion) {
+    return 'Erstellt mit PV Calculator (AGPL-3.0)  -  Engine $engineVersion';
+  }
+
+  @override
   String get projectTimeStep => 'Zeitschritt';
 
   @override

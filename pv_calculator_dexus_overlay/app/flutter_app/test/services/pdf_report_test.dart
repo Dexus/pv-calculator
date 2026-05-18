@@ -1,9 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pv_calculator_app/l10n/generated/app_localizations.dart';
+import 'package:pv_calculator_app/l10n/generated/app_localizations_en.dart';
 import 'package:pv_calculator_app/services/pdf_report.dart';
 import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_engine/pv_engine.dart';
+
+final AppLocalizations _l = AppLocalizationsEn();
 
 SimulationConfig _config({int days = 7}) {
   return SimulationConfig(
@@ -57,6 +61,7 @@ void main() {
     final bytes = await buildReportPdf(
       result: result,
       draft: draft,
+      l: _l,
       projectName: 'Demo',
       runTimestamp: DateTime.utc(2026, 5, 18, 12, 0),
       engineVersion: '0.9.0',
@@ -84,6 +89,7 @@ void main() {
     final bytes = await buildReportPdf(
       result: result,
       draft: draft,
+      l: _l,
       projectName: 'WithTariff',
       runTimestamp: DateTime.utc(2026, 5, 18, 12, 0),
       engineVersion: '0.9.0',
@@ -107,6 +113,7 @@ void main() {
     final bytes = await buildReportPdf(
       result: result,
       draft: draft,
+      l: _l,
       projectName: 'NoTariff',
       runTimestamp: DateTime.utc(2026, 5, 18, 12, 0),
       engineVersion: '0.9.0',
@@ -141,6 +148,7 @@ void main() {
     final bytes = await buildReportPdf(
       result: result,
       draft: draft,
+      l: _l,
       projectName: 'Multi',
       runTimestamp: DateTime.utc(2026, 5, 18, 12, 0),
       engineVersion: '0.9.0',
@@ -163,6 +171,7 @@ void main() {
     final bytes = await buildReportPdf(
       result: result,
       draft: draft,
+      l: _l,
       projectName: 'Single',
       runTimestamp: DateTime.utc(2026, 5, 18, 12, 0),
       engineVersion: '0.9.0',
@@ -180,6 +189,7 @@ void main() {
     final bytes = await buildReportPdf(
       result: result,
       draft: draft,
+      l: _l,
       projectName: 'AcceptanceProject',
       runTimestamp: DateTime.utc(2026, 5, 18, 12, 0),
       engineVersion: '0.9.0-abc',

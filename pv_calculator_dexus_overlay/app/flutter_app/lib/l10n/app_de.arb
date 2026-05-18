@@ -115,6 +115,48 @@
   "resultsKpiNetCost": "Netto-Stromkosten",
   "resultsPdfReport": "Bericht exportieren (PDF)",
   "resultsPdfReportProTooltip": "PDF-Berichte sind eine Pro-Funktion.",
+  "pdfAppTitle": "PV Calculator",
+  "pdfGeneratedAt": "Erstellt {timestamp}  -  Engine {engineVersion}",
+  "@pdfGeneratedAt": {
+    "placeholders": {
+      "timestamp": { "type": "String" },
+      "engineVersion": { "type": "String" }
+    }
+  },
+  "pdfSectionPerYear": "Jahresweise Aufschlüsselung",
+  "pdfSectionMonthly": "Monatswerte",
+  "pdfSectionMonthlyFinalYear": "Monatswerte (nur letztes Jahr)",
+  "pdfSectionArrays": "PV-Module",
+  "pdfSectionBanks": "Micro-Wechselrichter-Bänke",
+  "pdfSectionWarnings": "Warnungen",
+  "pdfColMetric": "Kennzahl",
+  "pdfColValue": "Wert",
+  "pdfColYear": "Jahr",
+  "pdfColSelfShort": "Eigenverbr.",
+  "pdfColMonth": "Monat",
+  "pdfColSelfTight": "Eigen.",
+  "pdfColCharge": "Ladung",
+  "pdfColDischarge": "Entl.",
+  "pdfColImport": "Bezug",
+  "pdfColExport": "Einsp.",
+  "pdfColId": "ID",
+  "pdfColLabel": "Bezeichnung",
+  "pdfColPeakKw": "Peak kW",
+  "pdfColAzimuth": "Azim.",
+  "pdfColTilt": "Neig.",
+  "pdfColInverter": "WR",
+  "pdfColDegradation": "Degr. %/a",
+  "pdfColTargetKwh": "Soll kWh",
+  "pdfColDeliveredKwh": "Geliefert kWh",
+  "pdfColShortfallKwh": "Fehlbetrag kWh",
+  "pdfColCoverage": "Abdeckung %",
+  "pdfFooterSynthetic": "Hinweis: Dieser Bericht wurde mit dem synthetischen Demo-Einstrahlungsmodell erstellt. Die Zahlen sind illustrativ und keine geprüfte Ertragsprognose.",
+  "pdfFooterAgpl": "Erstellt mit PV Calculator (AGPL-3.0)  -  Engine {engineVersion}",
+  "@pdfFooterAgpl": {
+    "placeholders": {
+      "engineVersion": { "type": "String" }
+    }
+  },
   "projectTimeStep": "Zeitschritt",
   "projectTimeStepHourly": "Stündlich",
   "projectTimeStepQuarter": "Viertelstündlich",

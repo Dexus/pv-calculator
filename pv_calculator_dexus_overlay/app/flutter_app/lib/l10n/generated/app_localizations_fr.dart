@@ -334,6 +334,105 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les rapports PDF sont une fonction Pro.';
 
   @override
+  String get pdfAppTitle => 'PV Calculator';
+
+  @override
+  String pdfGeneratedAt(String timestamp, String engineVersion) {
+    return 'Généré $timestamp  -  moteur $engineVersion';
+  }
+
+  @override
+  String get pdfSectionPerYear => 'Répartition annuelle';
+
+  @override
+  String get pdfSectionMonthly => 'Mensuel';
+
+  @override
+  String get pdfSectionMonthlyFinalYear =>
+      'Mensuel (dernière année uniquement)';
+
+  @override
+  String get pdfSectionArrays => 'Modules PV';
+
+  @override
+  String get pdfSectionBanks => 'Bancs de micro-onduleurs';
+
+  @override
+  String get pdfSectionWarnings => 'Avertissements';
+
+  @override
+  String get pdfColMetric => 'Indicateur';
+
+  @override
+  String get pdfColValue => 'Valeur';
+
+  @override
+  String get pdfColYear => 'Année';
+
+  @override
+  String get pdfColSelfShort => 'Autocons.';
+
+  @override
+  String get pdfColMonth => 'Mois';
+
+  @override
+  String get pdfColSelfTight => 'Auto.';
+
+  @override
+  String get pdfColCharge => 'Charge';
+
+  @override
+  String get pdfColDischarge => 'Décharge';
+
+  @override
+  String get pdfColImport => 'Import.';
+
+  @override
+  String get pdfColExport => 'Export.';
+
+  @override
+  String get pdfColId => 'ID';
+
+  @override
+  String get pdfColLabel => 'Libellé';
+
+  @override
+  String get pdfColPeakKw => 'Crête kW';
+
+  @override
+  String get pdfColAzimuth => 'Azim.';
+
+  @override
+  String get pdfColTilt => 'Incl.';
+
+  @override
+  String get pdfColInverter => 'Onduleur';
+
+  @override
+  String get pdfColDegradation => 'Dégr. %/a';
+
+  @override
+  String get pdfColTargetKwh => 'Cible kWh';
+
+  @override
+  String get pdfColDeliveredKwh => 'Livré kWh';
+
+  @override
+  String get pdfColShortfallKwh => 'Manque kWh';
+
+  @override
+  String get pdfColCoverage => 'Couverture %';
+
+  @override
+  String get pdfFooterSynthetic =>
+      'Note: ce rapport a été généré avec le modèle d\'irradiance synthétique de démonstration. Les chiffres sont indicatifs et ne constituent pas une prévision de production validée.';
+
+  @override
+  String pdfFooterAgpl(String engineVersion) {
+    return 'Généré par PV Calculator (AGPL-3.0)  -  moteur $engineVersion';
+  }
+
+  @override
   String get projectTimeStep => 'Pas de temps';
 
   @override

@@ -672,6 +672,192 @@ abstract class AppLocalizations {
   /// **'PDF-Berichte sind eine Pro-Funktion.'**
   String get resultsPdfReportProTooltip;
 
+  /// No description provided for @pdfAppTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'PV Calculator'**
+  String get pdfAppTitle;
+
+  /// No description provided for @pdfGeneratedAt.
+  ///
+  /// In de, this message translates to:
+  /// **'Erstellt {timestamp}  -  Engine {engineVersion}'**
+  String pdfGeneratedAt(String timestamp, String engineVersion);
+
+  /// No description provided for @pdfSectionPerYear.
+  ///
+  /// In de, this message translates to:
+  /// **'Jahresweise Aufschlüsselung'**
+  String get pdfSectionPerYear;
+
+  /// No description provided for @pdfSectionMonthly.
+  ///
+  /// In de, this message translates to:
+  /// **'Monatswerte'**
+  String get pdfSectionMonthly;
+
+  /// No description provided for @pdfSectionMonthlyFinalYear.
+  ///
+  /// In de, this message translates to:
+  /// **'Monatswerte (nur letztes Jahr)'**
+  String get pdfSectionMonthlyFinalYear;
+
+  /// No description provided for @pdfSectionArrays.
+  ///
+  /// In de, this message translates to:
+  /// **'PV-Module'**
+  String get pdfSectionArrays;
+
+  /// No description provided for @pdfSectionBanks.
+  ///
+  /// In de, this message translates to:
+  /// **'Micro-Wechselrichter-Bänke'**
+  String get pdfSectionBanks;
+
+  /// No description provided for @pdfSectionWarnings.
+  ///
+  /// In de, this message translates to:
+  /// **'Warnungen'**
+  String get pdfSectionWarnings;
+
+  /// No description provided for @pdfColMetric.
+  ///
+  /// In de, this message translates to:
+  /// **'Kennzahl'**
+  String get pdfColMetric;
+
+  /// No description provided for @pdfColValue.
+  ///
+  /// In de, this message translates to:
+  /// **'Wert'**
+  String get pdfColValue;
+
+  /// No description provided for @pdfColYear.
+  ///
+  /// In de, this message translates to:
+  /// **'Jahr'**
+  String get pdfColYear;
+
+  /// No description provided for @pdfColSelfShort.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigenverbr.'**
+  String get pdfColSelfShort;
+
+  /// No description provided for @pdfColMonth.
+  ///
+  /// In de, this message translates to:
+  /// **'Monat'**
+  String get pdfColMonth;
+
+  /// No description provided for @pdfColSelfTight.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigen.'**
+  String get pdfColSelfTight;
+
+  /// No description provided for @pdfColCharge.
+  ///
+  /// In de, this message translates to:
+  /// **'Ladung'**
+  String get pdfColCharge;
+
+  /// No description provided for @pdfColDischarge.
+  ///
+  /// In de, this message translates to:
+  /// **'Entl.'**
+  String get pdfColDischarge;
+
+  /// No description provided for @pdfColImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Bezug'**
+  String get pdfColImport;
+
+  /// No description provided for @pdfColExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Einsp.'**
+  String get pdfColExport;
+
+  /// No description provided for @pdfColId.
+  ///
+  /// In de, this message translates to:
+  /// **'ID'**
+  String get pdfColId;
+
+  /// No description provided for @pdfColLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Bezeichnung'**
+  String get pdfColLabel;
+
+  /// No description provided for @pdfColPeakKw.
+  ///
+  /// In de, this message translates to:
+  /// **'Peak kW'**
+  String get pdfColPeakKw;
+
+  /// No description provided for @pdfColAzimuth.
+  ///
+  /// In de, this message translates to:
+  /// **'Azim.'**
+  String get pdfColAzimuth;
+
+  /// No description provided for @pdfColTilt.
+  ///
+  /// In de, this message translates to:
+  /// **'Neig.'**
+  String get pdfColTilt;
+
+  /// No description provided for @pdfColInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'WR'**
+  String get pdfColInverter;
+
+  /// No description provided for @pdfColDegradation.
+  ///
+  /// In de, this message translates to:
+  /// **'Degr. %/a'**
+  String get pdfColDegradation;
+
+  /// No description provided for @pdfColTargetKwh.
+  ///
+  /// In de, this message translates to:
+  /// **'Soll kWh'**
+  String get pdfColTargetKwh;
+
+  /// No description provided for @pdfColDeliveredKwh.
+  ///
+  /// In de, this message translates to:
+  /// **'Geliefert kWh'**
+  String get pdfColDeliveredKwh;
+
+  /// No description provided for @pdfColShortfallKwh.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlbetrag kWh'**
+  String get pdfColShortfallKwh;
+
+  /// No description provided for @pdfColCoverage.
+  ///
+  /// In de, this message translates to:
+  /// **'Abdeckung %'**
+  String get pdfColCoverage;
+
+  /// No description provided for @pdfFooterSynthetic.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinweis: Dieser Bericht wurde mit dem synthetischen Demo-Einstrahlungsmodell erstellt. Die Zahlen sind illustrativ und keine geprüfte Ertragsprognose.'**
+  String get pdfFooterSynthetic;
+
+  /// No description provided for @pdfFooterAgpl.
+  ///
+  /// In de, this message translates to:
+  /// **'Erstellt mit PV Calculator (AGPL-3.0)  -  Engine {engineVersion}'**
+  String pdfFooterAgpl(String engineVersion);
+
   /// No description provided for @projectTimeStep.
   ///
   /// In de, this message translates to:

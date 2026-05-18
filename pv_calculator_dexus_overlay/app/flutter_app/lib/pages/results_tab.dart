@@ -13,6 +13,7 @@ import '../services/pdf_report.dart';
 import '../state/config_draft.dart';
 import '../state/project_controller.dart';
 import '../state/settings_controller.dart';
+import '../state/validation_warning_l10n.dart';
 import '../widgets/forms/_expert_gate.dart';
 import '../widgets/forms/_field.dart';
 import '../widgets/forms/batteries_section.dart';
@@ -396,24 +397,8 @@ class _WarningsSection extends StatelessWidget {
 
   final List<ValidationWarning> warnings;
 
-  String _localize(AppLocalizations l, ValidationWarning w) {
-    switch (w.code) {
-      case 'inverter-oversized':
-        return l.warningInverterOversized(
-            w.args['inverter'] ?? '', w.args['ratio'] ?? '');
-      case 'bank-exceeds-discharge':
-        return l.warningBankExceedsDischarge(
-            w.args['bank'] ?? '',
-            w.args['bankKw'] ?? '',
-            w.args['dischargeKw'] ?? '');
-      case 'battery-min-soc-high':
-        return l.warningBatteryMinSocHigh(
-            w.args['battery'] ?? '', w.args['pct'] ?? '');
-      case 'irradiance-missing':
-        return l.hintIrradianceMissing;
-    }
-    return w.code;
-  }
+  String _localize(AppLocalizations l, ValidationWarning w) =>
+      localizeValidationWarning(l, w);
 
   @override
   Widget build(BuildContext context) {
@@ -692,6 +677,7 @@ class _ResultsBody extends StatelessWidget {
       final bytes = await buildReportPdf(
         result: result,
         draft: draft,
+        l: l,
         projectName: projectName,
         runTimestamp: DateTime.now(),
         engineVersion: kEngineVersion,

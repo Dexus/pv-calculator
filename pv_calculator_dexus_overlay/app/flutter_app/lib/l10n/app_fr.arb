@@ -102,6 +102,48 @@
   "resultsKpiNetCost": "Coût net d'électricité",
   "resultsPdfReport": "Exporter le rapport (PDF)",
   "resultsPdfReportProTooltip": "Les rapports PDF sont une fonction Pro.",
+  "pdfAppTitle": "PV Calculator",
+  "pdfGeneratedAt": "Généré {timestamp}  -  moteur {engineVersion}",
+  "@pdfGeneratedAt": {
+    "placeholders": {
+      "timestamp": { "type": "String" },
+      "engineVersion": { "type": "String" }
+    }
+  },
+  "pdfSectionPerYear": "Répartition annuelle",
+  "pdfSectionMonthly": "Mensuel",
+  "pdfSectionMonthlyFinalYear": "Mensuel (dernière année uniquement)",
+  "pdfSectionArrays": "Modules PV",
+  "pdfSectionBanks": "Bancs de micro-onduleurs",
+  "pdfSectionWarnings": "Avertissements",
+  "pdfColMetric": "Indicateur",
+  "pdfColValue": "Valeur",
+  "pdfColYear": "Année",
+  "pdfColSelfShort": "Autocons.",
+  "pdfColMonth": "Mois",
+  "pdfColSelfTight": "Auto.",
+  "pdfColCharge": "Charge",
+  "pdfColDischarge": "Décharge",
+  "pdfColImport": "Import.",
+  "pdfColExport": "Export.",
+  "pdfColId": "ID",
+  "pdfColLabel": "Libellé",
+  "pdfColPeakKw": "Crête kW",
+  "pdfColAzimuth": "Azim.",
+  "pdfColTilt": "Incl.",
+  "pdfColInverter": "Onduleur",
+  "pdfColDegradation": "Dégr. %/a",
+  "pdfColTargetKwh": "Cible kWh",
+  "pdfColDeliveredKwh": "Livré kWh",
+  "pdfColShortfallKwh": "Manque kWh",
+  "pdfColCoverage": "Couverture %",
+  "pdfFooterSynthetic": "Note: ce rapport a été généré avec le modèle d'irradiance synthétique de démonstration. Les chiffres sont indicatifs et ne constituent pas une prévision de production validée.",
+  "pdfFooterAgpl": "Généré par PV Calculator (AGPL-3.0)  -  moteur {engineVersion}",
+  "@pdfFooterAgpl": {
+    "placeholders": {
+      "engineVersion": { "type": "String" }
+    }
+  },
   "projectTimeStep": "Pas de temps",
   "projectTimeStepHourly": "Horaire",
   "projectTimeStepQuarter": "Quart d'heure",
