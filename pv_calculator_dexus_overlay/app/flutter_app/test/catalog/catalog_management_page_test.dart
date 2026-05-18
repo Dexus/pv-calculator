@@ -143,6 +143,12 @@ void main() {
     final manufacturerField = find.byKey(const Key('catalog-editor-manufacturer'));
     final tf = tester.widget<TextFormField>(manufacturerField);
     expect(tf.controller!.text, startsWith('Eigene Kopie — Acme Seed'));
+    // prefill-only mode keeps the id field editable; an edit would lock
+    // it and skip the collision dialog (bug from review).
+    final idField = tester.widget<TextFormField>(
+        find.byKey(const Key('catalog-editor-id')));
+    expect(idField.enabled, isTrue,
+        reason: 'duplicated seed must stay a create flow, not an edit');
 
     await tester.tap(find.byKey(const Key('catalog-editor-save')));
     await tester.pumpAndSettle();
@@ -150,6 +156,45 @@ void main() {
     final users = await repo.userEntries();
     expect(users, hasLength(1));
     expect(users.single.manufacturer, startsWith('Eigene Kopie — '));
+  });
+
+  testWidgets('duplicate-seed save fires collision dialog when id exists',
+      (tester) async {
+    final repo = CatalogRepository(
+      seedSource: InMemoryCatalogSource(const [_seedModule], writable: false),
+      userSource: InMemoryCatalogSource(const []),
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.byKey(const Key('catalog-manager-seed-duplicate-seed-mod')));
+    await tester.pumpAndSettle();
+
+    // Force the auto-generated id to collide with a pre-planted user
+    // entry. After this edit the editor's create-path collision check
+    // must surface the dialog rather than silently overwriting.
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-id')), 'planted');
+    await repo.addUserEntry(const ModuleCatalogEntry(
+      id: 'planted',
+      manufacturer: 'Existing',
+      model: 'X',
+      peakKwPerModule: 0.4,
+    ));
+
+    await tester.tap(find.byKey(const Key('catalog-editor-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ID existiert bereits'), findsOneWidget,
+        reason: 'collision dialog must appear in prefill-create mode');
+
+    // Cancel: the existing entry stays untouched.
+    await tester.tap(find.text('Abbrechen'));
+    await tester.pumpAndSettle();
+    final planted = (await repo.userEntries())
+        .firstWhere((e) => e.id == 'planted') as ModuleCatalogEntry;
+    expect(planted.manufacturer, 'Existing');
   });
 
   testWidgets('import confirm dialog and snackbar fire on accept',

@@ -57,6 +57,22 @@ void main() {
         reason: 'kind discriminator must be stripped from sectioned output');
   });
 
+  test('exportUserCatalogJson() sorts entries by id within each section',
+      () async {
+    const z = ModuleCatalogEntry(
+        id: 'zebra', manufacturer: 'Z', model: 'Z', peakKwPerModule: 0.4);
+    const a = ModuleCatalogEntry(
+        id: 'alpha', manufacturer: 'A', model: 'A', peakKwPerModule: 0.4);
+    const m = ModuleCatalogEntry(
+        id: 'middle', manufacturer: 'M', model: 'M', peakKwPerModule: 0.4);
+    final repo = _repo(user: const [z, a, m]);
+    final exported = await repo.exportUserCatalogJson();
+    final decoded = jsonDecode(exported) as Map<String, dynamic>;
+    final modules = (decoded['modules'] as List).cast<Map>();
+    expect(modules.map((m) => m['id']).toList(),
+        ['alpha', 'middle', 'zebra']);
+  });
+
   test('exportUserCatalogJson() excludes seed entries entirely', () async {
     final repo = _repo(
         seed: const [_seedModule, _seedInverter], user: const []);

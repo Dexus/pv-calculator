@@ -82,6 +82,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
               onDuplicateSeed: (e) => _openEditor(
                 kind: kind,
                 initial: _seedAsUserCopy(e, l.catalogManagerDuplicatePrefix),
+                prefillOnly: true,
               ),
             ),
         ],
@@ -109,6 +110,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
   Future<void> _openEditor({
     required ComponentKind kind,
     CatalogEntry? initial,
+    bool prefillOnly = false,
   }) async {
     final repo = context.read<CatalogRepository>();
     await Navigator.of(context).push<CatalogEntry>(
@@ -117,6 +119,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
           repository: repo,
           kind: kind,
           initial: initial,
+          prefillOnly: prefillOnly,
         ),
       ),
     );
