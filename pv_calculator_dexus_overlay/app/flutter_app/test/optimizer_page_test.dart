@@ -73,9 +73,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Defaults: battery 5..15 (3 steps), inverter 4..8 (3 steps),
-    // pvScale 0.8..1.4 (4 steps) = 3 × 3 × 4 = 36 combos. Tight for a
-    // widget test but the per-candidate sim is one day, so wall-time
-    // stays under a second.
+    // pvScale 0.8..1.4 (4 steps) = 3 × 3 × 4 = 36 combos. Each
+    // candidate runs a full year (the optimizer forces days = 365),
+    // so 36 × ~50 ms = ~1.8 s — fits comfortably in widget-test
+    // budgets but worth keeping an eye on if CI gets slower.
     await tester.ensureVisible(find.byKey(const Key('optimizer-run')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('optimizer-run')));

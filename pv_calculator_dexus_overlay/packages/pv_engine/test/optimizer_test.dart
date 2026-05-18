@@ -2,9 +2,13 @@ import 'package:pv_engine/pv_engine.dart';
 import 'package:test/test.dart';
 
 /// Builds a minimal baseline config the optimizer tests sweep over.
-/// One PV array, one inverter, one battery, hourly steps, one day so
-/// the per-candidate runtime stays tight. Tariff is set so both
-/// objectives are reachable.
+/// One PV array, one inverter, one battery, hourly steps. The
+/// baseline declares `days: 1` for fast direct-`PvSimulator` reference
+/// runs in identity-style assertions; per-candidate optimizer runs
+/// always extend to a full 365-day year regardless (the optimizer
+/// forces `days = 365` so lifetime cost is annualised honestly), so
+/// keep the sweep sizes modest here. Tariff is set so both objectives
+/// are reachable.
 SimulationConfig _baseline({
   TariffConfig? tariff = const TariffConfig(
     importPricePerKwh: 0.30,
@@ -514,6 +518,66 @@ void main() {
         shortResult.candidates.single.summary.pvAcKwh,
         closeTo(fullResult.candidates.single.summary.pvAcKwh, 1e-6),
       );
+    });
+
+    test('investment math sums all baseline devices, not just the swept [0]',
+        () {
+      // Copilot PR #31 review: with multiple inverters / batteries in
+      // the baseline, the optimizer only varies the [0] device but the
+      // investment cost must price the WHOLE system.
+      final baseline = SimulationConfig(
+        arrays: const [
+          PvArray(
+            id: 'south',
+            label: 'South',
+            peakKw: 5.0,
+            azimuthDeg: 180,
+            tiltDeg: 30,
+            inverterId: 'main',
+          ),
+        ],
+        inverters: const [
+          Inverter(id: 'main', label: 'Main', maxAcKw: 5.0),
+          Inverter(id: 'extra', label: 'Extra', maxAcKw: 3.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'main',
+            label: 'Main',
+            capacityKwh: 5.0,
+            maxChargeKw: 2.5,
+            maxDischargeKw: 2.5,
+          ),
+          BatteryConfig(
+            id: 'extra',
+            label: 'Extra',
+            capacityKwh: 10.0,
+            maxChargeKw: 5.0,
+            maxDischargeKw: 5.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 12.0),
+        days: 1,
+      );
+      final spec = OptimizerSpec(
+        baseline: baseline,
+        prices: const OptimizerPrices(
+          eurPerKwpPv: 1000,
+          eurPerKwAcInverter: 500,
+          eurPerKwhBattery: 800,
+        ),
+        objective: OptimizerObjective.maxAutarky,
+        batterySweepKwh: const [5.0],
+        inverterSweepKw: const [5.0],
+        pvScaleSweep: const [1.0],
+      );
+      final result = const Optimizer().run(spec);
+      expect(result.candidates.length, equals(1));
+      // pv 5 kWp × 1000 = 5000 €
+      // inverters: swept 5 kW + fixed 3 kW = 8 kW × 500 = 4000 €
+      // batteries: swept 5 kWh + fixed 10 kWh = 15 kWh × 800 = 12 000 €
+      // Total = 21 000 €.
+      expect(result.candidates.single.investmentEur, closeTo(21000.0, 0.01));
     });
   });
 }
