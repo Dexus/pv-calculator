@@ -56,19 +56,58 @@ void main() {
   });
 
   group('parseLoadProfileCsv — Home Assistant (ISO 8601 + kWh state)', () {
-    test('kWh state column sums per-hour energy increments', () {
+    test('delta-style state values sum within the hour', () {
+      // Non-monotonic values keep the legacy per-interval delta semantics:
+      // each row is the energy consumed since the previous bucket.
       final csv = StringBuffer('timestamp,state\n');
-      // Three energy increments within hour 9; energy adds up.
       csv.writeln('2024-01-15T09:00:00+01:00,0.20');
       csv.writeln('2024-01-15T09:20:00+01:00,0.15');
       csv.writeln('2024-01-15T09:40:00+01:00,0.10');
-      // Single increment in hour 18.
       csv.writeln('2024-01-15T18:00:00+01:00,0.55');
       final profile = parseLoadProfileCsv(csv.toString());
       profile.validate();
       expect(profile.hourlyShape[9], closeTo(0.45, 1e-9));
       expect(profile.hourlyShape[18], closeTo(0.55, 1e-9));
       expect(profile.dailyKwh, closeTo(1.0, 1e-9));
+    });
+
+    test(
+        'cumulative kWh meter reading is converted to deltas before bucketing',
+        () {
+      // A real Home Assistant energy-sensor export: monotonically non-
+      // decreasing meter readings. Summing them inside the hour buckets
+      // would multiply the meter reading; the parser must take the diff
+      // of consecutive readings instead.
+      final csv = StringBuffer('timestamp,state\n');
+      csv.writeln('2024-01-15T09:00:00+01:00,1000.00');
+      csv.writeln('2024-01-15T10:00:00+01:00,1000.45');
+      csv.writeln('2024-01-15T11:00:00+01:00,1001.20');
+      csv.writeln('2024-01-15T12:00:00+01:00,1001.50');
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      // Deltas land at the timestamp of the *later* reading. The
+      // 09:00 row has no prior reading and is dropped.
+      expect(profile.hourlyShape[10], closeTo(0.45, 1e-9));
+      expect(profile.hourlyShape[11], closeTo(0.75, 1e-9));
+      expect(profile.hourlyShape[12], closeTo(0.30, 1e-9));
+      expect(profile.dailyKwh, closeTo(1.50, 1e-9));
+    });
+
+    test('cumulative readings in Wh are handled after delta conversion', () {
+      // Same shape as the kWh case but expressed in Wh — the magnitude
+      // heuristic must run after the delta conversion, otherwise the
+      // 100000-Wh meter reading would be misclassified as W and divided
+      // by 1000 a second time.
+      final csv = StringBuffer('timestamp;state [Wh]\n');
+      csv.writeln('2024-01-15 09:00:00;100000');
+      csv.writeln('2024-01-15 10:00:00;100450');
+      csv.writeln('2024-01-15 11:00:00;101200');
+      csv.writeln('2024-01-15 12:00:00;101500');
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      expect(profile.hourlyShape[10], closeTo(0.45, 1e-9));
+      expect(profile.hourlyShape[11], closeTo(0.75, 1e-9));
+      expect(profile.hourlyShape[12], closeTo(0.30, 1e-9));
     });
   });
 
