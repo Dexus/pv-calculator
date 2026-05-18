@@ -336,26 +336,55 @@ class HorizontalIrradianceSeries {
 
 /// [IrradianceSource] that derives per-array POA on the fly from one
 /// site-level [HorizontalIrradianceSeries] by applying [transposeToPoa]
-/// for each array's tilt + azimuth. Stateless — safe to share between
-/// runs of the same simulation.
+/// for each array's tilt + azimuth.
+///
+/// Within a single simulation run several arrays are sampled at the same
+/// `(dayOfYear, hourOfDay)`; the solar zenith + azimuth depend only on
+/// that pair (plus latitude/longitude), so this source caches the
+/// derived [SolarPosition] for the integer hour-of-day key. The cache
+/// is invalidated when the caller's `latitudeDeg` changes between calls,
+/// since the geometry is latitude-dependent. Per-array trig (tilt,
+/// surface azimuth) is cheap and is still computed inline.
 class HorizontalToPoaSource extends IrradianceSource {
-  const HorizontalToPoaSource(this.series);
+  HorizontalToPoaSource(this.series);
 
   final HorizontalIrradianceSeries series;
+
+  // 365 * 24 = 8760 slots, one cached SolarPosition per (day, hour). At
+  // quarter-hourly stepping all four sub-steps inside an hour share the
+  // same integer hour and therefore the same cache entry.
+  final List<SolarPosition?> _solarCache = List.filled(365 * 24, null);
+  double? _cachedLatitudeDeg;
 
   @override
   WeatherSample sampleFor(WeatherQuery query) {
     final h = series.sampleAt(dayOfYear: query.dayOfYear, hourOfDay: query.hourOfDay);
-    return transposeToPoa(
-      h: h,
-      tiltDeg: query.tiltDeg,
-      azimuthDeg: query.azimuthDeg,
+    if (_cachedLatitudeDeg != query.latitudeDeg) {
+      _cachedLatitudeDeg = query.latitudeDeg;
+      for (var i = 0; i < _solarCache.length; i++) {
+        _solarCache[i] = null;
+      }
+    }
+    final dayIdx = (query.dayOfYear - 1).clamp(0, 364).toInt();
+    final hourIdx = query.hourOfDay.floor().clamp(0, 23).toInt();
+    final cacheKey = dayIdx * 24 + hourIdx;
+    final position = _solarCache[cacheKey] ??= solarPositionFor(
       latitudeDeg: query.latitudeDeg,
       // Use the series longitude to convert UTC hours to local solar time
       // before computing the hour angle; hourOfDay in WeatherQuery is UTC.
       longitudeDeg: series.longitudeDeg,
       dayOfYear: query.dayOfYear,
       hourOfDay: query.hourOfDay,
+    );
+    return transposeToPoa(
+      h: h,
+      tiltDeg: query.tiltDeg,
+      azimuthDeg: query.azimuthDeg,
+      latitudeDeg: query.latitudeDeg,
+      longitudeDeg: series.longitudeDeg,
+      dayOfYear: query.dayOfYear,
+      hourOfDay: query.hourOfDay,
+      solarPosition: position,
     );
   }
 }
