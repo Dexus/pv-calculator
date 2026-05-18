@@ -14,6 +14,41 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-05-18 (app)
+
+Phase 10 follow-up — Optimizer sweep runs off the UI thread on native,
+gains a determinate progress bar, and is now cancellable mid-run. Engine
+untouched (`onProgress(done, total)` was already exposed in 0.12.0).
+
+### Changed — App
+- **`OptimizerRunner`** (`app/flutter_app/lib/services/optimizer_runner.dart`
+  + `_io.dart` / `_web.dart`) mirrors the Phase-9 `SimulationRunner`
+  shape: spawns a worker `Isolate` on native, falls back to in-process
+  on web (no `dart:isolate`). The engine's per-candidate
+  `onProgress(done, total)` callback is surfaced to the UI as an
+  `OptimizerProgress` stream.
+- **`OptimizerController`** consumes the new runner. Exposes `progress`,
+  `cancelled`, `canCancel` plus a `cancel()` method that abruptly kills
+  the worker isolate on native. Cancellation surfaces as a dedicated
+  `OptimizerCancelledException` so the page can show a "Optimierung
+  abgebrochen." banner without piping through the error string.
+- **Optimizer page** now renders a determinate `LinearProgressIndicator`
+  with a per-frame "X / N Kandidaten" label and a Cancel button. The
+  button is disabled on web with a tooltip explaining cancellation is
+  only available on native (Dart can't interrupt a synchronous sweep on
+  the main isolate).
+
+### Added — Tests
+- `test/services/optimizer_runner_test.dart` — exercises the isolate
+  runner end-to-end: completion, monotonic progress, parity vs.
+  `const Optimizer().run(spec)`, `canCancel` per platform mode, and
+  cancel-mid-sweep raising `OptimizerCancelledException`.
+- `test/optimizer_controller_test.dart` — controller-level transitions
+  for the bits flutter_test can't observe through the page (the
+  "running" frame is gone before pump renders): progress propagation,
+  cancel-on-in-process is a no-op, cancel-on-cancellable runner settles
+  in the cancelled state, `clearResult` resets the cancelled flag.
+
 ## [0.8.0] — 2026-05-18 (app) / [0.12.0] — 2026-05-18 (engine)
 
 Phase 10 — Optimizer (Pro). Parametric sweep over battery capacity,

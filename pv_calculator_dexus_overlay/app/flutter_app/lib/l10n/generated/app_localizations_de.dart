@@ -1934,6 +1934,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get optimizerRunning => 'Optimierer läuft …';
 
   @override
+  String optimizerProgress(int done, int total) {
+    return '$done / $total Kandidaten';
+  }
+
+  @override
+  String get optimizerCancelButton => 'Abbrechen';
+
+  @override
+  String get optimizerCancelled => 'Optimierung abgebrochen.';
+
+  @override
+  String get optimizerCancelUnavailable =>
+      'Abbrechen ist auf Web nicht verfügbar.';
+
+  @override
   String optimizerCounters(int evaluated, int overBudget, int invalid) {
     return '$evaluated ausgewertet · $overBudget über Budget · $invalid ungültig';
   }

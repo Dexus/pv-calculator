@@ -309,21 +309,61 @@ class _OptimizerPageState extends State<OptimizerPage> {
   }
 
   Widget _runCard(BuildContext context, AppLocalizations l, OptimizerController controller, ConfigDraft draft, OptimizerObjective effectiveObjective) {
+    final progress = controller.progress;
+    final progressValue =
+        progress != null && progress.total > 0 ? progress.fraction : null;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FilledButton.icon(
-              key: const Key('optimizer-run'),
-              onPressed: controller.running ? null : () => _onRun(controller, draft, effectiveObjective),
-              icon: const Icon(Icons.tune),
-              label: Text(controller.running ? l.optimizerRunning : l.optimizerRunButton),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const Key('optimizer-run'),
+                    onPressed: controller.running ? null : () => _onRun(controller, draft, effectiveObjective),
+                    icon: const Icon(Icons.tune),
+                    label: Text(controller.running ? l.optimizerRunning : l.optimizerRunButton),
+                  ),
+                ),
+                if (controller.running) ...[
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: controller.canCancel
+                        ? l.optimizerCancelButton
+                        : l.optimizerCancelUnavailable,
+                    child: TextButton.icon(
+                      key: const Key('optimizer-cancel'),
+                      onPressed:
+                          controller.canCancel ? controller.cancel : null,
+                      icon: const Icon(Icons.cancel),
+                      label: Text(l.optimizerCancelButton),
+                    ),
+                  ),
+                ],
+              ],
             ),
             if (controller.running) ...[
               const SizedBox(height: 8),
-              const LinearProgressIndicator(),
+              LinearProgressIndicator(value: progressValue),
+              if (progress != null && progress.total > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  l.optimizerProgress(progress.done, progress.total),
+                  key: const Key('optimizer-progress'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ],
+            if (!controller.running && controller.cancelled) ...[
+              const SizedBox(height: 8),
+              Text(
+                l.optimizerCancelled,
+                key: const Key('optimizer-cancelled'),
+                style: TextStyle(color: Theme.of(context).colorScheme.tertiary),
+              ),
             ],
             if (controller.lastError != null) ...[
               const SizedBox(height: 8),

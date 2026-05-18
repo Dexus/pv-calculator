@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_calculator_app/pages/optimizer_page.dart';
+import 'package:pv_calculator_app/services/optimizer_runner.dart';
 import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_calculator_app/state/optimizer_controller.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/widgets/results/optimizer_results_table.dart';
 
 import '_test_localization.dart';
+
+/// Widget tests run on flutter_test's fake-time clock. Injecting an
+/// in-process runner avoids racing the real-time isolate
+/// spawn/teardown that `pumpAndSettle` can't drive.
+OptimizerController _inProcessOptimizer() => OptimizerController(
+      optimizerRunner: const OptimizerRunner(runInProcess: true),
+    );
 
 ConfigDraft _smallDraft() {
   return ConfigDraft(
@@ -51,7 +59,7 @@ Widget _host(ProjectController project, OptimizerController optimizer) {
 void main() {
   testWidgets('renders sections and is initially idle', (tester) async {
     final project = ProjectController(draft: _smallDraft());
-    final optimizer = OptimizerController();
+    final optimizer = _inProcessOptimizer();
     await tester.pumpWidget(_host(project, optimizer));
     await tester.pumpAndSettle();
 
@@ -68,7 +76,7 @@ void main() {
 
   testWidgets('run populates a top-N table with stable row keys', (tester) async {
     final project = ProjectController(draft: _smallDraft());
-    final optimizer = OptimizerController();
+    final optimizer = _inProcessOptimizer();
     await tester.pumpWidget(_host(project, optimizer));
     await tester.pumpAndSettle();
 
@@ -97,7 +105,7 @@ void main() {
 
   testWidgets('budget below cheapest combo yields empty table + message', (tester) async {
     final project = ProjectController(draft: _smallDraft());
-    final optimizer = OptimizerController();
+    final optimizer = _inProcessOptimizer();
     await tester.pumpWidget(_host(project, optimizer));
     await tester.pumpAndSettle();
 
@@ -129,7 +137,7 @@ void main() {
       inverterId: 'main',
     ));
     final project = ProjectController(draft: draft);
-    final optimizer = OptimizerController();
+    final optimizer = _inProcessOptimizer();
     await tester.pumpWidget(_host(project, optimizer));
     await tester.pumpAndSettle();
 
@@ -148,5 +156,31 @@ void main() {
     expect(optimizer.lastResult, isNotNull);
     // 3 × 3 × 4 = 36 combos × 2 subsets (east on/off) = 72.
     expect(optimizer.lastResult!.evaluated, equals(72));
+  });
+
+  testWidgets('post-completion state clears progress and cancelled flag',
+      (tester) async {
+    final project = ProjectController(draft: _smallDraft());
+    final optimizer = _inProcessOptimizer();
+    await tester.pumpWidget(_host(project, optimizer));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('optimizer-run')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('optimizer-run')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // After completion the page surfaces neither the progress label nor
+    // the cancelled banner; the cancel button is gone too. The
+    // transient "running" frame is unobservable in widget tests because
+    // the in-process runner drains microtasks before pump renders, so
+    // the assertions here focus on the post-completion render state.
+    expect(find.byKey(const Key('optimizer-progress')), findsNothing);
+    expect(find.byKey(const Key('optimizer-cancel')), findsNothing);
+    expect(find.byKey(const Key('optimizer-cancelled')), findsNothing);
+    expect(optimizer.progress, isNull);
+    expect(optimizer.cancelled, isFalse);
+    expect(optimizer.canCancel, isFalse);
   });
 }
