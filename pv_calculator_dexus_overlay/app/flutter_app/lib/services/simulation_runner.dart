@@ -69,6 +69,31 @@ class SimulationRunner {
         }
         return;
       }
+      // `onError: receivePort.sendPort` delivers uncaught isolate errors
+      // as a 2-element list `[String error, String stackTrace]`. If one
+      // reaches us before the in-isolate catch in `_runEntry` had a
+      // chance to wrap it, fail the future instead of dropping it.
+      if (message is List && message.length == 2) {
+        if (!completer.isCompleted) {
+          completer.completeError(
+            Exception(message[0]?.toString() ?? 'Isolate error'),
+            StackTrace.fromString(message[1]?.toString() ?? ''),
+          );
+        }
+        return;
+      }
+      // `onExit: receivePort.sendPort` delivers `null` when the isolate
+      // exits — including normal exits, where the result has already
+      // been sent and the completer is done. We only need to act if the
+      // isolate exited without delivering a result or an error.
+      if (message == null) {
+        if (!completer.isCompleted) {
+          completer.completeError(
+            StateError('Simulation isolate exited without a result.'),
+          );
+        }
+        return;
+      }
     });
 
     try {

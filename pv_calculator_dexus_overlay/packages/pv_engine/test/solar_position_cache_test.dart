@@ -27,13 +27,12 @@ HorizontalIrradianceSeries _flatSeries({
 }
 
 void main() {
-  test('arrays at the same instant produce identical solar geometry', () {
+  test('repeated calls with the same (instant, tilt, azimuth) are idempotent', () {
+    // The cache hit path must return the same POA as the cache-miss
+    // path — i.e., reusing the cached SolarPosition must not change
+    // the transposition output. Equal POA across two calls with
+    // identical inputs is the observable signal.
     final source = HorizontalToPoaSource(_flatSeries());
-    // Same (day, hour, lat), different tilt/azimuth ⇒ different POA, but
-    // the underlying geometry must be reused. We can't observe the cache
-    // directly; check that POA values for the same array are stable
-    // across repeated calls (idempotency) and that the source survives
-    // many arrays without throwing.
     final a = source.sampleFor(const WeatherQuery(
       arrayId: 'a', tiltDeg: 30, azimuthDeg: 180, dayOfYear: 172,
       hourOfDay: 12.5, latitudeDeg: 50,
@@ -94,5 +93,53 @@ void main() {
     );
     expect(p1.zenithRad, p2.zenithRad);
     expect(p1.azimuthRad, p2.azimuthRad);
+  });
+
+  test('quarter-hourly sub-hour queries do not collapse onto the floored hour', () {
+    // Regression test for the PR #26 review threads (Codex + Copilot):
+    // the cache used to be keyed by `dayIdx * 24 + hourOfDay.floor()`,
+    // so for `TimeStep.quarterHourly` the geometry derived from the
+    // first quarter (e.g. hourOfDay=12.125) was reused for 12.375 /
+    // 12.625 / 12.875. Verify each sub-hour produces a distinct POA
+    // matching the geometry at that exact instant, regardless of the
+    // order the queries arrive in.
+    final source = HorizontalToPoaSource(_flatSeries());
+    const tilt = 60.0;
+    const az = 90.0; // east-facing — POA varies fast with hour angle
+
+    final ordered = <double>[];
+    for (final h in const [12.125, 12.375, 12.625, 12.875]) {
+      ordered.add(source.sampleFor(WeatherQuery(
+        arrayId: 'a', tiltDeg: tilt, azimuthDeg: az, dayOfYear: 80,
+        hourOfDay: h, latitudeDeg: 50,
+      )).poaWPerM2);
+    }
+
+    // Re-create the source so the cache starts empty, then query in
+    // reverse order. With the buggy floored-hour key the *first* call
+    // (12.875) would seed the cache and the rest would return the same
+    // POA. With the fixed key each sub-hour produces its own geometry.
+    final reverseSource = HorizontalToPoaSource(_flatSeries());
+    final reversed = <double>[];
+    for (final h in const [12.875, 12.625, 12.375, 12.125]) {
+      reversed.add(reverseSource.sampleFor(WeatherQuery(
+        arrayId: 'a', tiltDeg: tilt, azimuthDeg: az, dayOfYear: 80,
+        hourOfDay: h, latitudeDeg: 50,
+      )).poaWPerM2);
+    }
+    // Walk the reversed list back into the forward order and compare:
+    // order-independence proves the cache key disambiguates sub-hours.
+    final reversedAligned = reversed.reversed.toList();
+    for (var i = 0; i < ordered.length; i++) {
+      expect(reversedAligned[i], closeTo(ordered[i], 1e-12),
+          reason: 'sub-hour ${[12.125, 12.375, 12.625, 12.875][i]} '
+              'must be order-independent');
+    }
+    // And the four values must not all be equal — that's the symptom
+    // the old key produced. East-facing at midday gives a steep beam
+    // gradient, so consecutive 15-min slots differ visibly.
+    expect(ordered.toSet().length, greaterThan(1),
+        reason: 'sub-hours must produce distinct POA — the floored-hour '
+            'cache key would collapse them onto one value');
   });
 }

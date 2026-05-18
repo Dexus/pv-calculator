@@ -338,36 +338,50 @@ class HorizontalIrradianceSeries {
 /// site-level [HorizontalIrradianceSeries] by applying [transposeToPoa]
 /// for each array's tilt + azimuth.
 ///
-/// Within a single simulation run several arrays are sampled at the same
-/// `(dayOfYear, hourOfDay)`; the solar zenith + azimuth depend only on
-/// that pair (plus latitude/longitude), so this source caches the
-/// derived [SolarPosition] for the integer hour-of-day key. The cache
-/// is invalidated when the caller's `latitudeDeg` changes between calls,
-/// since the geometry is latitude-dependent. Per-array trig (tilt,
-/// surface azimuth) is cheap and is still computed inline.
+/// Within a single simulation step the engine queries every array at the
+/// **same** `(dayOfYear, hourOfDay)` instant; the solar zenith + azimuth
+/// depend only on that instant (plus latitude/longitude), so this source
+/// caches the derived [SolarPosition] keyed by the exact minute of the
+/// year. Sub-hourly step widths therefore still get their own geometry
+/// — the cache does not collapse 15-min queries onto the floored hour,
+/// which would bias POA at sub-hourly resolution. The cache is
+/// invalidated when the caller's `latitudeDeg` changes between calls.
+/// Per-array trig (tilt, surface azimuth) is cheap and is still computed
+/// inline.
 class HorizontalToPoaSource extends IrradianceSource {
   HorizontalToPoaSource(this.series);
 
   final HorizontalIrradianceSeries series;
 
-  // 365 * 24 = 8760 slots, one cached SolarPosition per (day, hour). At
-  // quarter-hourly stepping all four sub-steps inside an hour share the
-  // same integer hour and therefore the same cache entry.
-  final List<SolarPosition?> _solarCache = List.filled(365 * 24, null);
+  // Keyed by `dayIdx * 1440 + minuteOfDay` so each unique simulation
+  // instant gets its own geometry slot. A 15-min year touches at most
+  // 365 * 96 = 35 040 keys; a 1-h year only 365 * 24 = 8 760. Map
+  // lookup is fast enough at this size and avoids pre-allocating a
+  // 525 600-entry list.
+  final Map<int, SolarPosition> _solarCache = <int, SolarPosition>{};
   double? _cachedLatitudeDeg;
 
   @override
   WeatherSample sampleFor(WeatherQuery query) {
     final h = series.sampleAt(dayOfYear: query.dayOfYear, hourOfDay: query.hourOfDay);
+    // Dark step: POA is zero regardless of geometry — skip both the
+    // cache lookup and the trig call. transposeToPoa would short-circuit
+    // anyway, but doing it here also avoids polluting the cache with
+    // entries that will never be reused for any non-trivial work.
+    if (h.globalHorizontalWPerM2 <= 0) {
+      return WeatherSample(
+        poaWPerM2: 0,
+        ambientTempC: h.ambientTempC,
+        windMS: h.windMS,
+      );
+    }
     if (_cachedLatitudeDeg != query.latitudeDeg) {
       _cachedLatitudeDeg = query.latitudeDeg;
-      for (var i = 0; i < _solarCache.length; i++) {
-        _solarCache[i] = null;
-      }
+      _solarCache.clear();
     }
     final dayIdx = (query.dayOfYear - 1).clamp(0, 364).toInt();
-    final hourIdx = query.hourOfDay.floor().clamp(0, 23).toInt();
-    final cacheKey = dayIdx * 24 + hourIdx;
+    final minuteOfDay = (query.hourOfDay * 60).round().clamp(0, 1439);
+    final cacheKey = dayIdx * 1440 + minuteOfDay;
     final position = _solarCache[cacheKey] ??= solarPositionFor(
       latitudeDeg: query.latitudeDeg,
       // Use the series longitude to convert UTC hours to local solar time

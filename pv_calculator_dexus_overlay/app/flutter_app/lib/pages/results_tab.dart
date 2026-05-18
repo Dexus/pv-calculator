@@ -84,7 +84,12 @@ class ResultsTab extends StatelessWidget {
         Center(
           child: FilledButton.icon(
             key: const Key('results-run-button'),
-            onPressed: canRun ? () => controller.run() : null,
+            // Block body so the returned Future<bool> is discarded as a
+            // statement, not used as the callback's return value. This
+            // sidesteps `unawaited_futures` and any future tightening of
+            // the rule for VoidCallback assignments. Errors are still
+            // surfaced via `controller.lastError`.
+            onPressed: canRun ? () { controller.run(); } : null,
             icon: controller.running
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.play_arrow),

@@ -44,7 +44,7 @@ void main() {
           weatherSource: buildSeries(),
         );
 
-    test('annual totals agree within 1e-9 kWh', () {
+    test('summary totals over the simulated period agree within 1e-9 kWh', () {
       final hourly = const PvSimulator().run(configWith(TimeStep.hourly)).summary;
       final quarter = const PvSimulator().run(configWith(TimeStep.quarterHourly)).summary;
 
@@ -87,7 +87,7 @@ void main() {
   });
 
   group('synthetic source at quarter-hourly resolution', () {
-    test('annual totals stay within 5% of hourly (continuous curve integrates better)', () {
+    test('summary totals stay within 5% of hourly (continuous curve integrates better)', () {
       SimulationConfig configWith(TimeStep timeStep) => SimulationConfig(
             arrays: const [
               PvArray(id: 'a', label: 'A', peakKw: 5.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'inv'),

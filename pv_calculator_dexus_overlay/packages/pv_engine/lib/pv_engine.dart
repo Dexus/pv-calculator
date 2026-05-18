@@ -982,13 +982,19 @@ class _StepBuffer {
   final Float64List arrayDc;
   final Float64List arrayAc;
 
-  /// Returns a non-copying view of one row of a 2D column. Sub-list
-  /// views share the underlying `ByteBuffer` so iterating
-  /// `step.batteryChargesKwh` is essentially free.
-  Float64List _row(Float64List col, int idx, int dim) {
-    if (dim == 0) return Float64List(0);
+  /// Returns a non-copying, **immutable** view of one row of a 2D
+  /// column. The underlying `Float64List.sublistView` shares the
+  /// buffer's `ByteBuffer` (so iteration stays cheap), but the
+  /// `UnmodifiableListView` wrapper forbids writes — preserving the
+  /// pre-Phase-9 contract that `SimulationStep`'s list fields are
+  /// immutable. Pre-Phase-9 this was `List<double>.unmodifiable(...)`,
+  /// which copied; the wrapper here is non-copying.
+  List<double> _row(Float64List col, int idx, int dim) {
+    if (dim == 0) return const <double>[];
     final start = idx * dim;
-    return Float64List.sublistView(col, start, start + dim);
+    return UnmodifiableListView<double>(
+      Float64List.sublistView(col, start, start + dim),
+    );
   }
 
   /// Materialises a `SimulationStep` view backed by this buffer at the
