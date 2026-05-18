@@ -22,29 +22,32 @@ void main(List<String> args) {
   print('');
 
   for (final timeStep in TimeStep.values) {
-    final cfg = _yearConfig(timeStep);
-    for (var i = 0; i < warmup; i++) {
-      const PvSimulator().run(cfg);
+    for (final keepSteps in const [true, false]) {
+      final cfg = _yearConfig(timeStep, keepSteps: keepSteps);
+      for (var i = 0; i < warmup; i++) {
+        const PvSimulator().run(cfg);
+      }
+      final samples = <double>[];
+      for (var i = 0; i < runs; i++) {
+        final sw = Stopwatch()..start();
+        const PvSimulator().run(cfg);
+        sw.stop();
+        samples.add(sw.elapsedMicroseconds / 1000.0);
+      }
+      samples.sort();
+      final median = samples[samples.length ~/ 2];
+      final min = samples.first;
+      final max = samples.last;
+      final mean = samples.reduce((a, b) => a + b) / samples.length;
+      final stepsPerYear = 365 * timeStep.stepsPerDay;
+      final tag = keepSteps ? 'keepSteps' : '   no-steps';
+      print('${timeStep.name.padRight(14)} '
+          '($stepsPerYear steps, $tag): '
+          'median ${median.toStringAsFixed(1)} ms, '
+          'min ${min.toStringAsFixed(1)} ms, '
+          'max ${max.toStringAsFixed(1)} ms, '
+          'mean ${mean.toStringAsFixed(1)} ms');
     }
-    final samples = <double>[];
-    for (var i = 0; i < runs; i++) {
-      final sw = Stopwatch()..start();
-      const PvSimulator().run(cfg);
-      sw.stop();
-      samples.add(sw.elapsedMicroseconds / 1000.0);
-    }
-    samples.sort();
-    final median = samples[samples.length ~/ 2];
-    final min = samples.first;
-    final max = samples.last;
-    final mean = samples.reduce((a, b) => a + b) / samples.length;
-    final stepsPerYear = 365 * timeStep.stepsPerDay;
-    print('${timeStep.name.padRight(14)} '
-        '($stepsPerYear steps): '
-        'median ${median.toStringAsFixed(1)} ms, '
-        'min ${min.toStringAsFixed(1)} ms, '
-        'max ${max.toStringAsFixed(1)} ms, '
-        'mean ${mean.toStringAsFixed(1)} ms');
   }
 }
 
@@ -58,8 +61,9 @@ int _intArg(List<String> args, String flag, int fallback) {
   return fallback;
 }
 
-SimulationConfig _yearConfig(TimeStep timeStep) {
+SimulationConfig _yearConfig(TimeStep timeStep, {bool keepSteps = true}) {
   return SimulationConfig(
+    keepSteps: keepSteps,
     arrays: const [
       PvArray(id: 'south', label: 'South', peakKw: 6.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'inv'),
       PvArray(id: 'east', label: 'East', peakKw: 4.0, azimuthDeg: 90, tiltDeg: 30, inverterId: 'inv'),
