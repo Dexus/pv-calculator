@@ -91,6 +91,10 @@ class ResultsTab extends StatelessWidget {
             label: Text(l.resultsRun),
           ),
         ),
+        if (controller.running) ...[
+          const SizedBox(height: 12),
+          _RunProgressIndicator(progress: controller.progress),
+        ],
         const SizedBox(height: 24),
         if (result != null) _ResultsBody(
           result: result,
@@ -107,6 +111,44 @@ class ResultsTab extends StatelessWidget {
         Text(
           l.resultsSyntheticNote,
           style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ]),
+    );
+  }
+}
+
+/// Linear progress bar driven by [ProjectController.progress]. Stays
+/// indeterminate until the first progress event arrives; switches to a
+/// determinate bar once the engine reports completed days. Phase label
+/// is shown above the bar.
+class _RunProgressIndicator extends StatelessWidget {
+  const _RunProgressIndicator({required this.progress});
+
+  final SimulationProgress? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final p = progress;
+    final phaseLabel = p == null
+        ? l.resultsRunStarting
+        : (p.phase == SimulationPhase.preRun
+            ? l.resultsRunPhasePreRun
+            : (p.iteration > 1
+                ? l.resultsRunPhaseConvergence(p.iteration)
+                : l.resultsRunPhaseReporting));
+    return Padding(
+      key: const Key('run-progress-indicator'),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(
+          phaseLabel,
+          style: Theme.of(context).textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 6),
+        LinearProgressIndicator(
+          value: p?.fraction.clamp(0.0, 1.0),
         ),
       ]),
     );

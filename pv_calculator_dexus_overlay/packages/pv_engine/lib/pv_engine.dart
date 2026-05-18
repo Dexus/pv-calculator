@@ -811,10 +811,44 @@ class SimulationResult {
   final SimulationSummary summary;
 }
 
+/// Progress event emitted by [PvSimulator.run] when an `onProgress`
+/// callback is supplied. Pure data — no `dart:async`, no Flutter.
+class SimulationProgress {
+  const SimulationProgress({
+    required this.phase,
+    required this.completedDays,
+    required this.totalDays,
+    this.iteration = 1,
+  });
+
+  final SimulationPhase phase;
+
+  /// Days completed in the current phase (1-based at the end of a day).
+  final int completedDays;
+
+  /// Total days the current phase will iterate over.
+  final int totalDays;
+
+  /// For [PreRunMode.cyclicConvergence] this is the 1-based iteration
+  /// index; `1` for every other mode.
+  final int iteration;
+
+  double get fraction => totalDays == 0 ? 1.0 : completedDays / totalDays;
+}
+
+enum SimulationPhase { preRun, reporting }
+
+typedef ProgressCallback = void Function(SimulationProgress);
+
 class PvSimulator {
   const PvSimulator();
 
-  SimulationResult run(SimulationConfig config) {
+  /// Runs the simulation. When [onProgress] is supplied, the callback
+  /// fires once at the end of every simulated day (pre-run days included)
+  /// with a [SimulationProgress] describing the current phase. The engine
+  /// itself imposes no throttling — callers running across an isolate
+  /// boundary should batch or drop intermediate events.
+  SimulationResult run(SimulationConfig config, {ProgressCallback? onProgress}) {
     config.validate();
     // Pre-flight the weather source against the array roster so a
     // typo in an array id surfaces immediately instead of producing
@@ -823,11 +857,11 @@ class PvSimulator {
         .validateForArrays(config.arrays.map((a) => a.id));
     switch (config.preRunMode) {
       case PreRunMode.manual:
-        return _runLinear(config, preRunDays: 0);
+        return _runLinear(config, preRunDays: 0, onProgress: onProgress);
       case PreRunMode.singleWarmUp:
-        return _runLinear(config, preRunDays: config.preRunDays);
+        return _runLinear(config, preRunDays: config.preRunDays, onProgress: onProgress);
       case PreRunMode.cyclicConvergence:
-        return _runCyclic(config);
+        return _runCyclic(config, onProgress: onProgress);
     }
   }
 
@@ -835,7 +869,7 @@ class PvSimulator {
   /// [PreRunMode.singleWarmUp]. Steps with `dayIndex < 0` mutate SOC
   /// but are dropped from the reported series — see Architektur §6
   /// "Der Pre-Run wird nicht in Jahres-KPIs eingerechnet".
-  SimulationResult _runLinear(SimulationConfig config, {required int preRunDays}) {
+  SimulationResult _runLinear(SimulationConfig config, {required int preRunDays, ProgressCallback? onProgress}) {
     final steps = <SimulationStep>[];
     final socs = [for (final b in config.batteries) b.effectiveInitialSocKwh];
     final startSocs = List<double>.unmodifiable(socs);
@@ -854,6 +888,21 @@ class PvSimulator {
         final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
         final step = _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay);
         if (dayIndex >= 0) steps.add(step);
+      }
+      if (onProgress != null) {
+        if (dayIndex < 0) {
+          onProgress(SimulationProgress(
+            phase: SimulationPhase.preRun,
+            completedDays: dayIndex + preRunDays + 1,
+            totalDays: preRunDays,
+          ));
+        } else {
+          onProgress(SimulationProgress(
+            phase: SimulationPhase.reporting,
+            completedDays: dayIndex + 1,
+            totalDays: config.days,
+          ));
+        }
       }
     }
 
@@ -877,7 +926,7 @@ class PvSimulator {
   /// `maxConvergenceIterations` is reached. Only the final cycle's
   /// steps survive into [SimulationResult.steps] — earlier iterations
   /// are pre-run and are not reported per Architektur §6.
-  SimulationResult _runCyclic(SimulationConfig config) {
+  SimulationResult _runCyclic(SimulationConfig config, {ProgressCallback? onProgress}) {
     final batteries = config.batteries;
     final socs = [for (final b in batteries) b.effectiveInitialSocKwh];
     final usable = [
@@ -902,6 +951,14 @@ class PvSimulator {
         for (var stepOfDay = 0; stepOfDay < config.timeStep.stepsPerDay; stepOfDay++) {
           final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
           cycleSteps.add(_simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay));
+        }
+        if (onProgress != null) {
+          onProgress(SimulationProgress(
+            phase: SimulationPhase.reporting,
+            completedDays: dayIndex + 1,
+            totalDays: 365,
+            iteration: iterations,
+          ));
         }
       }
       lastSteps = cycleSteps;

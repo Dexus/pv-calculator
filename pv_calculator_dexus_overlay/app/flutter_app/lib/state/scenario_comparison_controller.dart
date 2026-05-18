@@ -6,6 +6,7 @@ import 'package:pv_engine/pv_engine.dart';
 import '../persistence/models.dart';
 import '../persistence/scenario_repository.dart';
 import '../persistence/simulation_run_repository.dart';
+import '../services/simulation_runner.dart';
 
 /// One entry in the compare view: the scenario plus a freshly-resolved
 /// summary (cached if present, computed on demand otherwise).
@@ -36,14 +37,14 @@ class ScenarioComparisonController extends ChangeNotifier {
   ScenarioComparisonController({
     required ScenarioRepository scenarios,
     required SimulationRunRepository runs,
-    PvSimulator? simulator,
+    SimulationRunner? runner,
   })  : _scenarios = scenarios,
         _runs = runs,
-        _simulator = simulator ?? const PvSimulator();
+        _runner = runner ?? const SimulationRunner();
 
   final ScenarioRepository _scenarios;
   final SimulationRunRepository _runs;
-  final PvSimulator _simulator;
+  final SimulationRunner _runner;
 
   final List<String> _selectedIds = [];
   List<ScenarioCompareEntry>? _entries;
@@ -118,7 +119,7 @@ class ScenarioComparisonController extends ChangeNotifier {
         }
         scenario.config.validate();
         final start = DateTime.now().toUtc();
-        final outcome = _simulator.run(scenario.config);
+        final outcome = await _runner.run(scenario.config);
         final end = DateTime.now().toUtc();
         _runs.recordRun(
           scenarioId: scenario.id,

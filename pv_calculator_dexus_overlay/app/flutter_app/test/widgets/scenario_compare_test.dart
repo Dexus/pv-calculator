@@ -7,6 +7,7 @@ import 'package:pv_calculator_app/persistence/database.dart';
 import 'package:pv_calculator_app/persistence/project_repository.dart';
 import 'package:pv_calculator_app/persistence/scenario_repository.dart';
 import 'package:pv_calculator_app/persistence/simulation_run_repository.dart';
+import 'package:pv_calculator_app/services/simulation_runner.dart';
 import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_calculator_app/state/scenario_comparison_controller.dart';
 
@@ -54,9 +55,11 @@ void main() {
       config: ConfigDraft.demo().build(),
     );
 
-    final controller =
-        ScenarioComparisonController(scenarios: scenarios, runs: runs)
-          ..replaceSelection([a.id, b.id]);
+    final controller = ScenarioComparisonController(
+      scenarios: scenarios,
+      runs: runs,
+      runner: const SimulationRunner(runInProcess: true),
+    )..replaceSelection([a.id, b.id]);
 
     await tester.pumpWidget(_host(db: db, controller: controller));
     // First pump triggers the postFrame resolve(); pumpAndSettle waits

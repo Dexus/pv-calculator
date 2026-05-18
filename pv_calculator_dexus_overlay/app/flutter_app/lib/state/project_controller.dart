@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pv_engine/pv_engine.dart';
 
 import '../services/pvgis_api.dart';
+import '../services/simulation_runner.dart';
 import 'config_draft.dart';
 
 /// Holds the editor's working draft plus the latest simulation result.
@@ -12,16 +13,19 @@ class ProjectController extends ChangeNotifier {
     String? projectName,
     ConfigDraft? draft,
     PvgisApiService? pvgisApi,
+    SimulationRunner? simulationRunner,
   })  : _projectName = projectName ?? 'Neues Projekt',
         _draft = draft ?? ConfigDraft.demo(),
         _ownsPvgisApi = pvgisApi == null,
-        _pvgisApi = pvgisApi ?? PvgisApiService();
+        _pvgisApi = pvgisApi ?? PvgisApiService(),
+        _runner = simulationRunner ?? const SimulationRunner();
 
   String _projectName;
   ConfigDraft _draft;
   SimulationResult? _result;
   String? _lastError;
   bool _running = false;
+  SimulationProgress? _progress;
   bool _loadingIrradiance = false;
   String? _lastIrradianceError;
 
@@ -38,12 +42,17 @@ class ProjectController extends ChangeNotifier {
 
   final PvgisApiService _pvgisApi;
   final bool _ownsPvgisApi;
+  final SimulationRunner _runner;
 
   String get projectName => _projectName;
   ConfigDraft get draft => _draft;
   SimulationResult? get result => _result;
   String? get lastError => _lastError;
   bool get running => _running;
+
+  /// Most recent progress event from the running simulation, or `null` if
+  /// no simulation is in flight. Reset on every [run] invocation.
+  SimulationProgress? get progress => _progress;
   bool get loadingIrradiance => _loadingIrradiance;
   String? get lastIrradianceError => _lastIrradianceError;
   int? get selectedArrayIndex => _selectedArrayIndex;
@@ -191,22 +200,33 @@ class ProjectController extends ChangeNotifier {
     }
   }
 
-  /// Validates and runs the simulation. Returns `true` on success.
-  bool run() {
+  /// Validates and runs the simulation on a worker isolate (native) or
+  /// the main isolate (web). Returns `true` on success. Progress events
+  /// from the engine flow through [progress] while the run is in flight.
+  Future<bool> run() async {
     _running = true;
+    _progress = null;
     notifyListeners();
     try {
       final config = _draft.build();
       config.validate();
-      _result = const PvSimulator().run(config);
+      _result = await _runner.run(config, onProgress: (p) {
+        _progress = p;
+        notifyListeners();
+      });
       _lastError = null;
       return true;
     } on ArgumentError catch (e) {
       _result = null;
       _lastError = e.message?.toString() ?? e.toString();
       return false;
+    } catch (e) {
+      _result = null;
+      _lastError = e.toString();
+      return false;
     } finally {
       _running = false;
+      _progress = null;
       notifyListeners();
     }
   }

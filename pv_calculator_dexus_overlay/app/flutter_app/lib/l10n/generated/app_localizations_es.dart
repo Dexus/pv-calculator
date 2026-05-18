@@ -869,6 +869,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get resultsErrorTitle => 'La simulación falló';
 
   @override
+  String get resultsRunStarting => 'Iniciando…';
+
+  @override
+  String get resultsRunPhasePreRun =>
+      'Estabilizando SOC de la batería (precarrera)';
+
+  @override
+  String get resultsRunPhaseReporting => 'Simulando el año de referencia';
+
+  @override
+  String resultsRunPhaseConvergence(int iteration) {
+    return 'Convergencia cíclica, iteración $iteration';
+  }
+
+  @override
   String get arraysTabHint =>
       'Sin llamadas PVGIS por campo: todos los módulos derivan su POA de los datos horizontales del sitio cargados en la pestaña «Irradiancia».';
 
