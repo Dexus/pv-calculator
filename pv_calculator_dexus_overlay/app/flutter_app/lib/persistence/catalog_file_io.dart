@@ -37,8 +37,8 @@ class CatalogFileIo {
   /// Reads a JSON file via `file_selector`, parses it with the same
   /// `parseSeedCatalog` used for the bundled seed, and partitions the
   /// result against the current user source. Returns null when the
-  /// user cancels the picker. Throws [ArgumentError] on oversize input
-  /// or invalid JSON shape.
+  /// user cancels the picker. Throws [ArgumentError] on oversize input,
+  /// invalid JSON shape, or duplicate ids within the file.
   Future<CatalogImportPreview?> previewImport(CatalogRepository repo) async {
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     final file = await openFile(acceptedTypeGroups: const [typeGroup]);
@@ -50,6 +50,10 @@ class CatalogFileIo {
     }
     final raw = await file.readAsString();
     final entries = parseSeedCatalog(raw);
+    // Reject in-file dupes up front: otherwise upsert would silently
+    // drop one of the entries and the preview/commit counts would
+    // disagree with the resulting catalog state.
+    assertNoDuplicateImportIds(entries);
     final conflicts = await repo.previewImportConflicts(entries);
     return CatalogImportPreview(
       entries: entries,
@@ -82,5 +86,22 @@ class CatalogFileIo {
     );
     await xfile.saveTo(location.path);
     return savedName;
+  }
+}
+
+/// Throws [ArgumentError] when [entries] contains any duplicate ids.
+/// Hand-edited import files may contain typos that would otherwise
+/// silently drop entries (the second occurrence overwrites the first
+/// during upsert, and the preview/commit counts disagree with what
+/// actually lands in the catalog).
+void assertNoDuplicateImportIds(List<CatalogEntry> entries) {
+  final seen = <String>{};
+  final dupes = <String>{};
+  for (final e in entries) {
+    if (!seen.add(e.id)) dupes.add(e.id);
+  }
+  if (dupes.isNotEmpty) {
+    throw ArgumentError(
+        'Import file contains duplicate ids: ${dupes.join(', ')}');
   }
 }

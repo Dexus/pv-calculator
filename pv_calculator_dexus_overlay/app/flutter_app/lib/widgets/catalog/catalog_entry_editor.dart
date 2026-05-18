@@ -180,10 +180,10 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
           TextButton(
             key: const Key('catalog-editor-save'),
             onPressed: _onSave,
-            child: Text(
-              l.catalogEditorSave,
-              style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-            ),
+            // Inherit the AppBar's foreground color. The Material 3 AppBar
+            // uses `surface` (not `primary`) as its background, so forcing
+            // onPrimary would make the button invisible in default themes.
+            child: Text(l.catalogEditorSave),
           ),
         ],
       ),
