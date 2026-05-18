@@ -1687,6 +1687,354 @@ abstract class AppLocalizations {
   /// **'Bibliothek konnte nicht geladen werden:'**
   String get catalogLoadError;
 
+  /// No description provided for @drawerCatalog.
+  ///
+  /// In de, this message translates to:
+  /// **'Komponentenbibliothek'**
+  String get drawerCatalog;
+
+  /// No description provided for @catalogManagerTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Komponentenbibliothek verwalten'**
+  String get catalogManagerTitle;
+
+  /// No description provided for @catalogManagerTabModules.
+  ///
+  /// In de, this message translates to:
+  /// **'Module'**
+  String get catalogManagerTabModules;
+
+  /// No description provided for @catalogManagerTabInverters.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter'**
+  String get catalogManagerTabInverters;
+
+  /// No description provided for @catalogManagerTabBatteries.
+  ///
+  /// In de, this message translates to:
+  /// **'Batterien'**
+  String get catalogManagerTabBatteries;
+
+  /// No description provided for @catalogManagerUserSection.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigene Einträge'**
+  String get catalogManagerUserSection;
+
+  /// No description provided for @catalogManagerSeedSection.
+  ///
+  /// In de, this message translates to:
+  /// **'Mitgelieferter Seed (schreibgeschützt)'**
+  String get catalogManagerSeedSection;
+
+  /// No description provided for @catalogManagerEmptyUser.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine eigenen Einträge.'**
+  String get catalogManagerEmptyUser;
+
+  /// No description provided for @catalogManagerImportTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Importieren'**
+  String get catalogManagerImportTooltip;
+
+  /// No description provided for @catalogManagerExportTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Exportieren'**
+  String get catalogManagerExportTooltip;
+
+  /// No description provided for @catalogManagerExportEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine eigenen Einträge zum Exportieren.'**
+  String get catalogManagerExportEmpty;
+
+  /// No description provided for @catalogManagerEditTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Bearbeiten'**
+  String get catalogManagerEditTooltip;
+
+  /// No description provided for @catalogManagerDeleteTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Löschen'**
+  String get catalogManagerDeleteTooltip;
+
+  /// No description provided for @catalogManagerDuplicateTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Als eigenen Eintrag kopieren'**
+  String get catalogManagerDuplicateTooltip;
+
+  /// No description provided for @catalogManagerDuplicatePrefix.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigene Kopie — '**
+  String get catalogManagerDuplicatePrefix;
+
+  /// No description provided for @catalogManagerAddModuleFab.
+  ///
+  /// In de, this message translates to:
+  /// **'Modul hinzufügen'**
+  String get catalogManagerAddModuleFab;
+
+  /// No description provided for @catalogManagerAddInverterFab.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter hinzufügen'**
+  String get catalogManagerAddInverterFab;
+
+  /// No description provided for @catalogManagerAddBatteryFab.
+  ///
+  /// In de, this message translates to:
+  /// **'Batterie hinzufügen'**
+  String get catalogManagerAddBatteryFab;
+
+  /// No description provided for @catalogManagerDeleteConfirmTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Eintrag löschen?'**
+  String get catalogManagerDeleteConfirmTitle;
+
+  /// No description provided for @catalogManagerDeleteConfirmBody.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}\" wird aus deiner Bibliothek entfernt.'**
+  String catalogManagerDeleteConfirmBody(String name);
+
+  /// No description provided for @catalogManagerImportConfirmTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Import bestätigen'**
+  String get catalogManagerImportConfirmTitle;
+
+  /// No description provided for @catalogManagerImportConfirmBody.
+  ///
+  /// In de, this message translates to:
+  /// **'{newCount} neue, {overwriteCount} vorhandene Einträge werden überschrieben.'**
+  String catalogManagerImportConfirmBody(int newCount, int overwriteCount);
+
+  /// No description provided for @catalogManagerImportConfirmAccept.
+  ///
+  /// In de, this message translates to:
+  /// **'Übernehmen'**
+  String get catalogManagerImportConfirmAccept;
+
+  /// No description provided for @catalogManagerImportSuccess.
+  ///
+  /// In de, this message translates to:
+  /// **'Importiert: {added} neu, {updated} aktualisiert.'**
+  String catalogManagerImportSuccess(int added, int updated);
+
+  /// No description provided for @catalogManagerImportFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Import fehlgeschlagen: {error}'**
+  String catalogManagerImportFailed(String error);
+
+  /// No description provided for @catalogManagerExportSuccess.
+  ///
+  /// In de, this message translates to:
+  /// **'Exportiert: {filename}'**
+  String catalogManagerExportSuccess(String filename);
+
+  /// No description provided for @catalogManagerExportCancelled.
+  ///
+  /// In de, this message translates to:
+  /// **'Export abgebrochen'**
+  String get catalogManagerExportCancelled;
+
+  /// No description provided for @catalogManagerExportFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Export fehlgeschlagen: {error}'**
+  String catalogManagerExportFailed(String error);
+
+  /// No description provided for @catalogEditorTitleNewModule.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Modul'**
+  String get catalogEditorTitleNewModule;
+
+  /// No description provided for @catalogEditorTitleNewInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'Neuer Wechselrichter'**
+  String get catalogEditorTitleNewInverter;
+
+  /// No description provided for @catalogEditorTitleNewBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Batterie'**
+  String get catalogEditorTitleNewBattery;
+
+  /// No description provided for @catalogEditorTitleEdit.
+  ///
+  /// In de, this message translates to:
+  /// **'Bearbeiten: {name}'**
+  String catalogEditorTitleEdit(String name);
+
+  /// No description provided for @catalogEditorSave.
+  ///
+  /// In de, this message translates to:
+  /// **'Speichern'**
+  String get catalogEditorSave;
+
+  /// No description provided for @catalogEditorFieldId.
+  ///
+  /// In de, this message translates to:
+  /// **'ID'**
+  String get catalogEditorFieldId;
+
+  /// No description provided for @catalogEditorFieldIdHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Eindeutige Kennung. Beim Bearbeiten gesperrt — zum Umbenennen den Eintrag löschen und neu anlegen.'**
+  String get catalogEditorFieldIdHelp;
+
+  /// No description provided for @catalogEditorFieldManufacturer.
+  ///
+  /// In de, this message translates to:
+  /// **'Hersteller'**
+  String get catalogEditorFieldManufacturer;
+
+  /// No description provided for @catalogEditorFieldModel.
+  ///
+  /// In de, this message translates to:
+  /// **'Modell'**
+  String get catalogEditorFieldModel;
+
+  /// No description provided for @catalogEditorFieldSourceUrl.
+  ///
+  /// In de, this message translates to:
+  /// **'Quelle/URL'**
+  String get catalogEditorFieldSourceUrl;
+
+  /// No description provided for @catalogEditorFieldNotes.
+  ///
+  /// In de, this message translates to:
+  /// **'Notizen'**
+  String get catalogEditorFieldNotes;
+
+  /// No description provided for @catalogEditorFieldPeakKwPerModule.
+  ///
+  /// In de, this message translates to:
+  /// **'Spitzenleistung pro Modul (kWp)'**
+  String get catalogEditorFieldPeakKwPerModule;
+
+  /// No description provided for @catalogEditorFieldCellTech.
+  ///
+  /// In de, this message translates to:
+  /// **'Zelltechnologie'**
+  String get catalogEditorFieldCellTech;
+
+  /// No description provided for @catalogEditorFieldTempCoef.
+  ///
+  /// In de, this message translates to:
+  /// **'Temperaturkoeff. (%/°C)'**
+  String get catalogEditorFieldTempCoef;
+
+  /// No description provided for @catalogEditorFieldNoct.
+  ///
+  /// In de, this message translates to:
+  /// **'NOCT (°C)'**
+  String get catalogEditorFieldNoct;
+
+  /// No description provided for @catalogEditorFieldDegradation.
+  ///
+  /// In de, this message translates to:
+  /// **'Degradation (%/Jahr)'**
+  String get catalogEditorFieldDegradation;
+
+  /// No description provided for @catalogEditorFieldMaxAcKw.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. AC-Leistung (kW)'**
+  String get catalogEditorFieldMaxAcKw;
+
+  /// No description provided for @catalogEditorFieldMaxDcKw.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. DC-Eingang (kW)'**
+  String get catalogEditorFieldMaxDcKw;
+
+  /// No description provided for @catalogEditorFieldEfficiency.
+  ///
+  /// In de, this message translates to:
+  /// **'Wirkungsgrad'**
+  String get catalogEditorFieldEfficiency;
+
+  /// No description provided for @catalogEditorFieldRole.
+  ///
+  /// In de, this message translates to:
+  /// **'Rolle'**
+  String get catalogEditorFieldRole;
+
+  /// No description provided for @catalogEditorFieldCapacityKwh.
+  ///
+  /// In de, this message translates to:
+  /// **'Kapazität (kWh)'**
+  String get catalogEditorFieldCapacityKwh;
+
+  /// No description provided for @catalogEditorFieldChargeKw.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. Ladeleistung (kW)'**
+  String get catalogEditorFieldChargeKw;
+
+  /// No description provided for @catalogEditorFieldDischargeKw.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. Entladeleistung (kW)'**
+  String get catalogEditorFieldDischargeKw;
+
+  /// No description provided for @catalogEditorFieldChemistry.
+  ///
+  /// In de, this message translates to:
+  /// **'Chemie'**
+  String get catalogEditorFieldChemistry;
+
+  /// No description provided for @catalogEditorFieldRoundtrip.
+  ///
+  /// In de, this message translates to:
+  /// **'Roundtrip-Wirkungsgrad'**
+  String get catalogEditorFieldRoundtrip;
+
+  /// No description provided for @catalogEditorFieldMinSoc.
+  ///
+  /// In de, this message translates to:
+  /// **'Min. SOC (kWh)'**
+  String get catalogEditorFieldMinSoc;
+
+  /// No description provided for @catalogEditorValidationFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Validierung fehlgeschlagen: {error}'**
+  String catalogEditorValidationFailed(String error);
+
+  /// No description provided for @catalogEditorIdConflictTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'ID existiert bereits'**
+  String get catalogEditorIdConflictTitle;
+
+  /// No description provided for @catalogEditorIdConflictBody.
+  ///
+  /// In de, this message translates to:
+  /// **'Ein eigener Eintrag mit der ID „{id}\" existiert bereits. Überschreiben?'**
+  String catalogEditorIdConflictBody(String id);
+
+  /// No description provided for @catalogEditorIdConflictOverwrite.
+  ///
+  /// In de, this message translates to:
+  /// **'Überschreiben'**
+  String get catalogEditorIdConflictOverwrite;
+
   /// No description provided for @monthJan.
   ///
   /// In de, this message translates to:

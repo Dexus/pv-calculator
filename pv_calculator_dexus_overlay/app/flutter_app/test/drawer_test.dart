@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pv_calculator_app/main.dart';
+import 'package:pv_calculator_app/pages/catalog_management_page.dart';
 import 'package:pv_calculator_app/persistence/database.dart';
 import 'package:pv_calculator_app/state/settings_controller.dart';
 import 'package:pv_calculator_app/widgets/settings_page.dart';
@@ -26,5 +27,26 @@ void main() {
 
     expect(find.byType(SettingsPage), findsOneWidget);
     expect(find.text('Erscheinungsbild'), findsOneWidget);
+  });
+
+  testWidgets('drawer opens catalog management page', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      SettingsController.localeKey: 'de',
+    });
+    await tester.pumpWidget(PvCalculatorApp(database: AppDatabase.memory()));
+    await tester.pumpAndSettle();
+
+    final scaffoldFinder = find.byType(Scaffold).first;
+    final ScaffoldState scaffoldState = tester.state(scaffoldFinder);
+    scaffoldState.openDrawer();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('drawer-catalog')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('drawer-catalog')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CatalogManagementPage), findsOneWidget);
+    expect(find.text('Komponentenbibliothek verwalten'), findsOneWidget);
   });
 }
