@@ -194,5 +194,66 @@ void main() {
           ['importCostEur', 'exportRevenueEur', 'netCostEur']));
       expect(headers.last, 'netCostEur');
     });
+
+    test('cashflow row values are formatted with 6 decimals and net = import − export',
+        () {
+      // Hand-crafted bucket with known € values; assert the literal
+      // CSV cell formatting + the derived `netCostEur` column.
+      const bucket = MonthlyBucket(
+        month: 7,
+        pvAcKwh: 0, loadKwh: 0, selfConsumptionKwh: 0,
+        batteryChargeKwh: 0, batteryDischargeKwh: 0,
+        gridImportKwh: 0, gridExportKwh: 0,
+        curtailedDcKwh: 0, curtailedAcKwh: 0, curtailedExportKwh: 0,
+        importCostEur: 12.5, exportRevenueEur: 4.25,
+      );
+      final csv = monthlyCsv([bucket]);
+      final lines = csv.split('\r\n');
+      final headers = lines.first.split(';');
+      final row = lines[1].split(';');
+      final imp = row[headers.indexOf('importCostEur')];
+      final exp = row[headers.indexOf('exportRevenueEur')];
+      final net = row[headers.indexOf('netCostEur')];
+      expect(imp, '12.500000');
+      expect(exp, '4.250000');
+      expect(net, '8.250000');
+    });
+
+    test('cashflow values populate when a tariff is configured (monthlyCsv)',
+        () {
+      final result = const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(id: 'r', label: 'R', peakKw: 4.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        loadProfile: const LoadProfile(dailyKwh: 8),
+        days: 365,
+        latitudeDeg: 50.0,
+        tariff: const TariffConfig(
+            importPricePerKwh: 0.30, exportPricePerKwh: 0.08),
+      ));
+      final buckets = SummaryAggregator.monthly(result.steps);
+      final csv = monthlyCsv(buckets);
+      final lines = csv.split('\r\n');
+      final headers = lines.first.split(';');
+      final impIdx = headers.indexOf('importCostEur');
+      final netIdx = headers.indexOf('netCostEur');
+      var anyNonZeroImport = false;
+      for (var i = 1; i < lines.length - 1; i++) {
+        final row = lines[i].split(';');
+        if (double.parse(row[impIdx]) > 0) {
+          anyNonZeroImport = true;
+          // For every row, netCostEur must equal import − export.
+          final exp = double.parse(row[headers.indexOf('exportRevenueEur')]);
+          final imp = double.parse(row[impIdx]);
+          final net = double.parse(row[netIdx]);
+          // CSV cells are formatted to 6 decimals (see csv_export.dart
+          // `_num`), so the parsed-back values can differ from the
+          // engine's full-precision floats by up to ~5e-7 per cell.
+          expect(net, closeTo(imp - exp, 1e-6));
+        }
+      }
+      expect(anyNonZeroImport, isTrue);
+    });
   });
 }

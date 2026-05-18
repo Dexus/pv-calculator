@@ -714,6 +714,12 @@ abstract class AppLocalizations {
   /// **'Monatlicher Cashflow'**
   String get pdfSectionMonthlyCashflow;
 
+  /// No description provided for @pdfSectionMonthlyCashflowFinalYear.
+  ///
+  /// In de, this message translates to:
+  /// **'Monatlicher Cashflow (nur letztes Jahr)'**
+  String get pdfSectionMonthlyCashflowFinalYear;
+
   /// No description provided for @pdfSectionArrays.
   ///
   /// In de, this message translates to:
@@ -1656,6 +1662,30 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Anzahl Module'**
   String get catalogModuleCountPrompt;
+
+  /// No description provided for @catalogRoleGrid.
+  ///
+  /// In de, this message translates to:
+  /// **'Netz'**
+  String get catalogRoleGrid;
+
+  /// No description provided for @catalogRoleBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher'**
+  String get catalogRoleBattery;
+
+  /// No description provided for @catalogRoleMicro.
+  ///
+  /// In de, this message translates to:
+  /// **'Mikro 800 W'**
+  String get catalogRoleMicro;
+
+  /// No description provided for @catalogLoadError.
+  ///
+  /// In de, this message translates to:
+  /// **'Bibliothek konnte nicht geladen werden:'**
+  String get catalogLoadError;
 
   /// No description provided for @monthJan.
   ///

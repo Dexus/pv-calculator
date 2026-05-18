@@ -94,10 +94,11 @@ const List<String> createStatements = [
 ];
 
 /// SQL statements executed when migrating a v1 store up to v2 (introduces
-/// the `component_catalog` table). Kept separate from [createStatements]
-/// so the migration ladder is the single execution point on existing
-/// databases — `_ensureSchema` would re-issue every `IF NOT EXISTS`
-/// statement otherwise.
+/// the `component_catalog` table). [createStatements] also contains
+/// these (with `IF NOT EXISTS`) so fresh installs work; running the
+/// migration on an already-bootstrapped v1 store is a no-op DDL-wise
+/// and exists so the upgrade ladder is auditable and a future
+/// migration that needs data-shaping has a place to live.
 const List<String> migrationV1ToV2 = [
   '''
     CREATE TABLE IF NOT EXISTS component_catalog (

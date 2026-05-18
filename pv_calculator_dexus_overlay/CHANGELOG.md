@@ -64,8 +64,10 @@ matching €-cost CSV / monthly-table / PDF columns.
   - `BundledSeedCatalogSource` — loads the package's JSON via
     `rootBundle`, caches per-app-lifetime.
   - `SqliteUserCatalogSource` — writable, backed by the new
-    `component_catalog` table; payload stored as JSON for
-    forward-compatibility with new entry kinds.
+    `component_catalog` table; payload stored as JSON so new fields
+    on existing kinds need no schema work. Adding a new
+    `ComponentKind` still requires widening the table's `kind`
+    CHECK constraint.
   - `CatalogRepository` (Provider-registered `ChangeNotifier`) composes
     seed + user via `MergedCatalog`, exposes
     `modules()` / `inverters()` / `batteries()` and

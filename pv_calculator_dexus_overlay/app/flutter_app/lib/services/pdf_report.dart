@@ -79,7 +79,9 @@ Future<Uint8List> buildReportPdf({
           pw.SizedBox(height: 16),
         ],
         if (monthly.isNotEmpty && s.netCostEur != null) ...[
-          _section(l.pdfSectionMonthlyCashflow),
+          _section(s.perYearSummaries.length >= 2
+              ? l.pdfSectionMonthlyCashflowFinalYear
+              : l.pdfSectionMonthlyCashflow),
           _monthlyCashflowTable(l, monthly),
           pw.SizedBox(height: 16),
         ],

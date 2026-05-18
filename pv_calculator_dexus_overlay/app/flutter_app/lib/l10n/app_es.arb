@@ -115,6 +115,7 @@
   "pdfSectionMonthly": "Mensual",
   "pdfSectionMonthlyFinalYear": "Mensual (solo último año)",
   "pdfSectionMonthlyCashflow": "Flujo mensual",
+  "pdfSectionMonthlyCashflowFinalYear": "Flujo mensual (solo último año)",
   "pdfSectionArrays": "Generadores FV",
   "pdfSectionBanks": "Bancos de microinversores",
   "pdfSectionWarnings": "Avisos",
@@ -285,6 +286,10 @@
   "catalogSearchHint": "Buscar",
   "catalogEmptyState": "Sin coincidencias",
   "catalogModuleCountPrompt": "Número de módulos",
+  "catalogRoleGrid": "red",
+  "catalogRoleBattery": "batería",
+  "catalogRoleMicro": "micro 800 W",
+  "catalogLoadError": "No se pudo cargar la biblioteca:",
 
   "monthJan": "Ene",
   "monthFeb": "Feb",

@@ -54,7 +54,22 @@ void main() {
   test('rejects a section that is not a list', () {
     expect(
         () => parseSeedCatalog(
-            jsonEncode({'modules': {'id': 'm'}})),
+            jsonEncode({'version': 1, 'modules': {'id': 'm'}})),
+        throwsArgumentError);
+  });
+
+  test('rejects missing or non-integer version field', () {
+    expect(
+        () => parseSeedCatalog(jsonEncode({'modules': []})),
+        throwsArgumentError);
+    expect(
+        () => parseSeedCatalog(jsonEncode({'version': '1'})),
+        throwsArgumentError);
+  });
+
+  test('rejects an unsupported future seed catalog version', () {
+    expect(
+        () => parseSeedCatalog(jsonEncode({'version': 99, 'modules': []})),
         throwsArgumentError);
   });
 }

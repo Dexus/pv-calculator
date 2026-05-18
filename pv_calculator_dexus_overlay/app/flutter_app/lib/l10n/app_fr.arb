@@ -115,6 +115,7 @@
   "pdfSectionMonthly": "Mensuel",
   "pdfSectionMonthlyFinalYear": "Mensuel (dernière année uniquement)",
   "pdfSectionMonthlyCashflow": "Flux mensuel",
+  "pdfSectionMonthlyCashflowFinalYear": "Flux mensuel (dernière année uniquement)",
   "pdfSectionArrays": "Modules PV",
   "pdfSectionBanks": "Bancs de micro-onduleurs",
   "pdfSectionWarnings": "Avertissements",
@@ -285,6 +286,10 @@
   "catalogSearchHint": "Rechercher",
   "catalogEmptyState": "Aucun résultat",
   "catalogModuleCountPrompt": "Nombre de modules",
+  "catalogRoleGrid": "réseau",
+  "catalogRoleBattery": "batterie",
+  "catalogRoleMicro": "micro 800 W",
+  "catalogLoadError": "Impossible de charger la bibliothèque :",
 
   "monthJan": "Jan",
   "monthFeb": "Fév",

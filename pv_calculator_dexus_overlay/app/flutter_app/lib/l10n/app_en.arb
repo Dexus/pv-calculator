@@ -115,6 +115,7 @@
   "pdfSectionMonthly": "Monthly",
   "pdfSectionMonthlyFinalYear": "Monthly (final year only)",
   "pdfSectionMonthlyCashflow": "Monthly cashflow",
+  "pdfSectionMonthlyCashflowFinalYear": "Monthly cashflow (final year only)",
   "pdfSectionArrays": "PV arrays",
   "pdfSectionBanks": "Micro-inverter banks",
   "pdfSectionWarnings": "Warnings",
@@ -286,6 +287,10 @@
   "catalogSearchHint": "Search",
   "catalogEmptyState": "No matching entries",
   "catalogModuleCountPrompt": "Number of modules",
+  "catalogRoleGrid": "grid",
+  "catalogRoleBattery": "battery",
+  "catalogRoleMicro": "micro 800 W",
+  "catalogLoadError": "Could not load the catalog:",
 
   "monthJan": "Jan",
   "monthFeb": "Feb",

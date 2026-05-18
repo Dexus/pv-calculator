@@ -23,6 +23,7 @@ on:
       - 'pv_calculator_pvgis_clientv4pgis.html'
       - 'pv_calculator_dexus_overlay/app/flutter_app/**'
       - 'pv_calculator_dexus_overlay/packages/pv_engine/**'
+      - 'pv_calculator_dexus_overlay/packages/component_catalog/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

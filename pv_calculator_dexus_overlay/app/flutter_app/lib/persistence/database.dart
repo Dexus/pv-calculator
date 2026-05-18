@@ -63,6 +63,16 @@ class AppDatabase {
     return AppDatabase._(conn.openInMemorySync(), DbStorageTier.memory, () async {});
   }
 
+  /// Wraps an already-open [CommonDatabase] and runs `_ensureSchema`
+  /// against it (including the [_upgrade] ladder). Lets tests hand in
+  /// a database pre-seeded with an older schema version to exercise a
+  /// real production-upgrade pass instead of running the migration
+  /// SQL out of band. Caller owns the underlying handle's lifetime.
+  @visibleForTesting
+  factory AppDatabase.wrapForTesting(CommonDatabase db) {
+    return AppDatabase._(db, DbStorageTier.memory, () async {});
+  }
+
   /// Awaits any pending writes from the underlying VFS to durable storage.
   ///
   /// - Native / in-memory: completes immediately (no buffering layer).

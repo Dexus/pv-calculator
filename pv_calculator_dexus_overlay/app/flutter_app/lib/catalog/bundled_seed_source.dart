@@ -20,7 +20,7 @@ class BundledSeedCatalogSource extends CatalogSource {
     final cached = _cache;
     if (cached != null) return cached;
     final raw = await rootBundle.loadString(assetKey);
-    final parsed = parseSeedCatalog(raw);
+    final parsed = List<CatalogEntry>.unmodifiable(parseSeedCatalog(raw));
     _cache = parsed;
     return parsed;
   }
