@@ -1,10 +1,13 @@
+import 'package:component_catalog/component_catalog.dart' as cc;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '../../catalog/catalog_repository.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../state/config_draft.dart';
 import '../../state/project_controller.dart';
+import '../catalog/catalog_picker_sheet.dart';
 import '_field.dart';
 
 /// Phase 4: list of battery-coupled AC output banks (e.g. "Steckersolar").
@@ -52,6 +55,36 @@ class MicroInverterBanksSection extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
+                TextButton.icon(
+                  key: const Key('banks-pick-catalog'),
+                  onPressed: () async {
+                    final repo = context.read<CatalogRepository>();
+                    final entry =
+                        await showCatalogPicker<cc.InverterCatalogEntry>(
+                      context,
+                      repository: repo,
+                      kind: cc.ComponentKind.inverter,
+                      filter: (e) =>
+                          e.role == cc.CatalogInverterRole.microInverter800W,
+                    );
+                    if (entry == null) return;
+                    final n = draft.microInverterBanks.length + 1;
+                    final defaultBatteryId = draft.batteries.isNotEmpty
+                        ? draft.batteries.first.id
+                        : '';
+                    draft.microInverterBanks.add(MicroInverterBankDraft(
+                      id: 'bank-$n',
+                      label: entry.displayName,
+                      batteryId: defaultBatteryId,
+                      unitRatedPowerW: entry.maxAcKw * 1000,
+                      inverterEfficiency: entry.efficiency,
+                    ));
+                    controller.touch();
+                  },
+                  icon: const Icon(Icons.library_books_outlined),
+                  label: Text(l.catalogPickButton),
+                ),
+                const SizedBox(width: 8),
                 FilledButton.tonalIcon(
                   key: const Key('add-bank-button'),
                   onPressed: () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'catalog/catalog_repository.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'pages/main_scaffold.dart';
 import 'persistence/database.dart';
@@ -104,6 +105,9 @@ class PvCalculatorApp extends StatelessWidget {
         Provider<ProjectRepository>(create: (_) => ProjectRepository(database)),
         Provider<ScenarioRepository>(create: (_) => ScenarioRepository(database)),
         Provider<SimulationRunRepository>(create: (_) => SimulationRunRepository(database)),
+        ChangeNotifierProvider<CatalogRepository>(
+          create: (_) => CatalogRepository.standard(database),
+        ),
         ChangeNotifierProvider<ScenarioComparisonController>(
           create: (ctx) => ScenarioComparisonController(
             scenarios: ScenarioRepository(database),

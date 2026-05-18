@@ -1,0 +1,20 @@
+name: component_catalog
+description: Pure-Dart component-catalog domain for PV Calculator (modules, inverters, batteries).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.0
+
+# `flutter:` is read by Flutter's asset bundler when this package is
+# pulled in via `path:` from a Flutter app. Pure-Dart tooling
+# (`dart test`, `dart analyze`) ignores it. The package itself has
+# no Flutter dependency — the asset is accessible via `dart:io` from
+# pure-Dart consumers and via `rootBundle` from Flutter consumers.
+flutter:
+  assets:
+    - assets/components_seed_v1.json
