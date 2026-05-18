@@ -288,6 +288,44 @@ class AppLocalizationsEn extends AppLocalizations {
       'Annual power loss in %/year. Typical 0.4–0.7 for crystalline silicon. Only effective when simulation years > 1.';
 
   @override
+  String get tariffSectionTitle => 'Electricity tariff';
+
+  @override
+  String get tariffEnabled => 'Compute economics';
+
+  @override
+  String get tariffEnabledHelp =>
+      'Computes import cost and export revenue from the prices below.';
+
+  @override
+  String get tariffImportLabel => 'Import price';
+
+  @override
+  String get tariffExportLabel => 'Export tariff';
+
+  @override
+  String get tariffTouTitle => 'Time-of-use prices';
+
+  @override
+  String get tariffTouHelp =>
+      '24 hourly slots for variable import/export prices. Pro feature.';
+
+  @override
+  String get tariffTouImportHeader => 'Hourly import prices (EUR/kWh)';
+
+  @override
+  String get tariffTouExportHeader => 'Hourly export tariff (EUR/kWh)';
+
+  @override
+  String get resultsKpiImportCost => 'Import cost';
+
+  @override
+  String get resultsKpiExportRevenue => 'Export revenue';
+
+  @override
+  String get resultsKpiNetCost => 'Net electricity cost';
+
+  @override
   String get projectTimeStep => 'Time step';
 
   @override

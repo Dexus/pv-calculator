@@ -288,6 +288,45 @@ class AppLocalizationsEs extends AppLocalizations {
       'Pérdida anual de potencia en %/año. Típico 0,4–0,7 para silicio cristalino. Solo efectivo con años de simulación > 1.';
 
   @override
+  String get tariffSectionTitle => 'Tarifa eléctrica';
+
+  @override
+  String get tariffEnabled => 'Calcular economía';
+
+  @override
+  String get tariffEnabledHelp =>
+      'Calcula el coste de importación y los ingresos por exportación a partir de los precios introducidos.';
+
+  @override
+  String get tariffImportLabel => 'Precio de importación';
+
+  @override
+  String get tariffExportLabel => 'Tarifa de exportación';
+
+  @override
+  String get tariffTouTitle => 'Precios por franja horaria';
+
+  @override
+  String get tariffTouHelp =>
+      '24 franjas horarias para precios variables de importación/exportación. Función Pro.';
+
+  @override
+  String get tariffTouImportHeader =>
+      'Precios horarios de importación (EUR/kWh)';
+
+  @override
+  String get tariffTouExportHeader => 'Tarifa horaria de exportación (EUR/kWh)';
+
+  @override
+  String get resultsKpiImportCost => 'Coste importación';
+
+  @override
+  String get resultsKpiExportRevenue => 'Ingresos exportación';
+
+  @override
+  String get resultsKpiNetCost => 'Coste neto de electricidad';
+
+  @override
   String get projectTimeStep => 'Paso temporal';
 
   @override

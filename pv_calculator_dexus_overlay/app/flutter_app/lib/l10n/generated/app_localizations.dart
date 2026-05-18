@@ -588,6 +588,78 @@ abstract class AppLocalizations {
   /// **'Jährlicher Leistungsabbau in %/Jahr. Typisch 0,4–0,7 für kristallines Silizium. Nur wirksam bei Simulationsjahre > 1.'**
   String get pvArrayDegradationHelp;
 
+  /// No description provided for @tariffSectionTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Strompreise'**
+  String get tariffSectionTitle;
+
+  /// No description provided for @tariffEnabled.
+  ///
+  /// In de, this message translates to:
+  /// **'Wirtschaftlichkeit berechnen'**
+  String get tariffEnabled;
+
+  /// No description provided for @tariffEnabledHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Berechnet Kosten und Einnahmen aus Bezug und Einspeisung anhand der eingegebenen Strompreise.'**
+  String get tariffEnabledHelp;
+
+  /// No description provided for @tariffImportLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Bezugspreis'**
+  String get tariffImportLabel;
+
+  /// No description provided for @tariffExportLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Einspeisevergütung'**
+  String get tariffExportLabel;
+
+  /// No description provided for @tariffTouTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitabhängige Tarife'**
+  String get tariffTouTitle;
+
+  /// No description provided for @tariffTouHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'24 Stunden-Slots für variable Bezugs-/Einspeisepreise. Pro-Feature.'**
+  String get tariffTouHelp;
+
+  /// No description provided for @tariffTouImportHeader.
+  ///
+  /// In de, this message translates to:
+  /// **'Bezugspreise je Stunde (EUR/kWh)'**
+  String get tariffTouImportHeader;
+
+  /// No description provided for @tariffTouExportHeader.
+  ///
+  /// In de, this message translates to:
+  /// **'Einspeisevergütung je Stunde (EUR/kWh)'**
+  String get tariffTouExportHeader;
+
+  /// No description provided for @resultsKpiImportCost.
+  ///
+  /// In de, this message translates to:
+  /// **'Bezugskosten'**
+  String get resultsKpiImportCost;
+
+  /// No description provided for @resultsKpiExportRevenue.
+  ///
+  /// In de, this message translates to:
+  /// **'Einspeise-Erlös'**
+  String get resultsKpiExportRevenue;
+
+  /// No description provided for @resultsKpiNetCost.
+  ///
+  /// In de, this message translates to:
+  /// **'Netto-Stromkosten'**
+  String get resultsKpiNetCost;
+
   /// No description provided for @projectTimeStep.
   ///
   /// In de, this message translates to:
