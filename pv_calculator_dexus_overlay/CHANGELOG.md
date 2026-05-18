@@ -62,18 +62,38 @@ Phase 9 — Performance & 15-Minute Resolution.
 - App version bumped `0.2.0 → 0.3.0`.
 
 ### Benchmarks (engine, this dev machine, 3 arrays × 365 days)
-- pre-Phase-9: hourly 64.8 ms,  quarterHourly 251.2 ms
-- post-Phase-9: hourly 55.7 ms, quarterHourly 219.1 ms
+- Pre-Phase-9 baseline:           hourly 64.8 ms,  quarterHourly 251.2 ms
+- After C3 (solar geometry):      hourly 60.2 ms,  quarterHourly 225.5 ms
+- After C4 (accumulator):         hourly 55.7 ms,  quarterHourly 219.1 ms
+- After C4a (Float64List buffer): hourly 41.0 ms,  quarterHourly 170.8 ms
+
+Cumulative ~37 % faster hourly, ~32 % faster quarter-hourly. The
+allocation-pressure win matters more than the wall-clock number: the
+hot loop no longer allocates 35 040 `SimulationStep` objects and
+~245 000 unmodifiable `List<double>` wrappers per quarter-hourly
+year, which is exactly the GC pressure that hides on a fast desktop
+and surfaces as jank on a mid-range smartphone.
+
+Report-render cost is now well off the critical path:
+- `monthly + bankRuntime` over a 35 040-step result: ~10.5 ms desktop.
 
 A new manual `dart run benchmark/year_sim.dart` harness captures these
-numbers reproducibly and is the baseline for future perf commits.
+numbers reproducibly. It runs both `keepSteps: true` and `false` for
+each `TimeStep`, plus the report-render cost.
 
 ### Verschoben (Phase 9)
-- **`Float64List`-backed columnar step storage.** Originally planned as
-  C4a/C4b. The current 219 ms quarter-hourly run is already comfortably
-  under the PRD's 5 s mid-range-mobile target, so the storage refactor
-  doesn't earn its review cost yet. Pick up if mobile profiling shows
-  GC pressure dominating the year-sim runtime.
+- **Column-reading `SummaryAggregator`** (the originally planned C4b).
+  Measured cost of the existing list-iterating path on the columnar
+  buffer is ~10.5 ms desktop / ~50–100 ms mobile estimate for one full
+  monthly + bankRuntime render — 6 % of the simulator runtime and well
+  inside the 5 s budget. Refactoring `SummaryAggregator.monthly /
+  bankRuntime / bankDaily` to read `_StepBuffer` columns directly would
+  require either making `StepBuffer` public API or restructuring
+  `lib/src/summary_aggregator.dart` as `part of pv_engine.dart`.
+  Re-open if a Phase 10 feature (mehrjährige Simulation, Optimierer-
+  Sweep, multi-scenario dashboard) starts running the aggregator
+  hundreds of times per session, or mobile profiling shows the render
+  path itself as the bottleneck.
 
 ## [0.2.0] — 2026-05-15 (app) / [0.6.0] — 2026-05-15 (engine)
 

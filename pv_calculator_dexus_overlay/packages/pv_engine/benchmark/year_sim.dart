@@ -49,6 +49,30 @@ void main(List<String> args) {
           'mean ${mean.toStringAsFixed(1)} ms');
     }
   }
+
+  print('');
+  print('# report-render cost (SummaryAggregator over kept steps)');
+  for (final timeStep in TimeStep.values) {
+    final cfg = _yearConfig(timeStep);
+    final result = const PvSimulator().run(cfg);
+    for (var i = 0; i < warmup; i++) {
+      SummaryAggregator.monthly(result.steps);
+      SummaryAggregator.bankRuntime(result.steps, bankCount: 0, timeStep: timeStep);
+    }
+    final samples = <double>[];
+    for (var i = 0; i < runs; i++) {
+      final sw = Stopwatch()..start();
+      SummaryAggregator.monthly(result.steps);
+      SummaryAggregator.bankRuntime(result.steps, bankCount: 0, timeStep: timeStep);
+      sw.stop();
+      samples.add(sw.elapsedMicroseconds / 1000.0);
+    }
+    samples.sort();
+    final median = samples[samples.length ~/ 2];
+    print('${timeStep.name.padRight(14)} '
+        '(${result.steps.length} steps): '
+        'monthly+bankRuntime median ${median.toStringAsFixed(2)} ms');
+  }
 }
 
 int _intArg(List<String> args, String flag, int fallback) {
