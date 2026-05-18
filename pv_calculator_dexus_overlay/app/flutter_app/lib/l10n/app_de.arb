@@ -335,6 +335,13 @@
   "resultsRunPhasePreRun": "Speicher-SOC einlaufen (Vorlauf)",
   "resultsRunPhaseReporting": "Berichtsjahr wird simuliert",
   "resultsRunPhaseConvergence": "Zyklische Konvergenz Iteration {iteration}",
+  "resultsRunPhaseYear": "Jahr {year} von {totalYears} wird simuliert",
+  "@resultsRunPhaseYear": {
+    "placeholders": {
+      "year": { "type": "int" },
+      "totalYears": { "type": "int" }
+    }
+  },
   "@resultsRunPhaseConvergence": {
     "placeholders": {
       "iteration": { "type": "int" }

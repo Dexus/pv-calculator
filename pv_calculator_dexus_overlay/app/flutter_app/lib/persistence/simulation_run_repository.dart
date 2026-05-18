@@ -140,6 +140,12 @@ Map<String, dynamic> summaryToJson(SimulationSummary s) {
     json['perYearSummaries'] =
         s.perYearSummaries.map(summaryToJson).toList(growable: false);
   }
+  // Phase-10 cashflow KPIs — present only when a tariff was configured
+  // on the run. Stored as plain doubles so the comparison cache and
+  // any reloaded scenario keeps its EUR-KPIs after a restart.
+  if (s.importCostEur != null) json['importCostEur'] = s.importCostEur;
+  if (s.exportRevenueEur != null) json['exportRevenueEur'] = s.exportRevenueEur;
+  if (s.netCostEur != null) json['netCostEur'] = s.netCostEur;
   return json;
 }
 
@@ -184,5 +190,9 @@ SimulationSummary summaryFromJson(Map<String, dynamic> json) {
     convergenceIterations: (json['convergenceIterations'] as num?)?.toInt() ?? 0,
     converged: json['converged'] as bool? ?? true,
     perYearSummaries: perYear,
+    importCostEur: json['importCostEur'] == null ? null : toD(json['importCostEur']),
+    exportRevenueEur:
+        json['exportRevenueEur'] == null ? null : toD(json['exportRevenueEur']),
+    netCostEur: json['netCostEur'] == null ? null : toD(json['netCostEur']),
   );
 }

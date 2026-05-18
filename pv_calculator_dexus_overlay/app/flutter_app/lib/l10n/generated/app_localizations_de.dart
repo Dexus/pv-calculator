@@ -942,6 +942,11 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String resultsRunPhaseYear(int year, int totalYears) {
+    return 'Jahr $year von $totalYears wird simuliert';
+  }
+
+  @override
   String get arraysTabHint =>
       'Kein PVGIS-Aufruf pro Array — alle Module beziehen ihre POA-Werte aus den im Tab „Einstrahlung“ geladenen Standortdaten.';
 

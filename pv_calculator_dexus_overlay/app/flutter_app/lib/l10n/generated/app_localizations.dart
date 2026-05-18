@@ -1717,6 +1717,12 @@ abstract class AppLocalizations {
   /// **'Zyklische Konvergenz Iteration {iteration}'**
   String resultsRunPhaseConvergence(int iteration);
 
+  /// No description provided for @resultsRunPhaseYear.
+  ///
+  /// In de, this message translates to:
+  /// **'Jahr {year} von {totalYears} wird simuliert'**
+  String resultsRunPhaseYear(int year, int totalYears);
+
   /// No description provided for @arraysTabHint.
   ///
   /// In de, this message translates to:

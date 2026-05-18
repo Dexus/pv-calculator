@@ -281,7 +281,10 @@ class ProjectController extends ChangeNotifier {
     _lastNotifiedPct = -1;
     notifyListeners();
     try {
-      final config = _draft.build();
+      // Run-path uses buildForRun() so Pro-only knobs are clamped in
+      // a free build. Save paths still use build() to preserve the
+      // draft as-authored on disk.
+      final config = _draft.buildForRun();
       config.validate();
       final cacheKey = '${config.inputHash}@$kEngineVersion';
       final cached = _resultCache[cacheKey];

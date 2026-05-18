@@ -297,6 +297,13 @@
       "iteration": { "type": "int" }
     }
   },
+  "resultsRunPhaseYear": "Simulating year {year} of {totalYears}",
+  "@resultsRunPhaseYear": {
+    "placeholders": {
+      "year": { "type": "int" },
+      "totalYears": { "type": "int" }
+    }
+  },
 
   "arraysTabHint": "No per-array PVGIS call — every module derives POA from the site-level horizontal data loaded on the Irradiance tab.",
   "arraysSelectForCompass": "Selected for compass picker",

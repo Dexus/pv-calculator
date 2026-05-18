@@ -944,6 +944,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String resultsRunPhaseYear(int year, int totalYears) {
+    return 'Simulation année $year sur $totalYears';
+  }
+
+  @override
   String get arraysTabHint =>
       'Aucun appel PVGIS par champ — tous les modules dérivent leur POA des données horizontales du site, chargées dans l’onglet « Irradiance ».';
 

@@ -941,9 +941,11 @@ class SimulationSummary {
 
   /// Canonical JSON encoding. Persisted by the Flutter app's
   /// `simulation_runs.summary_json` and round-trips through
-  /// `SimulationSummary.fromJson`. Fields at their default (`converged`
-  /// true, no per-year detail, zero shortfall) are omitted to keep the
-  /// blob small and legacy-stable.
+  /// [SimulationSummary.fromJson]. All scalar / list fields are always
+  /// emitted so a downstream reader can rely on key presence without
+  /// guessing defaults; only the genuinely-optional fields
+  /// ([perYearSummaries] for single-year runs and the three tariff
+  /// cost fields when no tariff was configured) are dropped.
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{
       'pvDcKwh': pvDcKwh,
@@ -1041,6 +1043,8 @@ class SimulationProgress {
     required this.completedDays,
     required this.totalDays,
     this.iteration = 1,
+    this.year = 1,
+    this.totalYears = 1,
   });
 
   final SimulationPhase phase;
@@ -1052,8 +1056,19 @@ class SimulationProgress {
   final int totalDays;
 
   /// For [PreRunMode.cyclicConvergence] this is the 1-based iteration
-  /// index; `1` for every other mode.
+  /// index; `1` for every other mode. Multi-year runs use [year] /
+  /// [totalYears] instead — `iteration` stays at `1` so consumers can
+  /// distinguish cyclic settling from multi-year stepping.
   final int iteration;
+
+  /// 1-based index of the currently-reporting year for multi-year
+  /// runs (`SimulationConfig.simulationYears > 1`). `1` for single-
+  /// year runs.
+  final int year;
+
+  /// Total number of years the multi-year driver will iterate over.
+  /// `1` for single-year runs.
+  final int totalYears;
 
   double get fraction => totalDays == 0 ? 1.0 : completedDays / totalDays;
 }
@@ -1386,11 +1401,18 @@ class PvSimulator {
       final yearProgress = onProgress == null
           ? null
           : (SimulationProgress p) {
+              // Multi-year runs report progress via [year] /
+              // [totalYears]; keep `iteration` at its inner default so
+              // a downstream UI doesn't mistake year 2..N for cyclic-
+              // convergence iterations (cyclic + multi-year is
+              // rejected at validate() — they're mutually exclusive).
               onProgress(SimulationProgress(
                 phase: p.phase,
                 completedDays: p.completedDays,
                 totalDays: p.totalDays,
-                iteration: y + 1,
+                iteration: p.iteration,
+                year: y + 1,
+                totalYears: years,
               ));
             };
       final res = const PvSimulator()

@@ -202,6 +202,57 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('multi-year with tariff aggregates importCost / exportRevenue across years', () {
+      final base = _baseConfig(years: 3, degradationPct: 1.0, keepSteps: false);
+      final cfg = SimulationConfig(
+        arrays: base.arrays,
+        inverters: base.inverters,
+        batteries: base.batteries,
+        loadProfile: base.loadProfile,
+        days: 365,
+        simulationYears: 3,
+        keepSteps: false,
+        tariff: const TariffConfig(
+          importPricePerKwh: 0.30,
+          exportPricePerKwh: 0.10,
+        ),
+      );
+      final result = const PvSimulator().run(cfg);
+      final per = result.summary.perYearSummaries;
+      expect(per, hasLength(3));
+      // Every per-year summary should carry the tariff KPIs.
+      for (final s in per) {
+        expect(s.importCostEur, isNotNull);
+        expect(s.exportRevenueEur, isNotNull);
+        expect(s.netCostEur, isNotNull);
+      }
+      // Aggregated KPIs equal the per-year sums (within fp tolerance).
+      final sumImport = per.fold<double>(0.0, (a, s) => a + s.importCostEur!);
+      final sumExport = per.fold<double>(0.0, (a, s) => a + s.exportRevenueEur!);
+      expect(result.summary.importCostEur, closeTo(sumImport, 1e-9));
+      expect(result.summary.exportRevenueEur, closeTo(sumExport, 1e-9));
+      expect(result.summary.netCostEur,
+          closeTo(sumImport - sumExport, 1e-9));
+    });
+
+    test('multi-year progress events use year/totalYears, not iteration', () {
+      final cfg = _baseConfig(years: 3, keepSteps: false);
+      final yearsSeen = <int>{};
+      var maxIteration = 0;
+      var maxTotalYears = 0;
+      const PvSimulator().run(cfg, onProgress: (p) {
+        if (p.phase == SimulationPhase.reporting) {
+          yearsSeen.add(p.year);
+          if (p.iteration > maxIteration) maxIteration = p.iteration;
+          if (p.totalYears > maxTotalYears) maxTotalYears = p.totalYears;
+        }
+      });
+      expect(yearsSeen, {1, 2, 3});
+      expect(maxIteration, 1,
+          reason: 'iteration is reserved for cyclic convergence');
+      expect(maxTotalYears, 3);
+    });
   });
 }
 
