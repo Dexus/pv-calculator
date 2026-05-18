@@ -291,6 +291,13 @@
   "resultsRunPhasePreRun": "Estabilizando SOC de la batería (precarrera)",
   "resultsRunPhaseReporting": "Simulando el año de referencia",
   "resultsRunPhaseConvergence": "Convergencia cíclica, iteración {iteration}",
+  "resultsRunPhaseYear": "Simulando año {year} de {totalYears}",
+  "@resultsRunPhaseYear": {
+    "placeholders": {
+      "year": { "type": "int" },
+      "totalYears": { "type": "int" }
+    }
+  },
   "@resultsRunPhaseConvergence": {
     "placeholders": {
       "iteration": { "type": "int" }

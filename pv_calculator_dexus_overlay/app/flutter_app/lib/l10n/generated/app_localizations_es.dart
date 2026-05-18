@@ -944,6 +944,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String resultsRunPhaseYear(int year, int totalYears) {
+    return 'Simulando año $year de $totalYears';
+  }
+
+  @override
   String get arraysTabHint =>
       'Sin llamadas PVGIS por campo: todos los módulos derivan su POA de los datos horizontales del sitio cargados en la pestaña «Irradiancia».';
 

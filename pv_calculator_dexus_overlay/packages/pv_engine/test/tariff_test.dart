@@ -78,6 +78,44 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('flat prices reject NaN and infinity', () {
+      expect(
+        () => TariffConfig(
+          importPricePerKwh: double.nan,
+          exportPricePerKwh: 0.08,
+        ).validate(),
+        throwsArgumentError,
+      );
+      expect(
+        () => TariffConfig(
+          importPricePerKwh: 0.30,
+          exportPricePerKwh: double.infinity,
+        ).validate(),
+        throwsArgumentError,
+      );
+    });
+
+    test('hourly TOU entries reject NaN and infinity', () {
+      final withNaN = List<double>.filled(24, 0.30)..[3] = double.nan;
+      expect(
+        () => TariffConfig(
+          importPricePerKwh: 0.30,
+          exportPricePerKwh: 0.08,
+          hourlyImportPrices: withNaN,
+        ).validate(),
+        throwsArgumentError,
+      );
+      final withInf = List<double>.filled(24, 0.08)..[10] = double.infinity;
+      expect(
+        () => TariffConfig(
+          importPricePerKwh: 0.30,
+          exportPricePerKwh: 0.08,
+          hourlyExportPrices: withInf,
+        ).validate(),
+        throwsArgumentError,
+      );
+    });
   });
 
   group('TariffConfig price lookup', () {

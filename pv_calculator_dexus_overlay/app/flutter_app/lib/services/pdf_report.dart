@@ -58,7 +58,9 @@ Future<Uint8List> buildReportPdf({
           pw.SizedBox(height: 16),
         ],
         if (monthly.isNotEmpty) ...[
-          _section('Monthly'),
+          _section(s.perYearSummaries.length >= 2
+              ? 'Monthly (final year only)'
+              : 'Monthly'),
           _monthlyTable(monthly),
           pw.SizedBox(height: 16),
         ],

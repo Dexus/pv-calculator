@@ -43,11 +43,15 @@ class TariffConfig {
   }
 
   void validate() {
-    if (importPricePerKwh < 0) {
-      throw ArgumentError('Tariff importPricePerKwh must be >= 0.');
+    // `value < 0` is *not* enough — `NaN < 0` is false in Dart, so a NaN
+    // price would otherwise slip through and propagate as NaN through
+    // every cost accumulator. Reject anything that isn't a finite,
+    // non-negative double.
+    if (!importPricePerKwh.isFinite || importPricePerKwh < 0) {
+      throw ArgumentError('Tariff importPricePerKwh must be finite and >= 0.');
     }
-    if (exportPricePerKwh < 0) {
-      throw ArgumentError('Tariff exportPricePerKwh must be >= 0.');
+    if (!exportPricePerKwh.isFinite || exportPricePerKwh < 0) {
+      throw ArgumentError('Tariff exportPricePerKwh must be finite and >= 0.');
     }
     final imp = hourlyImportPrices;
     if (imp != null) {
@@ -56,9 +60,9 @@ class TariffConfig {
             'Tariff hourlyImportPrices must have 24 entries, got ${imp.length}.');
       }
       for (final p in imp) {
-        if (p < 0) {
+        if (!p.isFinite || p < 0) {
           throw ArgumentError(
-              'Tariff hourlyImportPrices must not contain negative values.');
+              'Tariff hourlyImportPrices entries must be finite and >= 0.');
         }
       }
     }
@@ -69,9 +73,9 @@ class TariffConfig {
             'Tariff hourlyExportPrices must have 24 entries, got ${exp.length}.');
       }
       for (final p in exp) {
-        if (p < 0) {
+        if (!p.isFinite || p < 0) {
           throw ArgumentError(
-              'Tariff hourlyExportPrices must not contain negative values.');
+              'Tariff hourlyExportPrices entries must be finite and >= 0.');
         }
       }
     }

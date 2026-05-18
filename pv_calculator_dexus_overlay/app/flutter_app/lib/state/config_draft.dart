@@ -15,6 +15,7 @@ enum ConfigSection {
   policy,
   topology,
   load,
+  tariff,
   unknown,
 }
 
@@ -112,12 +113,23 @@ ConfigSection classifyValidationMessage(String message) {
       m.contains('hourlyshape')) {
     return ConfigSection.load;
   }
+  // Engine TariffConfig.validate prefixes its ArgumentError messages
+  // with "Tariff ..." so a single keyword routes every tariff field
+  // to the new section card.
+  if (m.contains('tariff') ||
+      m.contains('hourlyimportprices') ||
+      m.contains('hourlyexportprices') ||
+      m.contains('importpriceperkwh') ||
+      m.contains('exportpriceperkwh')) {
+    return ConfigSection.tariff;
+  }
   if (m.contains('latitudedeg') ||
       m.contains('longitudedeg') ||
       m.contains('startdayofyear') ||
       m.contains('preRunDays'.toLowerCase()) ||
       m.contains('gridexportlimit') ||
-      m.contains('days must')) {
+      m.contains('days must') ||
+      m.contains('simulationyears')) {
     return ConfigSection.project;
   }
   return ConfigSection.unknown;
@@ -291,6 +303,13 @@ class ConfigDraft {
       microInverterBanks.isNotEmpty ||
       dispatchPolicy.kind != DispatchPolicyKind.selfConsumption;
 
+  /// Builds the canonical [SimulationConfig] for **persistence**: the
+  /// returned config mirrors the draft exactly so a Pro-authored
+  /// scenario opened in a free build round-trips to disk without
+  /// silently losing its Pro fields (multi-year, TOU tariff). The
+  /// simulator MUST be invoked through [buildForRun] instead, which
+  /// applies the Pro gates so a free build never actually runs the
+  /// gated features.
   SimulationConfig build() {
     final policy = dispatchPolicy.build();
     return SimulationConfig(
@@ -315,11 +334,53 @@ class ConfigDraft {
       latitudeDeg: latitudeDeg,
       longitudeDeg: longitudeDeg,
       weatherSource: buildWeatherSource(),
-      // Multi-year is a Pro feature: free builds always run a single
-      // year regardless of any value the draft might carry from a Pro-
-      // saved scenario (mirrors the cyclicConvergence gating pattern).
-      simulationYears: kProFeatures ? simulationYears : 1,
-      tariff: tariff.build(),
+      simulationYears: simulationYears,
+      tariff: tariff.build(includeTou: true),
+    );
+  }
+
+  /// Variant of [build] that enforces Pro-only gates so a free build
+  /// can't run features it isn't licensed for. Always invoked by the
+  /// simulator entry point ([ProjectController.run]); persistence
+  /// paths use [build] instead so opening + saving a Pro scenario in
+  /// a free build never downgrades the stored config.
+  SimulationConfig buildForRun() {
+    final config = build();
+    if (kProFeatures) return config;
+    // Strip Pro-only knobs: multi-year is clamped back to one year and
+    // any time-of-use schedules attached to the tariff are dropped.
+    // The flat tariff prices are still honoured.
+    final tariffConfig = config.tariff;
+    final clampedTariff = tariffConfig == null
+        ? null
+        : TariffConfig(
+            importPricePerKwh: tariffConfig.importPricePerKwh,
+            exportPricePerKwh: tariffConfig.exportPricePerKwh,
+            // null both sides → engine falls back to flat prices.
+          );
+    return SimulationConfig(
+      arrays: config.arrays,
+      inverters: config.inverters,
+      batteries: config.batteries,
+      microInverterBanks: config.microInverterBanks,
+      dispatchPolicy: config.dispatchPolicy,
+      topology: config.topology,
+      loadProfile: config.loadProfile,
+      startDayOfYear: config.startDayOfYear,
+      days: config.days,
+      timeStep: config.timeStep,
+      preRunDays: config.preRunDays,
+      preRunMode: config.preRunMode,
+      convergenceToleranceFraction: config.convergenceToleranceFraction,
+      maxConvergenceIterations: config.maxConvergenceIterations,
+      gridExportLimitKw: config.gridExportLimitKw,
+      latitudeDeg: config.latitudeDeg,
+      longitudeDeg: config.longitudeDeg,
+      weatherSource: config.weatherSource,
+      temperatureModel: config.temperatureModel,
+      keepSteps: config.keepSteps,
+      simulationYears: 1,
+      tariff: clampedTariff,
     );
   }
 
@@ -614,6 +675,13 @@ class LoadProfileDraft {
 /// is `true` the flat prices always apply; the 24-slot TOU arrays only
 /// reach the engine in Pro builds (mirrors the cyclic-convergence
 /// gating pattern).
+///
+/// Invariant: [hourlyImportPrices] and [hourlyExportPrices] are ALWAYS
+/// length 24. Imported tariffs with shorter / longer arrays are
+/// padded/truncated by [fromTariff] so the widget layer can index
+/// `[0..23]` without bounds checks. A length-mismatched JSON would
+/// also have failed engine validation, but normalising here keeps the
+/// editor open so the user can fix the import.
 class TariffDraft {
   TariffDraft({
     this.enabled = false,
@@ -639,11 +707,17 @@ class TariffDraft {
   List<double> hourlyImportPrices;
   List<double> hourlyExportPrices;
 
-  TariffConfig? build() {
+  /// Builds the engine [TariffConfig].
+  ///
+  /// [includeTou] selects whether the 24-slot arrays are emitted: `true`
+  /// for the persistence path (so Pro-authored TOU schedules survive a
+  /// save/load round-trip in a free build) and `false` for the run
+  /// path in a free build (so the engine actually sees only the flat
+  /// prices). [ConfigDraft.build] / [ConfigDraft.buildForRun] route
+  /// these for callers; direct callers can pass the flag explicitly.
+  TariffConfig? build({bool includeTou = true}) {
     if (!enabled) return null;
-    // TOU is Pro-only. In free builds the flat prices still apply; the
-    // 24-slot arrays just don't reach the engine.
-    final useTou = touEnabled && kProFeatures;
+    final useTou = touEnabled && includeTou;
     return TariffConfig(
       importPricePerKwh: importPricePerKwh,
       exportPricePerKwh: exportPricePerKwh,
@@ -654,18 +728,35 @@ class TariffDraft {
 
   static TariffDraft fromTariff(TariffConfig? t) {
     if (t == null) return TariffDraft();
+    // Engine TariffConfig allows hourlyImportPrices and hourlyExportPrices
+    // to be set independently — a tariff can have TOU import + flat
+    // export. The draft stores both arrays unconditionally (24 entries
+    // each), so when only one side is set we fill the missing side
+    // with the flat price replicated 24× so build() round-trips to the
+    // same effective tariff (the engine treats a flat-replicated array
+    // identically to a null array + flat price).
     return TariffDraft(
       enabled: true,
       importPricePerKwh: t.importPricePerKwh,
       exportPricePerKwh: t.exportPricePerKwh,
       touEnabled: t.hourlyImportPrices != null || t.hourlyExportPrices != null,
-      hourlyImportPrices: t.hourlyImportPrices == null
-          ? null
-          : List<double>.from(t.hourlyImportPrices!),
-      hourlyExportPrices: t.hourlyExportPrices == null
-          ? null
-          : List<double>.from(t.hourlyExportPrices!),
+      hourlyImportPrices: _normalize24(t.hourlyImportPrices, t.importPricePerKwh),
+      hourlyExportPrices: _normalize24(t.hourlyExportPrices, t.exportPricePerKwh),
     );
+  }
+
+  /// Normalises an incoming TOU array to exactly 24 entries by padding
+  /// with [fill] or truncating. Defends both `_HourlyGrid` (which
+  /// indexes 0..23 unconditionally) and the engine's `validate()`
+  /// length check against malformed imports.
+  static List<double> _normalize24(List<double>? src, double fill) {
+    if (src == null) return List<double>.filled(24, fill);
+    if (src.length == 24) return List<double>.from(src);
+    if (src.length > 24) return List<double>.from(src.take(24));
+    return <double>[
+      ...src,
+      ...List<double>.filled(24 - src.length, fill),
+    ];
   }
 }
 

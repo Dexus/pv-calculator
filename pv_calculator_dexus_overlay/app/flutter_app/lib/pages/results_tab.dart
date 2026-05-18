@@ -161,7 +161,9 @@ class _RunProgressIndicator extends StatelessWidget {
             ? l.resultsRunPhasePreRun
             : (p.iteration > 1
                 ? l.resultsRunPhaseConvergence(p.iteration)
-                : l.resultsRunPhaseReporting));
+                : (p.totalYears > 1
+                    ? l.resultsRunPhaseYear(p.year, p.totalYears)
+                    : l.resultsRunPhaseReporting)));
     return Padding(
       key: const Key('run-progress-indicator'),
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -559,7 +561,7 @@ class _ResultsBody extends StatelessWidget {
         if (s.unservedLoadKwh > 0)
           _KpiCard(label: l.resultsKpiUnservedLoad, value: '${s.unservedLoadKwh.toStringAsFixed(0)} kWh'),
         // Phase-10 cashflow KPIs — only when a tariff was configured.
-        // The two pence-precise prices and the net (which can be
+        // The two cent-precise prices and the net (which can be
         // negative if export revenue dominates) get their own row.
         if (s.importCostEur != null) ...[
           _KpiCard(
