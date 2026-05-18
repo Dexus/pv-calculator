@@ -70,6 +70,22 @@ class FileIo {
     }
   }
 
+  /// Picks a CSV file and parses it into a [LoadProfile] via the engine's
+  /// `parseLoadProfileCsv`. Returns `null` when the user cancels the
+  /// picker. Throws [ArgumentError] on oversize input and rethrows
+  /// [FormatException] from the parser on malformed CSV.
+  Future<LoadProfile?> importLoadProfileCsv() async {
+    const typeGroup = XTypeGroup(
+      label: 'CSV',
+      extensions: <String>['csv', 'txt'],
+    );
+    final file = await openFile(acceptedTypeGroups: const [typeGroup]);
+    if (file == null) return null;
+    await _enforceSizeLimit(file, maxImportBytes, kind: 'Load profile');
+    final raw = await file.readAsString();
+    return parseLoadProfileCsv(raw);
+  }
+
   Future<bool> _saveString({required String suggestedName, required String content, required String mimeType}) async {
     final location = await getSaveLocation(suggestedName: suggestedName);
     if (location == null) return false;

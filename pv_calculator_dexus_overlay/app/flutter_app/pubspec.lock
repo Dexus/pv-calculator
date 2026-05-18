@@ -595,7 +595,7 @@ packages:
       path: "../../packages/pv_engine"
       relative: true
     source: path
-    version: "0.9.0"
+    version: "0.10.0"
   qr:
     dependency: transitive
     description:
