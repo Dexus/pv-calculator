@@ -109,8 +109,13 @@ class CatalogRepository extends ChangeNotifier {
   /// The output is intentionally identical in shape to the bundled seed
   /// so that a user-exported file can be re-imported via
   /// [parseSeedCatalog], hand-edited, or even shipped as a future seed.
+  ///
+  /// Entries are sorted by id within each section so the output is
+  /// deterministic across runs and platforms — friendly to git diffs and
+  /// hand-editing.
   Future<String> exportUserCatalogJson() async {
-    final all = await _user.fetch();
+    final all = List<CatalogEntry>.from(await _user.fetch())
+      ..sort((a, b) => a.id.compareTo(b.id));
     final modules = <Map<String, dynamic>>[];
     final inverters = <Map<String, dynamic>>[];
     final batteries = <Map<String, dynamic>>[];

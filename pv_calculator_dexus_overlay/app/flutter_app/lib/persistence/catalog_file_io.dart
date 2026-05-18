@@ -59,7 +59,9 @@ class CatalogFileIo {
   }
 
   /// Writes the user-only entries to a JSON file via `file_selector`.
-  /// Returns the picked filename on success, null when cancelled.
+  /// Returns the actual filename written (derived from `location.path`,
+  /// which reflects any rename the user did in the native save dialog),
+  /// or null when the picker is cancelled.
   Future<String?> exportUserCatalog(
     CatalogRepository repo, {
     String suggestedName = 'components_user.json',
@@ -67,13 +69,18 @@ class CatalogFileIo {
     final content = await repo.exportUserCatalogJson();
     final location = await getSaveLocation(suggestedName: suggestedName);
     if (location == null) return null;
+    // On web `location.path` is the suggested name (browser-driven download);
+    // on native it's a full filesystem path. Splitting on either separator
+    // yields the user-visible filename in both cases without pulling in a
+    // path-manipulation dep just for the basename.
+    final savedName = location.path.split(RegExp(r'[\\/]')).last;
     final bytes = Uint8List.fromList(utf8.encode(content));
     final xfile = XFile.fromData(
       bytes,
       mimeType: 'application/json',
-      name: suggestedName,
+      name: savedName,
     );
     await xfile.saveTo(location.path);
-    return suggestedName;
+    return savedName;
   }
 }

@@ -2,13 +2,21 @@ import 'dart:math';
 
 import 'package:component_catalog/component_catalog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../catalog/catalog_repository.dart';
 import '../../l10n/generated/app_localizations.dart';
 
-/// Full-screen editor for a single user catalog entry. Pass [initial]
-/// non-null to edit; the editor locks the id field and skips the
-/// collision dialog (upsert-same-id is the expected path).
+/// Full-screen editor for a single user catalog entry.
+///
+/// Modes:
+/// - **Create** (`initial: null`): id auto-fills from manufacturer/model
+///   slug, collision dialog fires on save.
+/// - **Edit** (`initial: nonNull`, `prefillOnly: false`): id locked,
+///   collision dialog skipped (same-id upsert is the expected path).
+/// - **Prefill-create** (`initial: nonNull`, `prefillOnly: true`): used
+///   by the "duplicate seed" flow — initial values seed the form but
+///   the id stays editable and the collision dialog still fires.
 ///
 /// Returns the saved entry (or null on cancel) via `Navigator.pop`.
 class CatalogEntryEditor extends StatefulWidget {
@@ -17,11 +25,17 @@ class CatalogEntryEditor extends StatefulWidget {
     required this.repository,
     required this.kind,
     this.initial,
+    this.prefillOnly = false,
   });
 
   final CatalogRepository repository;
   final ComponentKind kind;
   final CatalogEntry? initial;
+
+  /// When true, treat [initial] as form prefill data rather than an
+  /// existing entry to edit. The id field stays editable and the
+  /// collision dialog still fires on save.
+  final bool prefillOnly;
 
   @override
   State<CatalogEntryEditor> createState() => _CatalogEntryEditorState();
@@ -62,7 +76,7 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
   /// always-off when editing an existing entry.
   bool _idAutoFill = true;
 
-  bool get _isEdit => widget.initial != null;
+  bool get _isEdit => widget.initial != null && !widget.prefillOnly;
 
   @override
   void initState() {
@@ -410,19 +424,36 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
     double? min,
     double? max,
   }) {
+    // Mirror the shared `NumberField`'s keyboard choice: mobile browsers
+    // strip the minus key from inputmode=decimal even with signed:true,
+    // so the text keyboard is the only reliable way to type negatives.
+    final canBeNegative = min == null || min < 0;
+    final keyboardType = canBeNegative
+        ? TextInputType.text
+        : const TextInputType.numberWithOptions(decimal: true, signed: false);
     return TextFormField(
       key: key,
       controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(
-          decimal: true, signed: true),
+      keyboardType: keyboardType,
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,\-]')),
+      ],
       decoration: InputDecoration(labelText: label),
       validator: (v) {
         final text = (v ?? '').trim();
         if (text.isEmpty) {
           return required ? localizations.validationRequired : null;
         }
+        // Suppress errors for in-progress input that can't yet be parsed
+        // (lone '-', dangling decimal). The form's final validate() pass
+        // on save will still catch genuinely invalid input.
+        if (text == '-' || text.endsWith('.') || text.endsWith(',')) {
+          return null;
+        }
         final parsed = double.tryParse(text.replaceAll(',', '.'));
-        if (parsed == null) return localizations.validationMustBeNumber;
+        if (parsed == null || !parsed.isFinite) {
+          return localizations.validationMustBeNumber;
+        }
         if (min != null && parsed < min) {
           return localizations.validationAtLeast(_fmt(min));
         }
@@ -439,10 +470,16 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
     final l = AppLocalizations.of(context);
     final CatalogEntry entry;
     try {
+      // _buildEntry's double.parse calls can still throw FormatException
+      // for in-progress input ('-', '0.') that the per-field validator
+      // intentionally lets through to avoid flicker on every keystroke.
       entry = _buildEntry();
       entry.validate();
     } on ArgumentError catch (e) {
       _showSnack(l.catalogEditorValidationFailed('${e.message ?? e}'));
+      return;
+    } on FormatException catch (e) {
+      _showSnack(l.catalogEditorValidationFailed(e.message));
       return;
     }
 
