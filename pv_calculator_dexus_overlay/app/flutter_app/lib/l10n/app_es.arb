@@ -100,6 +100,8 @@
   "resultsKpiImportCost": "Coste importación",
   "resultsKpiExportRevenue": "Ingresos exportación",
   "resultsKpiNetCost": "Coste neto de electricidad",
+  "resultsPdfReport": "Exportar informe (PDF)",
+  "resultsPdfReportProTooltip": "Los informes PDF son una función Pro.",
   "projectTimeStep": "Paso temporal",
   "projectTimeStepHourly": "Horario",
   "projectTimeStepQuarter": "Cuarto de hora",

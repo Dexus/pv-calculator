@@ -113,6 +113,8 @@
   "resultsKpiImportCost": "Bezugskosten",
   "resultsKpiExportRevenue": "Einspeise-Erlös",
   "resultsKpiNetCost": "Netto-Stromkosten",
+  "resultsPdfReport": "Bericht exportieren (PDF)",
+  "resultsPdfReportProTooltip": "PDF-Berichte sind eine Pro-Funktion.",
   "projectTimeStep": "Zeitschritt",
   "projectTimeStepHourly": "Stündlich",
   "projectTimeStepQuarter": "Viertelstündlich",

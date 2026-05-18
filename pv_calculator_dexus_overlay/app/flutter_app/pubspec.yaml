@@ -39,6 +39,11 @@ dependencies:
   web: ^1.1.0
   path_provider: ^2.1.4
   path: ^1.9.0
+  # Phase 8 — PDF report export (Pro). `pdf` builds the document, `printing`
+  # opens the OS share/print sheet. Both Apache-2.0 → AGPL-compatible. The
+  # engine stays runtime-dep-free; both packages live in the Flutter app only.
+  pdf: ^3.11.0
+  printing: ^5.13.0
 
 dev_dependencies:
   flutter_test:

@@ -660,6 +660,18 @@ abstract class AppLocalizations {
   /// **'Netto-Stromkosten'**
   String get resultsKpiNetCost;
 
+  /// No description provided for @resultsPdfReport.
+  ///
+  /// In de, this message translates to:
+  /// **'Bericht exportieren (PDF)'**
+  String get resultsPdfReport;
+
+  /// No description provided for @resultsPdfReportProTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'PDF-Berichte sind eine Pro-Funktion.'**
+  String get resultsPdfReportProTooltip;
+
   /// No description provided for @projectTimeStep.
   ///
   /// In de, this message translates to:
