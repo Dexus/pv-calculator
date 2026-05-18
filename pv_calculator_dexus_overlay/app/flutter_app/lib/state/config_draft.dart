@@ -1,5 +1,7 @@
 import 'package:pv_engine/pv_engine.dart';
 
+import '../config.dart';
+
 /// Which form section a [ValidationIssue] belongs to. The Auswertung
 /// tab and friends use this to render the engine's free-form error
 /// message inside the matching section card instead of in a single
@@ -204,6 +206,7 @@ class ConfigDraft {
     this.gridExportLimitKw,
     this.latitudeDeg = 50.0,
     this.longitudeDeg = 10.0,
+    this.simulationYears = 1,
     SiteIrradianceDraft? siteIrradiance,
     List<PvArrayDraft>? arrays,
     List<InverterDraft>? inverters,
@@ -231,6 +234,12 @@ class ConfigDraft {
   double? gridExportLimitKw;
   double latitudeDeg;
   double longitudeDeg;
+
+  /// Multi-year simulation length (Phase 10, Pro). `1` is the default
+  /// single-year run; in non-Pro builds [build] forces this back to
+  /// `1` so the engine never sees a Pro value smuggled in via an
+  /// imported scenario.
+  int simulationYears;
 
   /// Site-level PVGIS settings + cached horizontal irradiance.
   SiteIrradianceDraft siteIrradiance;
@@ -298,6 +307,10 @@ class ConfigDraft {
       latitudeDeg: latitudeDeg,
       longitudeDeg: longitudeDeg,
       weatherSource: buildWeatherSource(),
+      // Multi-year is a Pro feature: free builds always run a single
+      // year regardless of any value the draft might carry from a Pro-
+      // saved scenario (mirrors the cyclicConvergence gating pattern).
+      simulationYears: kProFeatures ? simulationYears : 1,
     );
   }
 
@@ -413,6 +426,7 @@ class ConfigDraft {
         gridExportLimitKw: config.gridExportLimitKw,
         latitudeDeg: config.latitudeDeg,
         longitudeDeg: config.longitudeDeg,
+        simulationYears: config.simulationYears,
         arrays: config.arrays.map(PvArrayDraft.fromArray).toList(),
         inverters: config.inverters.map(InverterDraft.fromInverter).toList(),
         batteries: config.batteries.map(BatteryDraft.fromBattery).toList(),
@@ -455,6 +469,7 @@ class PvArrayDraft {
     this.shadingFactor = 0.0,
     this.temperatureCoefficientPctPerC = 0.0,
     this.nominalOperatingCellTempC = 45.0,
+    this.degradationPctPerYear = 0.0,
   });
 
   String id;
@@ -467,6 +482,7 @@ class PvArrayDraft {
   double shadingFactor;
   double temperatureCoefficientPctPerC;
   double nominalOperatingCellTempC;
+  double degradationPctPerYear;
 
   PvArray build() => PvArray(
         id: id,
@@ -479,6 +495,7 @@ class PvArrayDraft {
         shadingFactor: shadingFactor,
         temperatureCoefficientPctPerC: temperatureCoefficientPctPerC,
         nominalOperatingCellTempC: nominalOperatingCellTempC,
+        degradationPctPerYear: degradationPctPerYear,
       );
 
   static PvArrayDraft fromArray(PvArray a) => PvArrayDraft(
@@ -492,6 +509,7 @@ class PvArrayDraft {
         shadingFactor: a.shadingFactor,
         temperatureCoefficientPctPerC: a.temperatureCoefficientPctPerC,
         nominalOperatingCellTempC: a.nominalOperatingCellTempC,
+        degradationPctPerYear: a.degradationPctPerYear,
       );
 }
 

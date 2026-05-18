@@ -112,29 +112,36 @@ class SimulationRunRepository {
 /// Compact JSON form of [SimulationSummary] for cache storage. Reverse via
 /// [summaryFromJson]. Keeps only the KPI surface the comparison view
 /// needs — full per-step series live in memory while the run is active.
-Map<String, dynamic> summaryToJson(SimulationSummary s) => {
-      'pvDcKwh': s.pvDcKwh,
-      'pvAcKwh': s.pvAcKwh,
-      'loadKwh': s.loadKwh,
-      'selfConsumptionKwh': s.selfConsumptionKwh,
-      'batteryChargeKwh': s.batteryChargeKwh,
-      'batteryDischargeKwh': s.batteryDischargeKwh,
-      'gridImportKwh': s.gridImportKwh,
-      'gridExportKwh': s.gridExportKwh,
-      'curtailedDcKwh': s.curtailedDcKwh,
-      'curtailedAcKwh': s.curtailedAcKwh,
-      'curtailedExportKwh': s.curtailedExportKwh,
-      'finalBatterySocKwh': s.finalBatterySocKwh,
-      'finalBatterySocsKwh': s.finalBatterySocsKwh,
-      'microInverterDeliveredKwh': s.microInverterDeliveredKwh,
-      'microInverterShortfallKwh': s.microInverterShortfallKwh,
-      'unservedLoadKwh': s.unservedLoadKwh,
-      'preRunMode': s.preRunMode.name,
-      'preRunActive': s.preRunActive,
-      'startSocsUsedKwh': s.startSocsUsedKwh,
-      'convergenceIterations': s.convergenceIterations,
-      'converged': s.converged,
-    };
+Map<String, dynamic> summaryToJson(SimulationSummary s) {
+  final json = <String, dynamic>{
+    'pvDcKwh': s.pvDcKwh,
+    'pvAcKwh': s.pvAcKwh,
+    'loadKwh': s.loadKwh,
+    'selfConsumptionKwh': s.selfConsumptionKwh,
+    'batteryChargeKwh': s.batteryChargeKwh,
+    'batteryDischargeKwh': s.batteryDischargeKwh,
+    'gridImportKwh': s.gridImportKwh,
+    'gridExportKwh': s.gridExportKwh,
+    'curtailedDcKwh': s.curtailedDcKwh,
+    'curtailedAcKwh': s.curtailedAcKwh,
+    'curtailedExportKwh': s.curtailedExportKwh,
+    'finalBatterySocKwh': s.finalBatterySocKwh,
+    'finalBatterySocsKwh': s.finalBatterySocsKwh,
+    'microInverterDeliveredKwh': s.microInverterDeliveredKwh,
+    'microInverterShortfallKwh': s.microInverterShortfallKwh,
+    'unservedLoadKwh': s.unservedLoadKwh,
+    'preRunMode': s.preRunMode.name,
+    'preRunActive': s.preRunActive,
+    'startSocsUsedKwh': s.startSocsUsedKwh,
+    'convergenceIterations': s.convergenceIterations,
+    'converged': s.converged,
+  };
+  if (s.perYearSummaries.length >= 2) {
+    json['perYearSummaries'] =
+        s.perYearSummaries.map(summaryToJson).toList(growable: false);
+  }
+  return json;
+}
 
 SimulationSummary summaryFromJson(Map<String, dynamic> json) {
   PreRunMode parseMode(String? name) {
@@ -146,6 +153,12 @@ SimulationSummary summaryFromJson(Map<String, dynamic> json) {
   }
 
   double toD(Object? v) => (v as num).toDouble();
+  final rawPerYear = json['perYearSummaries'];
+  final perYear = rawPerYear is List
+      ? rawPerYear
+          .map((e) => summaryFromJson((e as Map).cast<String, dynamic>()))
+          .toList(growable: false)
+      : const <SimulationSummary>[];
   return SimulationSummary(
     pvDcKwh: toD(json['pvDcKwh']),
     pvAcKwh: toD(json['pvAcKwh']),
@@ -170,5 +183,6 @@ SimulationSummary summaryFromJson(Map<String, dynamic> json) {
         (json['startSocsUsedKwh'] as List?)?.map((e) => toD(e)).toList(growable: false) ?? const [],
     convergenceIterations: (json['convergenceIterations'] as num?)?.toInt() ?? 0,
     converged: json['converged'] as bool? ?? true,
+    perYearSummaries: perYear,
   );
 }

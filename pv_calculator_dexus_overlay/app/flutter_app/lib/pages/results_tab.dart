@@ -283,6 +283,32 @@ class _SimParamsSection extends StatelessWidget {
                 ],
                 onChanged: (v) { if (v != null) { draft.timeStep = v; controller.touch(); } },
               )),
+              // Multi-year simulation (Pro). Pre-Phase-10 sims run a
+              // single year; the engine accepts simulationYears > 1
+              // unconditionally but the free build clamps it back to 1
+              // in ConfigDraft.build() so the engine still sees a Pro-
+              // gated value when Pro is on.
+              SizedBox(width: 200, child: NumberField(
+                key: const Key('simulation-years-field'),
+                label: kProFeatures
+                    ? l.projectSimulationYears
+                    : '${l.projectSimulationYears} (Pro)',
+                helpText: l.projectSimulationYearsHelp,
+                initialValue: draft.simulationYears.toDouble(),
+                min: 1,
+                max: 30,
+                enabled: kProFeatures,
+                onChanged: (v) {
+                  if (v != null) {
+                    draft.simulationYears = v.round();
+                    // Engine enforces days == 365 for multi-year; flip
+                    // it here so the user doesn't trip the validator
+                    // after enabling multi-year.
+                    if (draft.simulationYears > 1) draft.days = 365;
+                    controller.touch();
+                  }
+                },
+              )),
             ]),
           ),
         ],

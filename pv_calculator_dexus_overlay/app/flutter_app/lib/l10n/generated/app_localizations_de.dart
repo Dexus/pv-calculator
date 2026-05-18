@@ -274,6 +274,20 @@ class AppLocalizationsDe extends AppLocalizations {
   String get projectExportLimit => 'Einspeise-Limit';
 
   @override
+  String get projectSimulationYears => 'Simulationsjahre';
+
+  @override
+  String get projectSimulationYearsHelp =>
+      'Anzahl aufeinanderfolgender Jahre, die simuliert werden. Bei > 1 wird die Modulleistung pro Jahr um den Degradationsfaktor verringert; der SOC wird zwischen den Jahren übernommen.';
+
+  @override
+  String get pvArrayDegradation => 'Degradation';
+
+  @override
+  String get pvArrayDegradationHelp =>
+      'Jährlicher Leistungsabbau in %/Jahr. Typisch 0,4–0,7 für kristallines Silizium. Nur wirksam bei Simulationsjahre > 1.';
+
+  @override
   String get projectTimeStep => 'Zeitschritt';
 
   @override

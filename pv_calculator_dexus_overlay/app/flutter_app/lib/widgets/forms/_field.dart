@@ -16,6 +16,7 @@ class NumberField extends StatefulWidget {
     this.max,
     this.allowDecimal = true,
     this.helpText,
+    this.enabled = true,
   });
 
   final String label;
@@ -32,6 +33,11 @@ class NumberField extends StatefulWidget {
   /// on technical fields whose label alone (e.g. "NOCT") isn't
   /// self-explanatory.
   final String? helpText;
+
+  /// When `false`, the input is rendered greyed out and rejects edits.
+  /// Used to gate Pro-only controls in the free build without removing
+  /// them — the user still sees the field exists.
+  final bool enabled;
 
   @override
   State<NumberField> createState() => _NumberFieldState();
@@ -118,6 +124,7 @@ class _NumberFieldState extends State<NumberField> {
     return TextFormField(
       controller: _controller,
       focusNode: _focusNode,
+      enabled: widget.enabled,
       keyboardType: keyboardType,
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(pattern))],
       decoration: InputDecoration(

@@ -564,6 +564,30 @@ abstract class AppLocalizations {
   /// **'Einspeise-Limit'**
   String get projectExportLimit;
 
+  /// No description provided for @projectSimulationYears.
+  ///
+  /// In de, this message translates to:
+  /// **'Simulationsjahre'**
+  String get projectSimulationYears;
+
+  /// No description provided for @projectSimulationYearsHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Anzahl aufeinanderfolgender Jahre, die simuliert werden. Bei > 1 wird die Modulleistung pro Jahr um den Degradationsfaktor verringert; der SOC wird zwischen den Jahren übernommen.'**
+  String get projectSimulationYearsHelp;
+
+  /// No description provided for @pvArrayDegradation.
+  ///
+  /// In de, this message translates to:
+  /// **'Degradation'**
+  String get pvArrayDegradation;
+
+  /// No description provided for @pvArrayDegradationHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Jährlicher Leistungsabbau in %/Jahr. Typisch 0,4–0,7 für kristallines Silizium. Nur wirksam bei Simulationsjahre > 1.'**
+  String get pvArrayDegradationHelp;
+
   /// No description provided for @projectTimeStep.
   ///
   /// In de, this message translates to:

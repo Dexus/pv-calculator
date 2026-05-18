@@ -274,6 +274,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get projectExportLimit => 'Export limit';
 
   @override
+  String get projectSimulationYears => 'Simulation years';
+
+  @override
+  String get projectSimulationYearsHelp =>
+      'Number of consecutive years to simulate. With > 1, module power is derated per year by the degradation factor; SOC carries between years.';
+
+  @override
+  String get pvArrayDegradation => 'Degradation';
+
+  @override
+  String get pvArrayDegradationHelp =>
+      'Annual power loss in %/year. Typical 0.4–0.7 for crystalline silicon. Only effective when simulation years > 1.';
+
+  @override
   String get projectTimeStep => 'Time step';
 
   @override

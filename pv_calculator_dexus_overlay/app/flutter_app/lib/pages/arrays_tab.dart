@@ -199,6 +199,13 @@ class _ArrayCard extends StatelessWidget {
               helpText: l.arraysFieldNoctHelp,
               onChanged: (v) { if (v != null) { array.nominalOperatingCellTempC = v; onChanged(); } },
             )),
+            SizedBox(width: 200, child: NumberField(
+              key: Key('array-degradation-${array.id}'),
+              label: l.pvArrayDegradation, suffix: '%/a',
+              initialValue: array.degradationPctPerYear, min: 0, max: 9.9,
+              helpText: l.pvArrayDegradationHelp,
+              onChanged: (v) { if (v != null) { array.degradationPctPerYear = v; onChanged(); } },
+            )),
             SizedBox(width: 220, child: DropdownButtonFormField<String>(
               isExpanded: true,
               initialValue: inverterIds.contains(array.inverterId) ? array.inverterId : null,
