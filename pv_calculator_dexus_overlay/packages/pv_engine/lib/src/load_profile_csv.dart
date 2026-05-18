@@ -15,6 +15,12 @@ LoadProfile parseLoadProfileCsv(String csv) {
   if (lines.isEmpty) {
     throw const FormatException('CSV ist leer.');
   }
+  // Excel and other Windows tools prefix UTF-8 files with a `﻿`
+  // byte-order mark. Strip it from the first line so the header check
+  // matches the expected label.
+  if (lines.first.isNotEmpty && lines.first.codeUnitAt(0) == 0xFEFF) {
+    lines[0] = lines.first.substring(1);
+  }
 
   final delimiter = _detectDelimiter(lines);
 
@@ -40,27 +46,53 @@ LoadProfile parseLoadProfileCsv(String csv) {
   }
 
   // Energy columns may carry either per-interval increments (delta-style)
-  // or a monotonically non-decreasing meter reading (cumulative kWh, as
-  // a Home Assistant energy-sensor `state` export looks like). Sort by
-  // timestamp, and if the series never decreases convert it to deltas —
-  // otherwise summing inside the hour buckets would multiply the meter
-  // reading instead of accumulating the actual consumption.
-  if (cols.valueKind == _ValueKind.energy && samples.length >= 2) {
+  // or a meter reading (cumulative kWh, e.g. Home Assistant's energy
+  // sensor `state`). Monotonicity alone is too weak a signal — `0.10,
+  // 0.20, 0.30` happens to be monotonic but is obviously delta-style.
+  // The cumulative fingerprint that does distinguish the two cases is
+  // the relative size of each step: meter readings grow by a tiny
+  // fraction of their running total, while delta values are typically
+  // of the same order of magnitude as their neighbours. We classify
+  // the series by the median ratio `(curr - prev) / prev` across
+  // monotonic pairs; values well below 0.1 are meter-like. A handful
+  // of negative jumps are tolerated as utility-meter resets, with
+  // each reset boundary contributing the post-reset reading itself
+  // as the delta for that step.
+  if (cols.valueKind == _ValueKind.energy && samples.length >= 3) {
     samples.sort((a, b) => a.ts.compareTo(b.ts));
-    var cumulative = true;
+    final positiveRatios = <double>[];
+    var drops = 0;
     for (var i = 1; i < samples.length; i++) {
-      if (samples[i].value < samples[i - 1].value) {
-        cumulative = false;
-        break;
+      final prev = samples[i - 1].value;
+      final curr = samples[i].value;
+      if (curr < prev) {
+        drops++;
+      } else if (prev > 0) {
+        positiveRatios.add((curr - prev) / prev);
       }
+    }
+    var cumulative = false;
+    if (positiveRatios.isNotEmpty) {
+      positiveRatios.sort();
+      final medianRatio = positiveRatios[positiveRatios.length ~/ 2];
+      // 0.1 keeps a normal household delta series (where consecutive
+      // hourly increments easily differ by 50–100 %) out of the
+      // cumulative branch. Monthly utility-meter rollovers on a
+      // yearly export contribute ~12 drops; cap at 20 to leave some
+      // slack without letting noisy delta data slip through.
+      cumulative = medianRatio < 0.1 && drops <= 20;
     }
     if (cumulative) {
       final deltas = <_Sample>[];
       for (var i = 1; i < samples.length; i++) {
-        deltas.add(_Sample(
-          samples[i].ts,
-          samples[i].value - samples[i - 1].value,
-        ));
+        var delta = samples[i].value - samples[i - 1].value;
+        if (delta < 0) {
+          // Reset: the meter zeroed (or rolled over) between samples.
+          // The post-reset reading represents the consumption since
+          // the reset, which we attribute to this step's bucket.
+          delta = samples[i].value;
+        }
+        deltas.add(_Sample(samples[i].ts, delta));
       }
       samples
         ..clear()
@@ -281,7 +313,10 @@ bool _isCombinedTimeHeader(String h) {
       h == 'zeitstempel' ||
       h == 'zeit' ||
       h == 'datetime' ||
-      h == 'date/time';
+      h == 'date/time' ||
+      // Home Assistant history exports.
+      h == 'last_changed' ||
+      h == 'last_updated';
 }
 
 bool _isDateOnlyHeader(String h) => h == 'date' || h == 'datum';
@@ -393,12 +428,19 @@ double? _parseNumber(String s) {
   var raw = s.trim();
   if (raw.isEmpty) return null;
   raw = raw.replaceAll(' ', '');
-  // Handle German decimal comma vs. US thousands separator.
-  if (raw.contains(',') && !raw.contains('.')) {
+  final lastComma = raw.lastIndexOf(',');
+  final lastDot = raw.lastIndexOf('.');
+  if (lastComma >= 0 && lastDot >= 0) {
+    // Whichever separator appears last is the decimal point. The other
+    // one acts as a thousands grouping and is dropped. Distinguishes
+    // German `1.234,56` (1234.56) from US `1,234.56` (1234.56).
+    if (lastComma > lastDot) {
+      raw = raw.replaceAll('.', '').replaceAll(',', '.');
+    } else {
+      raw = raw.replaceAll(',', '');
+    }
+  } else if (lastComma >= 0) {
     raw = raw.replaceAll(',', '.');
-  } else if (raw.contains(',') && raw.contains('.')) {
-    // Assume `,` is the thousands separator and `.` is the decimal point.
-    raw = raw.replaceAll(',', '');
   }
   return double.tryParse(raw);
 }
