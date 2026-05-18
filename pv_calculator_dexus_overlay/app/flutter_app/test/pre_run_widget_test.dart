@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_calculator_app/config.dart';
 import 'package:pv_calculator_app/pages/results_tab.dart';
+import 'package:pv_calculator_app/services/simulation_runner.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/state/settings_controller.dart';
 import 'package:pv_engine/pv_engine.dart';
@@ -92,11 +93,23 @@ void main() {
     if (!kProFeatures) {
       return;
     }
-    final controller = ProjectController();
+    // Force the in-process runner so `pumpAndSettle` does not race the
+    // real-time isolate spawn — the same fix that landed in
+    // scenario_compare_test for the same reason.
+    final controller = ProjectController(
+      simulationRunner: const SimulationRunner(runInProcess: true),
+    );
     controller.draft
       ..preRunMode = PreRunMode.cyclicConvergence
       ..preRunDays = 0
-      ..days = 365;
+      ..days = 365
+      // Pin the convergence loop to a deterministic, small budget. The
+      // test only cares that the pre-run KPI cards render after a
+      // cyclic run; it does not need the algorithm to actually settle.
+      // Without this, default `maxConvergenceIterations: 10` × 365 days
+      // × ~1000 progress events made flutter_test's `pumpAndSettle`
+      // time out in CI's Pro-build step.
+      ..maxConvergenceIterations = 1;
 
     final settings = await _settings();
     await tester.pumpWidget(_resultsHost(controller, settings));
