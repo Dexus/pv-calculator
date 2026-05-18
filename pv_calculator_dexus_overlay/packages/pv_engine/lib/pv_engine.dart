@@ -27,7 +27,7 @@ export 'src/weather.dart';
 /// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
 /// change that can shift simulation results. Persisted alongside scenarios
 /// and simulation runs for reproducibility (PRD NFR-05).
-const String kEngineVersion = '0.5.0';
+const String kEngineVersion = '0.6.0';
 
 /// Reproducibility helpers on [SimulationConfig]. Kept as an extension so
 /// the core class stays pure data — adding `inputHash` here makes it clear

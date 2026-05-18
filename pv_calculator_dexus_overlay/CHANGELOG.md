@@ -17,7 +17,10 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 ### Added — App
 - **Quick-Start Wizard** in the projects tab — 5-step `Stepper`
   (Standort → PV-Array → optional Speicher → Lastprofil → Zusammenfassung)
-  that prefills `ConfigDraft` for `+ Neues Projekt`.
+  that prefills `ConfigDraft` for `+ Neues Projekt`. Each step now wraps
+  its inputs in a `Form` with `autovalidateMode: onUserInteraction` so
+  Continue stays disabled while any visible field shows a validation
+  error.
 - **Expertenmodus** toggle in Settings (default OFF, persisted via
   `pv_expert_mode`). Hides `TopologySection`, `MicroInverterBanksSection`
   and `DispatchPolicySection`; shows an info-card link to Settings.
@@ -27,6 +30,8 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
   inverter oversizing (DC/AC > 1.3), bank target above battery discharge,
   minSOC above 50% of capacity, missing irradiance hint.
 - About dialog now shows `appVersion (engine kEngineVersion)`.
+- Wizard-created projects now seed the auto-created `sites` row with
+  the wizard's lat/lon (previously fell back to the 50.0/10.0 default).
 
 ### Added — Engine
 - `SimulationStep.dcKwhByArray` / `acKwhByArray` — per-array energy
@@ -39,6 +44,10 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 ### Changed
 - App version bumped `0.1.0 → 0.2.0` to reflect the Phase 8 slice 1–3
   feature set.
+- Engine version bumped `0.5.0 → 0.6.0` because `SimulationStep` and
+  `stepsCsv` gained new public outputs (per-array columns); scenario/run
+  rows tagged with `0.6.0` are distinguishable from the previous
+  per-array-blind output.
 
 ## [0.5.0] — 2026-05-15 (engine)
 

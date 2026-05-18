@@ -5,6 +5,7 @@ import 'package:pv_calculator_app/pages/results_tab.dart';
 import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
 import 'package:pv_calculator_app/state/settings_controller.dart';
+import 'package:pv_engine/pv_engine.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '_test_localization.dart';
@@ -111,22 +112,53 @@ void main() {
     });
 
     testWidgets(
-        'section title hides when there is nothing to warn about',
+        'section title hides when the draft emits no warnings or hints',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(1024, 2400));
       addTearDown(() async => tester.binding.setSurfaceSize(null));
 
       final project = ProjectController();
-      // Suppress the irradiance-missing hint by faking a loaded series.
-      // Touch a private field would be ugly; the simpler way is to assert
-      // that *with* the hint, the title is present, then assert that
-      // removing every battery and inverter still leaves the hint as the
-      // only entry. That keeps the test honest without poking internals.
+      // Suppress the irradiance-missing hint by attaching a stub
+      // 365×24 series; that is the only finding the demo draft would
+      // otherwise raise.
+      project.draft.siteIrradiance.samples = HorizontalIrradianceSeries(
+        samples: List.filled(
+          365 * 24,
+          const HorizontalIrradianceSample(
+            globalHorizontalWPerM2: 0,
+            diffuseHorizontalWPerM2: 0,
+            ambientTempC: 25,
+          ),
+        ),
+        year: 2022,
+        latitudeDeg: project.draft.latitudeDeg,
+        longitudeDeg: project.draft.longitudeDeg,
+      );
+      expect(project.draft.validationWarnings(), isEmpty,
+          reason: 'pre-condition: stub series must remove every finding');
+
+      final settings = await _settings();
+      await tester.pumpWidget(_host(project, settings));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hinweise zur Konfiguration'), findsNothing,
+          reason: 'no warnings ⇒ the section header should not render');
+    });
+
+    testWidgets(
+        'section title is visible while the demo draft still has the missing-irradiance hint',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1024, 2400));
+      addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+      final project = ProjectController();
       final settings = await _settings();
       await tester.pumpWidget(_host(project, settings));
       await tester.pumpAndSettle();
 
       expect(find.text('Hinweise zur Konfiguration'), findsOneWidget);
+      expect(find.byKey(const Key('warning-irradiance-missing')),
+          findsOneWidget);
     });
   });
 }
