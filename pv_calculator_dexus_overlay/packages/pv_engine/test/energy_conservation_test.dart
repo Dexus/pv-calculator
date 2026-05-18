@@ -26,6 +26,7 @@ SimulationConfig _scaffold({
   required List<MicroInverterBank> banks,
   required List<BatteryConfig> batteries,
   required double load,
+  TimeStep timeStep = TimeStep.hourly,
 }) =>
     SimulationConfig(
       arrays: const [
@@ -40,6 +41,7 @@ SimulationConfig _scaffold({
       gridExportLimitKw: 4.0,
       startDayOfYear: 172,
       days: 3,
+      timeStep: timeStep,
     );
 
 void main() {
@@ -87,6 +89,31 @@ void main() {
           banks: const [],
           batteries: const [BatteryConfig(id: 'b', capacityKwh: 2, maxChargeKw: 2, maxDischargeKw: 2)],
           load: 5,
+        ),
+      ),
+      (
+        'SelfConsumptionFirst at quarter-hourly resolution',
+        _scaffold(
+          policy: null,
+          banks: const [],
+          batteries: const [BatteryConfig(id: 'b', capacityKwh: 4, maxChargeKw: 3, maxDischargeKw: 3)],
+          load: 6,
+          timeStep: TimeStep.quarterHourly,
+        ),
+      ),
+      (
+        'ConstantFeed24h with bank at quarter-hourly resolution',
+        _scaffold(
+          policy: const ConstantFeed24hPolicy(),
+          banks: const [
+            MicroInverterBank(
+              id: 'bank-1', batteryId: 'b', count: 1, unitRatedPowerW: 800,
+              minSocShutdown: 0.1, inverterEfficiency: 0.95,
+            ),
+          ],
+          batteries: const [BatteryConfig(id: 'b', capacityKwh: 8, maxChargeKw: 3, maxDischargeKw: 3)],
+          load: 4,
+          timeStep: TimeStep.quarterHourly,
         ),
       ),
     ];

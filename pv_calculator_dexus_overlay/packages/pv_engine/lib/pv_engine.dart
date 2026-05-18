@@ -289,6 +289,13 @@ class LoadProfile {
   final double dailyKwh;
   final List<double> hourlyShape;
 
+  /// Energy demand for one simulation step.
+  ///
+  /// `hourlyShape` is a 24-bucket distribution, so at `TimeStep.quarterHourly`
+  /// every quarter inside the same hour returns the same kWh share — the
+  /// shape stays hourly-quantised regardless of step width. Total daily
+  /// energy is conserved (sum over `stepsPerDay` equals `dailyKwh`).
+  /// A 96-slot quarter-hourly shape is deferred to Phase 10.
   double energyKwhForStep({required double hourOfDay, required TimeStep timeStep}) {
     final hourIndex = hourOfDay.floor().clamp(0, 23).toInt();
     final shapeSum = hourlyShape.fold<double>(0.0, (sum, value) => sum + value);
