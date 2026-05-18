@@ -7,6 +7,7 @@ import '../persistence/models.dart';
 import '../persistence/scenario_repository.dart';
 import '../persistence/simulation_run_repository.dart';
 import '../services/simulation_runner.dart';
+import 'config_draft.dart';
 
 /// One entry in the compare view: the scenario plus a freshly-resolved
 /// summary (cached if present, computed on demand otherwise).
@@ -153,11 +154,15 @@ class ScenarioComparisonController extends ChangeNotifier {
         // step buffer per scenario for uncached 15-minute years. JSON
         // round-trip is enough because `weatherSource` is not part of
         // the persisted config — scenarios load with the synthetic
-        // fallback either way.
-        final batchConfig = SimulationConfig.fromJson({
+        // fallback either way. `applyProGates` mirrors what
+        // `ConfigDraft.buildForRun` does for the Auswertung-tab Run
+        // button so a free build never executes Pro features (multi-
+        // year, TOU tariff) even when reopening a Pro-authored saved
+        // scenario from the comparison view.
+        final batchConfig = applyProGates(SimulationConfig.fromJson({
           ...scenario.config.toJson(),
           'keepSteps': false,
-        });
+        }));
         final outcome = await _runner.run(batchConfig);
         final end = DateTime.now().toUtc();
         // Record the run regardless — the DB cache is keyed on

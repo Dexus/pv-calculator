@@ -31,7 +31,10 @@ class TariffConfig {
   double importPriceAtHour(double hourOfDay) {
     final hours = hourlyImportPrices;
     if (hours == null) return importPricePerKwh;
-    return hours[hourOfDay.floor().clamp(0, 23)];
+    // `int.clamp(int, int)` returns `num` statically; the explicit
+    // toInt() matches the existing engine convention (see
+    // `SummaryAggregator.bankDaily`) and keeps strict analyzers happy.
+    return hours[hourOfDay.floor().clamp(0, 23).toInt()];
   }
 
   /// Price earned for one kWh exported during a step whose midpoint is
@@ -39,7 +42,7 @@ class TariffConfig {
   double exportPriceAtHour(double hourOfDay) {
     final hours = hourlyExportPrices;
     if (hours == null) return exportPricePerKwh;
-    return hours[hourOfDay.floor().clamp(0, 23)];
+    return hours[hourOfDay.floor().clamp(0, 23).toInt()];
   }
 
   void validate() {

@@ -135,6 +135,50 @@ ConfigSection classifyValidationMessage(String message) {
   return ConfigSection.unknown;
 }
 
+/// Strips Pro-only knobs from a [SimulationConfig] before the engine
+/// actually runs it, when the build does not have the Pro flag enabled.
+/// Used both by [ConfigDraft.buildForRun] (the Auswertung-tab Run
+/// button) and by [ScenarioComparisonController] (the compare-scenarios
+/// path), so opening a Pro-authored saved scenario in a free build
+/// never silently executes the gated features.
+///
+/// No-op in Pro builds — the returned config equals the input.
+SimulationConfig applyProGates(SimulationConfig config) {
+  if (kProFeatures) return config;
+  final tariffConfig = config.tariff;
+  final clampedTariff = tariffConfig == null
+      ? null
+      : TariffConfig(
+          importPricePerKwh: tariffConfig.importPricePerKwh,
+          exportPricePerKwh: tariffConfig.exportPricePerKwh,
+          // null both sides → engine falls back to flat prices.
+        );
+  return SimulationConfig(
+    arrays: config.arrays,
+    inverters: config.inverters,
+    batteries: config.batteries,
+    microInverterBanks: config.microInverterBanks,
+    dispatchPolicy: config.dispatchPolicy,
+    topology: config.topology,
+    loadProfile: config.loadProfile,
+    startDayOfYear: config.startDayOfYear,
+    days: config.days,
+    timeStep: config.timeStep,
+    preRunDays: config.preRunDays,
+    preRunMode: config.preRunMode,
+    convergenceToleranceFraction: config.convergenceToleranceFraction,
+    maxConvergenceIterations: config.maxConvergenceIterations,
+    gridExportLimitKw: config.gridExportLimitKw,
+    latitudeDeg: config.latitudeDeg,
+    longitudeDeg: config.longitudeDeg,
+    weatherSource: config.weatherSource,
+    temperatureModel: config.temperatureModel,
+    keepSteps: config.keepSteps,
+    simulationYears: 1,
+    tariff: clampedTariff,
+  );
+}
+
 /// PVGIS radiation databases the Einstrahlung tab offers in the dropdown.
 /// `null` lets PVGIS pick its own default for the requested location,
 /// which is the safe fallback when a specific database does not cover a
@@ -344,45 +388,7 @@ class ConfigDraft {
   /// simulator entry point ([ProjectController.run]); persistence
   /// paths use [build] instead so opening + saving a Pro scenario in
   /// a free build never downgrades the stored config.
-  SimulationConfig buildForRun() {
-    final config = build();
-    if (kProFeatures) return config;
-    // Strip Pro-only knobs: multi-year is clamped back to one year and
-    // any time-of-use schedules attached to the tariff are dropped.
-    // The flat tariff prices are still honoured.
-    final tariffConfig = config.tariff;
-    final clampedTariff = tariffConfig == null
-        ? null
-        : TariffConfig(
-            importPricePerKwh: tariffConfig.importPricePerKwh,
-            exportPricePerKwh: tariffConfig.exportPricePerKwh,
-            // null both sides → engine falls back to flat prices.
-          );
-    return SimulationConfig(
-      arrays: config.arrays,
-      inverters: config.inverters,
-      batteries: config.batteries,
-      microInverterBanks: config.microInverterBanks,
-      dispatchPolicy: config.dispatchPolicy,
-      topology: config.topology,
-      loadProfile: config.loadProfile,
-      startDayOfYear: config.startDayOfYear,
-      days: config.days,
-      timeStep: config.timeStep,
-      preRunDays: config.preRunDays,
-      preRunMode: config.preRunMode,
-      convergenceToleranceFraction: config.convergenceToleranceFraction,
-      maxConvergenceIterations: config.maxConvergenceIterations,
-      gridExportLimitKw: config.gridExportLimitKw,
-      latitudeDeg: config.latitudeDeg,
-      longitudeDeg: config.longitudeDeg,
-      weatherSource: config.weatherSource,
-      temperatureModel: config.temperatureModel,
-      keepSteps: config.keepSteps,
-      simulationYears: 1,
-      tariff: clampedTariff,
-    );
-  }
+  SimulationConfig buildForRun() => applyProGates(build());
 
   /// Computes the non-blocking warnings that the UI should surface
   /// alongside the engine's blocking errors. Returns codes + numeric
