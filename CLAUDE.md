@@ -10,7 +10,8 @@ This repo contains **three parallel implementations** of the same PV (photovolta
 
 2. **`pv_calculator_dexus_overlay/`** — the **active development target**: a Flutter app backed by a pure-Dart simulation engine. Covered by the `CI` workflow (`.github/workflows/ci.yml`). All new feature work goes here.
    - `packages/pv_engine/` — pure-Dart domain + simulation (no Flutter deps).
-   - `app/flutter_app/` — Flutter UI that depends on `pv_engine` via path dependency.
+   - `packages/component_catalog/` — pure-Dart catalog of PV components (modules, inverters, batteries) used to prefill input forms. Zero runtime deps. Defines `CatalogEntry` types and a `CatalogSource` extension point; Flutter-specific adapters (`BundledSeedCatalogSource`, `SqliteUserCatalogSource`) live in the app under `lib/catalog/`.
+   - `app/flutter_app/` — Flutter UI that depends on `pv_engine` and `component_catalog` via path dependency.
 
 3. **`pv-calculator-repo-content/`** — an **older starter skeleton** for the Flutter app (different package name `pv_calculator`, different model shapes like `SimulationSummary.acPvKwh` vs the overlay's `pvAcKwh`). Not in CI. Treat as legacy/reference; do not extend it unless explicitly asked. New work should go to the `_dexus_overlay/` tree.
 

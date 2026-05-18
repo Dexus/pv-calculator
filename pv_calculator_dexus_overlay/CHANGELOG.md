@@ -14,6 +14,104 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-05-18 (app) / [0.11.0] — 2026-05-18 (engine) / [0.1.0] — 2026-05-18 (component_catalog)
+
+Phase 10 — Component library (local seed + user-pluggable). Plus two
+deferred items closed: Phase-10 monthly cashflow aggregation and the
+matching €-cost CSV / monthly-table / PDF columns.
+
+### Added — Engine
+- **`SimulationStep.importCostEur` / `exportRevenueEur`** (non-nullable,
+  default `0.0`). The `_StepBuffer` already carried these columns from
+  the Phase-10 tariff work; exposing them on `SimulationStep` makes
+  per-step cashflow available to aggregators and CSV exporters.
+- **`MonthlyBucket.importCostEur` / `exportRevenueEur`** plus derived
+  `netCostEur` getter. `SummaryAggregator.monthly` now accumulates both
+  fields on the buffer fast path and the list fallback. Sums match
+  `SimulationSummary.importCostEur` within `1e-9` on a flat-tariff
+  fixture.
+- **`stepsCsv`** appends two trailing columns (`importCostEur`,
+  `exportRevenueEur`). **`monthlyCsv`** appends three
+  (`importCostEur`, `exportRevenueEur`, `netCostEur`). Columns are
+  always present so the CSV schema stays deterministic regardless of
+  whether a tariff was configured (zero-tariff scenarios emit zeros).
+- Engine version bumped `0.10.0 → 0.11.0`.
+
+### Added — New package `component_catalog` (`0.1.0`)
+- Pure-Dart sibling of `pv_engine`. Zero runtime deps.
+- **`ComponentKind`**, **`CatalogEntry`** sealed base, plus
+  `ModuleCatalogEntry` / `InverterCatalogEntry` / `BatteryCatalogEntry`
+  data classes (with `validate()`, `toJson`, `fromJson`).
+- Catalog-local **`CatalogInverterRole`** enum keeps the package
+  decoupled from `pv_engine`; consumers map to `InverterRole` at the
+  call site.
+- **`CatalogSource`** interface with read-only base + opt-in
+  `isWritable` for sources that can `upsert` / `delete`.
+- **`InMemoryCatalogSource`** for tests and hard-coded fallbacks.
+- **`MergedCatalog`** composes a priority-ordered list of sources;
+  later sources win on `id` collision. Caches `fetch()` results until
+  `invalidate()` is called.
+- **`parseSeedCatalog(jsonText)`** parses the bundled JSON shape
+  `{ version, modules[], inverters[], batteries[] }`.
+- **Bundled seed asset** `assets/components_seed_v1.json` ships 3–5
+  generic entries per kind (400 W / 440 W / 500 W / 410 W modules;
+  string 5 kW / 10 kW, hybrid 8 kW, micro 800 W inverters; 5 / 10 /
+  15 kWh LFP batteries). Asset is declared in the package's pubspec so
+  Flutter bundles it automatically when consumed via a path dependency.
+
+### Added — App
+- **Catalog adapters** under `lib/catalog/`:
+  - `BundledSeedCatalogSource` — loads the package's JSON via
+    `rootBundle`, caches per-app-lifetime.
+  - `SqliteUserCatalogSource` — writable, backed by the new
+    `component_catalog` table; payload stored as JSON for
+    forward-compatibility with new entry kinds.
+  - `CatalogRepository` (Provider-registered `ChangeNotifier`) composes
+    seed + user via `MergedCatalog`, exposes
+    `modules()` / `inverters()` / `batteries()` and
+    `addUserEntry` / `deleteUserEntry`.
+- **`CatalogPickerSheet`** modal bottom-sheet picker
+  (`lib/widgets/catalog/catalog_picker_sheet.dart`) — search field,
+  filtered list, optional `filter` predicate (used by the micro-
+  inverter banks section to constrain to
+  `microInverter800W` entries).
+- **"Aus Bibliothek wählen" buttons** in four form sections:
+  - Arrays tab — prompts for module count, prefills
+    `peakKw = peakKwPerModule × count`, plus temperature coefficient,
+    NOCT and degradation.
+  - Inverters section — prefills `maxAcKw`, `maxDcInputKw`,
+    `efficiency`, `role`, `label`.
+  - Batteries section — prefills capacity, charge / discharge,
+    round-trip efficiency, min-SOC, `label`.
+  - Micro-inverter banks section — filtered inverter picker, prefills
+    `unitRatedPowerW` and `inverterEfficiency`.
+- **Sqlite schema v1 → v2** migration adds the `component_catalog`
+  table and a `kind` index. `database.dart` `_upgrade` ladder grew its
+  first real step (`_migrateV1ToV2`). Existing v1 stores upgrade once,
+  in place; no project / scenario / run data is touched.
+- **MonthlyTable** grows three optional cashflow columns
+  (`Bezugskosten`, `Einspeise-Erlös`, `Netto`). Caller passes
+  `showCashflow: summary.importCostEur != null` so the columns appear
+  exactly when the run was scored against a tariff.
+- **PDF report** appends a compact "Monatlicher Cashflow" section
+  (12-row table) whenever the summary carries cashflow KPIs.
+- ARB strings added in de/en/es/fr: `monthlyColImportCost`,
+  `monthlyColExportRevenue`, `monthlyColNetCost`,
+  `pdfSectionMonthlyCashflow`, `catalogPickButton`,
+  `catalogPickerTitle`, `catalogSearchHint`, `catalogEmptyState`,
+  `catalogModuleCountPrompt`, `commonOk`.
+- App version bumped `0.5.0 → 0.6.0`.
+
+### Changed — App
+- `CatalogRepository.standard(db)` is registered in `main.dart`'s
+  `MultiProvider` alongside the existing repositories.
+- `flutter_app/pubspec.yaml` gains a path dependency on
+  `component_catalog`.
+
+### Changed — CI
+- `.github/workflows/ci.yml` grows a `component-catalog` job that runs
+  `dart pub get / analyze / test` against the new package.
+
 ## [0.5.0] — 2026-05-18 (app) / [0.10.0] — 2026-05-18 (engine)
 
 Phase 10 — CSV load-profile import. Plus two deferred items picked up:

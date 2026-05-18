@@ -73,3 +73,4 @@ app.*.map.json
 
 # Pub lockfile policy: keep app lockfile, ignore library lockfile
 pv_calculator_dexus_overlay/packages/pv_engine/pubspec.lock
+pv_calculator_dexus_overlay/packages/component_catalog/pubspec.lock
