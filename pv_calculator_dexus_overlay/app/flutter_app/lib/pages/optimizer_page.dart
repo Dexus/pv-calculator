@@ -49,11 +49,16 @@ class _OptimizerPageState extends State<OptimizerPage> {
     final draft = context.watch<ProjectController>().draft;
     final controller = context.watch<OptimizerController>();
     final tariffActive = draft.tariff.enabled;
-    if (!tariffActive && _objective == OptimizerObjective.minNetCost) {
-      // Defensive: if the user disabled the tariff after picking
-      // minNetCost, fall back so the form stays valid.
-      _objective = OptimizerObjective.maxAutarky;
-    }
+    // Derived view of the objective: if the tariff is inactive we
+    // can't actually run `minNetCost`, so the dropdown and the run
+    // path both treat the effective value as `maxAutarky`. We do NOT
+    // mutate `_objective` here (state mutation during build trips
+    // framework assertions) — the value is restored as soon as the
+    // user re-enables the tariff.
+    final effectiveObjective =
+        (!tariffActive && _objective == OptimizerObjective.minNetCost)
+            ? OptimizerObjective.maxAutarky
+            : _objective;
     return Scaffold(
       appBar: AppBar(title: Text(l.optimizerTitle)),
       body: SingleChildScrollView(
@@ -65,7 +70,7 @@ class _OptimizerPageState extends State<OptimizerPage> {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(l.optimizerIntro, style: Theme.of(context).textTheme.bodyMedium),
             ),
-            _objectiveCard(context, l, tariffActive),
+            _objectiveCard(context, l, tariffActive, effectiveObjective),
             const SizedBox(height: 12),
             _sweepsCard(context, l),
             const SizedBox(height: 12),
@@ -75,7 +80,7 @@ class _OptimizerPageState extends State<OptimizerPage> {
               _optionalArraysCard(context, l, draft),
               const SizedBox(height: 12),
             ],
-            _runCard(context, l, controller, draft),
+            _runCard(context, l, controller, draft, effectiveObjective),
             const SizedBox(height: 12),
             _resultsSection(context, l, controller),
           ],
@@ -84,7 +89,7 @@ class _OptimizerPageState extends State<OptimizerPage> {
     );
   }
 
-  Widget _objectiveCard(BuildContext context, AppLocalizations l, bool tariffActive) {
+  Widget _objectiveCard(BuildContext context, AppLocalizations l, bool tariffActive, OptimizerObjective effectiveObjective) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -96,7 +101,7 @@ class _OptimizerPageState extends State<OptimizerPage> {
             DropdownButtonFormField<OptimizerObjective>(
               key: const Key('optimizer-objective'),
               isExpanded: true,
-              initialValue: _objective,
+              initialValue: effectiveObjective,
               decoration: const InputDecoration(isDense: true),
               items: [
                 DropdownMenuItem(
@@ -298,7 +303,7 @@ class _OptimizerPageState extends State<OptimizerPage> {
     );
   }
 
-  Widget _runCard(BuildContext context, AppLocalizations l, OptimizerController controller, ConfigDraft draft) {
+  Widget _runCard(BuildContext context, AppLocalizations l, OptimizerController controller, ConfigDraft draft, OptimizerObjective effectiveObjective) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -307,7 +312,7 @@ class _OptimizerPageState extends State<OptimizerPage> {
           children: [
             FilledButton.icon(
               key: const Key('optimizer-run'),
-              onPressed: controller.running ? null : () => _onRun(controller, draft),
+              onPressed: controller.running ? null : () => _onRun(controller, draft, effectiveObjective),
               icon: const Icon(Icons.tune),
               label: Text(controller.running ? l.optimizerRunning : l.optimizerRunButton),
             ),
@@ -361,7 +366,21 @@ class _OptimizerPageState extends State<OptimizerPage> {
     );
   }
 
-  void _onRun(OptimizerController controller, ConfigDraft draft) {
+  void _onRun(OptimizerController controller, ConfigDraft draft, OptimizerObjective objective) {
+    // Engine `OptimizerSpec.validate()` rejects a non-empty
+    // batterySweepKwh / inverterSweepKw when the baseline has no
+    // batteries / inverters. Gate the sweep arrays so PV-only projects
+    // (allowed by the app's Batteries section) can still optimize PV
+    // scale + array mix.
+    final hasBattery = draft.batteries.isNotEmpty;
+    final hasInverter = draft.inverters.isNotEmpty;
+    // Drop any optional-array IDs that no longer exist in the draft.
+    // The Set survives array rename/delete in the Arrays tab, but the
+    // engine validates the IDs against the baseline; without this
+    // filter a stale entry causes the run to throw "unknown array".
+    final liveArrayIds = {for (final a in draft.arrays) a.id};
+    final optionalIds =
+        _optionalArrayIds.where(liveArrayIds.contains).toList(growable: false);
     final spec = OptimizerSpec(
       // Replaced by the controller; passing a placeholder is fine.
       baseline: draft.buildForRun(),
@@ -370,11 +389,11 @@ class _OptimizerPageState extends State<OptimizerPage> {
         eurPerKwAcInverter: _priceInverter,
         eurPerKwhBattery: _priceBattery,
       ),
-      objective: _objective,
-      batterySweepKwh: _battery.toList(),
-      inverterSweepKw: _inverter.toList(),
+      objective: objective,
+      batterySweepKwh: hasBattery ? _battery.toList() : const [],
+      inverterSweepKw: hasInverter ? _inverter.toList() : const [],
       pvScaleSweep: _pvScale.toList(),
-      optionalArrayIds: _optionalArrayIds.toList(growable: false),
+      optionalArrayIds: optionalIds,
       budgetEur: _budget,
       horizonYears: _horizonYears,
     );

@@ -3398,7 +3398,7 @@ abstract class AppLocalizations {
   /// No description provided for @optimizerSweepHint.
   ///
   /// In de, this message translates to:
-  /// **'Schritte = 1 hält den Min-Wert fest. Leer = Basiswert beibehalten.'**
+  /// **'Schritte = 1 hält den Min-Wert fest.'**
   String get optimizerSweepHint;
 
   /// No description provided for @optimizerSectionPrices.
