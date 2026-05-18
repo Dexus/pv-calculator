@@ -347,6 +347,7 @@ class SimulationConfig {
     this.longitudeDeg = 10.0,
     this.weatherSource,
     this.temperatureModel = const NoctTemperatureModel(),
+    this.keepSteps = true,
   });
 
   final List<PvArray> arrays;
@@ -404,6 +405,14 @@ class SimulationConfig {
   /// Strategy that maps weather + module NOCT into cell temperature
   /// for the array-level temperature derating.
   final TemperatureModel temperatureModel;
+
+  /// When `false`, [SimulationResult.steps] is empty and the simulator
+  /// avoids retaining per-step records — only the [SimulationSummary]
+  /// is built. Annual KPIs are unchanged in either mode. Use this to
+  /// trim memory for batch comparisons or scenario sweeps where the
+  /// per-step series isn't needed; CSV export and the time-series
+  /// charts require `keepSteps: true`.
+  final bool keepSteps;
 
   IrradianceSource get effectiveWeatherSource => weatherSource ?? const SyntheticIrradianceSource();
 
@@ -515,6 +524,9 @@ class SimulationConfig {
       'gridExportLimitKw': gridExportLimitKw,
       'latitudeDeg': latitudeDeg,
       'longitudeDeg': longitudeDeg,
+      // Only emit `keepSteps` when it deviates from the default so v1/v2
+      // round-trips stay byte-identical for hashing and tests.
+      if (!keepSteps) 'keepSteps': false,
     };
     if (hasPhase4 || hasPhase5) {
       if (microInverterBanks.isNotEmpty) {
@@ -601,6 +613,7 @@ class SimulationConfig {
       gridExportLimitKw: json['gridExportLimitKw'] == null ? null : _toDouble(json['gridExportLimitKw']),
       latitudeDeg: _toDouble(json['latitudeDeg'] ?? 50.0),
       longitudeDeg: _toDouble(json['longitudeDeg'] ?? 10.0),
+      keepSteps: (json['keepSteps'] as bool?) ?? true,
     );
   }
 }
@@ -840,6 +853,43 @@ enum SimulationPhase { preRun, reporting }
 
 typedef ProgressCallback = void Function(SimulationProgress);
 
+/// Running totals threaded through the per-step loop so the summary
+/// builds in O(stepsPerYear) without re-iterating a kept-steps list.
+/// Private — the engine's only consumer is [_summarize].
+class _StepAccumulator {
+  double pvDcKwh = 0;
+  double pvAcKwh = 0;
+  double loadKwh = 0;
+  double selfConsumptionKwh = 0;
+  double batteryChargeKwh = 0;
+  double batteryDischargeKwh = 0;
+  double gridImportKwh = 0;
+  double gridExportKwh = 0;
+  double curtailedDcKwh = 0;
+  double curtailedAcKwh = 0;
+  double curtailedExportKwh = 0;
+  double microInverterDeliveredKwh = 0;
+  double microInverterShortfallKwh = 0;
+  double unservedLoadKwh = 0;
+
+  void add(SimulationStep s) {
+    pvDcKwh += s.pvDcKwh;
+    pvAcKwh += s.pvAcKwh;
+    loadKwh += s.loadKwh;
+    selfConsumptionKwh += s.selfConsumptionKwh;
+    batteryChargeKwh += s.batteryChargeKwh;
+    batteryDischargeKwh += s.batteryDischargeKwh;
+    gridImportKwh += s.gridImportKwh;
+    gridExportKwh += s.gridExportKwh;
+    curtailedDcKwh += s.curtailedDcKwh;
+    curtailedAcKwh += s.curtailedAcKwh;
+    curtailedExportKwh += s.curtailedExportKwh;
+    microInverterDeliveredKwh += s.microInverterDeliveredKwh;
+    microInverterShortfallKwh += s.microInverterShortfallKwh;
+    unservedLoadKwh += s.unservedLoadKwh;
+  }
+}
+
 class PvSimulator {
   const PvSimulator();
 
@@ -871,6 +921,7 @@ class PvSimulator {
   /// "Der Pre-Run wird nicht in Jahres-KPIs eingerechnet".
   SimulationResult _runLinear(SimulationConfig config, {required int preRunDays, ProgressCallback? onProgress}) {
     final steps = <SimulationStep>[];
+    final accumulator = _StepAccumulator();
     final socs = [for (final b in config.batteries) b.effectiveInitialSocKwh];
     final startSocs = List<double>.unmodifiable(socs);
     var capturedReportSocs = false;
@@ -887,7 +938,10 @@ class PvSimulator {
         }
         final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
         final step = _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay);
-        if (dayIndex >= 0) steps.add(step);
+        if (dayIndex >= 0) {
+          accumulator.add(step);
+          if (config.keepSteps) steps.add(step);
+        }
       }
       if (onProgress != null) {
         if (dayIndex < 0) {
@@ -910,7 +964,7 @@ class PvSimulator {
     return SimulationResult(
       steps: steps,
       summary: _summarize(
-        steps,
+        accumulator,
         socs,
         preRunMode: config.preRunMode,
         preRunActive: preRunActive,
@@ -938,6 +992,7 @@ class PvSimulator {
     ];
 
     List<SimulationStep> lastSteps = const [];
+    var lastAccumulator = _StepAccumulator();
     var iterations = 0;
     var converged = false;
     List<double> startSocs = List<double>.unmodifiable(socs);
@@ -946,11 +1001,14 @@ class PvSimulator {
       iterations += 1;
       startSocs = List<double>.unmodifiable(socs);
       final cycleSteps = <SimulationStep>[];
+      final cycleAccumulator = _StepAccumulator();
       for (var dayIndex = 0; dayIndex < 365; dayIndex++) {
         final dayOfYear = _wrapDay(config.startDayOfYear + dayIndex);
         for (var stepOfDay = 0; stepOfDay < config.timeStep.stepsPerDay; stepOfDay++) {
           final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
-          cycleSteps.add(_simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay));
+          final step = _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay);
+          cycleAccumulator.add(step);
+          if (config.keepSteps) cycleSteps.add(step);
         }
         if (onProgress != null) {
           onProgress(SimulationProgress(
@@ -962,6 +1020,7 @@ class PvSimulator {
         }
       }
       lastSteps = cycleSteps;
+      lastAccumulator = cycleAccumulator;
       // Convergence: every battery's |start - end| must be within its
       // own usable-capacity tolerance. Batteries with usable == 0 are
       // trivially converged (the tolerance is 0 and the SOC cannot move).
@@ -984,7 +1043,7 @@ class PvSimulator {
     return SimulationResult(
       steps: lastSteps,
       summary: _summarize(
-        lastSteps,
+        lastAccumulator,
         socs,
         preRunMode: config.preRunMode,
         preRunActive: batteries.isNotEmpty,
@@ -1184,7 +1243,7 @@ class PvSimulator {
   }
 
   SimulationSummary _summarize(
-    List<SimulationStep> steps,
+    _StepAccumulator acc,
     List<double> finalSocs, {
     required PreRunMode preRunMode,
     required bool preRunActive,
@@ -1192,24 +1251,23 @@ class PvSimulator {
     required int convergenceIterations,
     required bool converged,
   }) {
-    double sum(double Function(SimulationStep step) selector) => steps.fold<double>(0.0, (total, step) => total + selector(step));
     return SimulationSummary(
-      pvDcKwh: sum((s) => s.pvDcKwh),
-      pvAcKwh: sum((s) => s.pvAcKwh),
-      loadKwh: sum((s) => s.loadKwh),
-      selfConsumptionKwh: sum((s) => s.selfConsumptionKwh),
-      batteryChargeKwh: sum((s) => s.batteryChargeKwh),
-      batteryDischargeKwh: sum((s) => s.batteryDischargeKwh),
-      gridImportKwh: sum((s) => s.gridImportKwh),
-      gridExportKwh: sum((s) => s.gridExportKwh),
-      curtailedDcKwh: sum((s) => s.curtailedDcKwh),
-      curtailedAcKwh: sum((s) => s.curtailedAcKwh),
-      curtailedExportKwh: sum((s) => s.curtailedExportKwh),
+      pvDcKwh: acc.pvDcKwh,
+      pvAcKwh: acc.pvAcKwh,
+      loadKwh: acc.loadKwh,
+      selfConsumptionKwh: acc.selfConsumptionKwh,
+      batteryChargeKwh: acc.batteryChargeKwh,
+      batteryDischargeKwh: acc.batteryDischargeKwh,
+      gridImportKwh: acc.gridImportKwh,
+      gridExportKwh: acc.gridExportKwh,
+      curtailedDcKwh: acc.curtailedDcKwh,
+      curtailedAcKwh: acc.curtailedAcKwh,
+      curtailedExportKwh: acc.curtailedExportKwh,
       finalBatterySocKwh: finalSocs.fold<double>(0.0, (a, b) => a + b),
       finalBatterySocsKwh: List<double>.unmodifiable(finalSocs),
-      microInverterDeliveredKwh: sum((s) => s.microInverterDeliveredKwh),
-      microInverterShortfallKwh: sum((s) => s.microInverterShortfallKwh),
-      unservedLoadKwh: sum((s) => s.unservedLoadKwh),
+      microInverterDeliveredKwh: acc.microInverterDeliveredKwh,
+      microInverterShortfallKwh: acc.microInverterShortfallKwh,
+      unservedLoadKwh: acc.unservedLoadKwh,
       preRunMode: preRunMode,
       preRunActive: preRunActive,
       startSocsUsedKwh: List<double>.unmodifiable(startSocsUsedKwh),
