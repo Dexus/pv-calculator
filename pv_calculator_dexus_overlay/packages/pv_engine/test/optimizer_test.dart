@@ -174,12 +174,15 @@ void main() {
       expect(result.candidates.length, equals(1));
       final cand = result.candidates.single;
 
+      // Optimizer forces days=365 for ranking consistency; the
+      // baseline ships with days=1 for fast multi-test iteration, so
+      // the direct sim has to run a full year to match.
       final direct = const PvSimulator().run(SimulationConfig(
         arrays: baseline.arrays,
         inverters: baseline.inverters,
         batteries: baseline.batteries,
         loadProfile: baseline.loadProfile,
-        days: baseline.days,
+        days: 365,
         tariff: baseline.tariff,
         keepSteps: false,
       ));
@@ -415,6 +418,102 @@ void main() {
       final result = const Optimizer().run(spec);
       expect(result.evaluated, equals(9));
       expect(result.candidates.length, equals(3));
+    });
+
+    test('PV-only baseline (no batteries) runs when battery sweep is empty', () {
+      // Codex PR #31 review: form callers must omit the battery sweep
+      // when the draft has no batteries; the engine accepts this case.
+      final baseline = SimulationConfig(
+        arrays: const [
+          PvArray(
+            id: 'south',
+            label: 'South',
+            peakKw: 5.0,
+            azimuthDeg: 180,
+            tiltDeg: 30,
+            inverterId: 'main',
+          ),
+        ],
+        inverters: const [Inverter(id: 'main', label: 'Main', maxAcKw: 5.0)],
+        loadProfile: const LoadProfile(dailyKwh: 12.0),
+        days: 1,
+      );
+      final spec = OptimizerSpec(
+        baseline: baseline,
+        prices: const OptimizerPrices(),
+        objective: OptimizerObjective.maxAutarky,
+        pvScaleSweep: const [0.8, 1.0, 1.2],
+      );
+      final result = const Optimizer().run(spec);
+      expect(result.evaluated, equals(3));
+      expect(result.failedValidation, equals(0));
+      // Each patched candidate must inherit the "no battery" shape.
+      for (final c in result.candidates) {
+        expect(c.batteryKwh, equals(0.0));
+      }
+    });
+
+    test('partial-period baseline gets full year for cost ranking', () {
+      // Codex PR #31 review: a 30-day baseline must not produce a
+      // 30-day lifetime cost. The optimizer forces days=365 internally,
+      // so two patches with the same swept values but different
+      // baseline `days` yield identical KPIs.
+      final baselineShort = SimulationConfig(
+        arrays: const [
+          PvArray(
+            id: 'south',
+            label: 'South',
+            peakKw: 5.0,
+            azimuthDeg: 180,
+            tiltDeg: 30,
+            inverterId: 'main',
+          ),
+        ],
+        inverters: const [Inverter(id: 'main', label: 'Main', maxAcKw: 5.0)],
+        batteries: const [
+          BatteryConfig(
+            id: 'main',
+            label: 'Main',
+            capacityKwh: 5.0,
+            maxChargeKw: 2.5,
+            maxDischargeKw: 2.5,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 12.0),
+        days: 30,
+        tariff: const TariffConfig(
+          importPricePerKwh: 0.30,
+          exportPricePerKwh: 0.08,
+        ),
+      );
+      final baselineFull = SimulationConfig(
+        arrays: baselineShort.arrays,
+        inverters: baselineShort.inverters,
+        batteries: baselineShort.batteries,
+        loadProfile: baselineShort.loadProfile,
+        days: 365,
+        tariff: baselineShort.tariff,
+      );
+      OptimizerSpec mkSpec(SimulationConfig b) => OptimizerSpec(
+            baseline: b,
+            prices: const OptimizerPrices(),
+            objective: OptimizerObjective.minNetCost,
+            pvScaleSweep: const [1.0],
+          );
+      final shortResult = const Optimizer().run(mkSpec(baselineShort));
+      final fullResult = const Optimizer().run(mkSpec(baselineFull));
+      expect(shortResult.candidates.length, equals(1));
+      expect(fullResult.candidates.length, equals(1));
+      // Costs match to within float precision — both ran over a full
+      // year of synthetic weather.
+      expect(
+        shortResult.candidates.single.lifetimeNetCostEur,
+        closeTo(fullResult.candidates.single.lifetimeNetCostEur!, 1e-6),
+      );
+      expect(
+        shortResult.candidates.single.summary.pvAcKwh,
+        closeTo(fullResult.candidates.single.summary.pvAcKwh, 1e-6),
+      );
     });
   });
 }

@@ -635,7 +635,7 @@
   "optimizerSweepMin": "Mín",
   "optimizerSweepMax": "Máx",
   "optimizerSweepSteps": "Pasos",
-  "optimizerSweepHint": "Pasos = 1 fija el valor mínimo. Vacío = mantener el valor base.",
+  "optimizerSweepHint": "Pasos = 1 fija el valor mínimo.",
   "optimizerSectionPrices": "Precios",
   "optimizerPricePv": "€/kWp FV",
   "optimizerPriceInverter": "€/kW inversor",

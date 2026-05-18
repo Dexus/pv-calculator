@@ -115,6 +115,10 @@ class OptimizerSpec {
   final int topN;
 
   void validate() {
+    // Validate the baseline up front so an invalid SimulationConfig
+    // surfaces as a single ArgumentError instead of silently soft-
+    // failing every patched candidate as `failedValidation`.
+    baseline.validate();
     prices.validate();
     if (horizonYears < 1 || horizonYears > 100) {
       throw ArgumentError('OptimizerSpec.horizonYears must be in [1, 100].');
@@ -277,7 +281,11 @@ class Optimizer {
         disabledSubsets.length;
     onProgress?.call(0, total);
 
-    final baselineJson = spec.baseline.toJson();
+    // Pre-encode the baseline JSON once. `_patchConfig` decodes a fresh
+    // copy per candidate; hoisting the encode out of the hot loop is
+    // measurable on large sweeps and the result is identical because
+    // none of the swept fields mutate the source map.
+    final baselineJsonString = jsonEncode(spec.baseline.toJson());
     final baselineBatteryKwh =
         spec.baseline.batteries.isEmpty ? 0.0 : spec.baseline.batteries.first.capacityKwh;
 
@@ -310,7 +318,7 @@ class Optimizer {
             try {
               patched = _patchConfig(
                 baseline: spec.baseline,
-                baselineJson: baselineJson,
+                baselineJsonString: baselineJsonString,
                 batteryKwh: batteryKwh,
                 baselineBatteryKwh: baselineBatteryKwh,
                 inverterKw: inverterKw,
@@ -400,8 +408,8 @@ class Optimizer {
     }
   }
 
-  /// Clones `baselineJson` and patches the swept fields in place,
-  /// returning a fresh [SimulationConfig]. Topology edges that
+  /// Decodes [baselineJsonString] into a fresh map and patches the
+  /// swept fields, returning a [SimulationConfig]. Topology edges that
   /// reference a disabled array are filtered out so the user-facing
   /// "disable this array" gesture doesn't leave a dangling edge.
   /// Battery power scales with capacity to preserve the baseline's
@@ -410,18 +418,26 @@ class Optimizer {
   /// [SimulationConfig.temperatureModel] are re-attached from
   /// [baseline] so the optimizer sees the user's loaded PVGIS data
   /// instead of silently dropping back to the synthetic model.
+  ///
+  /// Forces `days = 365` so `summary.netCostEur` is always a per-year
+  /// cost — multiplying that by `horizonYears` gives an honest lifetime
+  /// estimate even when the user's underlying Results-tab draft uses a
+  /// partial-period run (e.g. a 30-day debug sim). Cyclic-convergence
+  /// already requires `days == 365`; non-cyclic modes are unaffected
+  /// because the engine wraps `dayOfYear` into `[1, 365]` regardless.
   SimulationConfig _patchConfig({
     required SimulationConfig baseline,
-    required Map<String, dynamic> baselineJson,
+    required String baselineJsonString,
     required double batteryKwh,
     required double baselineBatteryKwh,
     required double inverterKw,
     required double pvScale,
     required Set<String> disabled,
   }) {
-    // Deep-clone via JSON round-trip. Cheaper than reflective copy and
-    // matches the engine's existing serialisation surface.
-    final cloned = jsonDecode(jsonEncode(baselineJson)) as Map<String, dynamic>;
+    // Deep-clone via JSON round-trip. The encode is hoisted to the
+    // caller (`Optimizer.run`) so the hot loop only pays for the
+    // per-candidate decode.
+    final cloned = jsonDecode(baselineJsonString) as Map<String, dynamic>;
 
     final arraysJson = (cloned['arrays'] as List).cast<Map<String, dynamic>>();
     final keptArrays = <Map<String, dynamic>>[];
@@ -465,10 +481,20 @@ class Optimizer {
       }
     }
 
-    // Force per-candidate flags: per-step retention off, single-year
-    // run (lifetime cost is computed externally via horizonYears).
+    // Force per-candidate flags: per-step retention off, full 365-day
+    // year, single year. The user-facing baseline may run a partial
+    // period (e.g. 30 debug days) but lifetime cost is computed as
+    // `horizonYears × per-year netCostEur` and so MUST be evaluated
+    // against a full year — otherwise the ranking compares apples to
+    // calendar fractions. The engine wraps dayOfYear into [1, 365]
+    // regardless, so a partial-period baseline with `startDayOfYear !=
+    // 1` still yields a sensible full annual cycle here.
     cloned['keepSteps'] = false;
     cloned['simulationYears'] = 1;
+    cloned['days'] = 365;
+    // `preRunDays` is preserved; cyclic-convergence in the baseline
+    // continues to mean "until SOC stabilises" because the engine
+    // already validated `days == 365` for that mode.
 
     final patched = SimulationConfig.fromJson(cloned);
     // Re-attach the non-serialised fields so the optimizer mirrors the

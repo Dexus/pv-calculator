@@ -1904,8 +1904,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get optimizerSweepSteps => 'Pas';
 
   @override
-  String get optimizerSweepHint =>
-      'Pas = 1 fixe la valeur Min. Vide = conserver la valeur de référence.';
+  String get optimizerSweepHint => 'Pas = 1 fixe la valeur Min.';
 
   @override
   String get optimizerSectionPrices => 'Prix';

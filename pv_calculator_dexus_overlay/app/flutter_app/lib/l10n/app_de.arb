@@ -682,7 +682,7 @@
   "optimizerSweepMin": "Min",
   "optimizerSweepMax": "Max",
   "optimizerSweepSteps": "Schritte",
-  "optimizerSweepHint": "Schritte = 1 hält den Min-Wert fest. Leer = Basiswert beibehalten.",
+  "optimizerSweepHint": "Schritte = 1 hält den Min-Wert fest.",
   "optimizerSectionPrices": "Preise",
   "optimizerPricePv": "€/kWp PV",
   "optimizerPriceInverter": "€/kW Wechselrichter",

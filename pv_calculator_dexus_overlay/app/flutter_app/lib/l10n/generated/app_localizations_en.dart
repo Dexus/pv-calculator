@@ -1892,8 +1892,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get optimizerSweepSteps => 'Steps';
 
   @override
-  String get optimizerSweepHint =>
-      'Steps = 1 pins the Min value. Empty = keep baseline value.';
+  String get optimizerSweepHint => 'Steps = 1 pins the Min value.';
 
   @override
   String get optimizerSectionPrices => 'Prices';

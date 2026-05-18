@@ -1900,8 +1900,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get optimizerSweepSteps => 'Schritte';
 
   @override
-  String get optimizerSweepHint =>
-      'Schritte = 1 hält den Min-Wert fest. Leer = Basiswert beibehalten.';
+  String get optimizerSweepHint => 'Schritte = 1 hält den Min-Wert fest.';
 
   @override
   String get optimizerSectionPrices => 'Preise';

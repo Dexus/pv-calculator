@@ -636,7 +636,7 @@
   "optimizerSweepMin": "Min",
   "optimizerSweepMax": "Max",
   "optimizerSweepSteps": "Steps",
-  "optimizerSweepHint": "Steps = 1 pins the Min value. Empty = keep baseline value.",
+  "optimizerSweepHint": "Steps = 1 pins the Min value.",
   "optimizerSectionPrices": "Prices",
   "optimizerPricePv": "€/kWp PV",
   "optimizerPriceInverter": "€/kW inverter",

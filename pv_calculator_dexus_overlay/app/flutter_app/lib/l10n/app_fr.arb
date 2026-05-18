@@ -635,7 +635,7 @@
   "optimizerSweepMin": "Min",
   "optimizerSweepMax": "Max",
   "optimizerSweepSteps": "Pas",
-  "optimizerSweepHint": "Pas = 1 fixe la valeur Min. Vide = conserver la valeur de référence.",
+  "optimizerSweepHint": "Pas = 1 fixe la valeur Min.",
   "optimizerSectionPrices": "Prix",
   "optimizerPricePv": "€/kWp PV",
   "optimizerPriceInverter": "€/kW onduleur",
