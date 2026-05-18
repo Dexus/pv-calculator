@@ -3304,6 +3304,228 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Noch keine Einstrahlungsdaten geladen. Die Simulation läuft mit dem synthetischen Demo-Modell — Lade Daten über den Einstrahlung-Tab für reale Werte.'**
   String get hintIrradianceMissing;
+
+  /// No description provided for @optimizerEntryButton.
+  ///
+  /// In de, this message translates to:
+  /// **'Optimieren'**
+  String get optimizerEntryButton;
+
+  /// No description provided for @optimizerEntryProTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Optimierer ist ein Pro-Feature.'**
+  String get optimizerEntryProTooltip;
+
+  /// No description provided for @optimizerTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Optimierer'**
+  String get optimizerTitle;
+
+  /// No description provided for @optimizerIntro.
+  ///
+  /// In de, this message translates to:
+  /// **'Variiert Speichergröße, Wechselrichter-Leistung und PV-Skalierung; rankt nach gewähltem Ziel und respektiert ein Budget.'**
+  String get optimizerIntro;
+
+  /// No description provided for @optimizerSectionObjective.
+  ///
+  /// In de, this message translates to:
+  /// **'Ziel'**
+  String get optimizerSectionObjective;
+
+  /// No description provided for @optimizerObjectiveAutarky.
+  ///
+  /// In de, this message translates to:
+  /// **'Autarkie maximieren'**
+  String get optimizerObjectiveAutarky;
+
+  /// No description provided for @optimizerObjectiveNetCost.
+  ///
+  /// In de, this message translates to:
+  /// **'Stromkosten minimieren'**
+  String get optimizerObjectiveNetCost;
+
+  /// No description provided for @optimizerObjectiveNetCostHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Erfordert aktiven Tarif im Tarif-Abschnitt.'**
+  String get optimizerObjectiveNetCostHint;
+
+  /// No description provided for @optimizerSectionSweeps.
+  ///
+  /// In de, this message translates to:
+  /// **'Sweep-Bereiche'**
+  String get optimizerSectionSweeps;
+
+  /// No description provided for @optimizerSweepBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher (kWh)'**
+  String get optimizerSweepBattery;
+
+  /// No description provided for @optimizerSweepInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'Wechselrichter AC (kW)'**
+  String get optimizerSweepInverter;
+
+  /// No description provided for @optimizerSweepPvScale.
+  ///
+  /// In de, this message translates to:
+  /// **'PV-Skalierung (Faktor)'**
+  String get optimizerSweepPvScale;
+
+  /// No description provided for @optimizerSweepMin.
+  ///
+  /// In de, this message translates to:
+  /// **'Min'**
+  String get optimizerSweepMin;
+
+  /// No description provided for @optimizerSweepMax.
+  ///
+  /// In de, this message translates to:
+  /// **'Max'**
+  String get optimizerSweepMax;
+
+  /// No description provided for @optimizerSweepSteps.
+  ///
+  /// In de, this message translates to:
+  /// **'Schritte'**
+  String get optimizerSweepSteps;
+
+  /// No description provided for @optimizerSweepHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Schritte = 1 hält den Min-Wert fest. Leer = Basiswert beibehalten.'**
+  String get optimizerSweepHint;
+
+  /// No description provided for @optimizerSectionPrices.
+  ///
+  /// In de, this message translates to:
+  /// **'Preise'**
+  String get optimizerSectionPrices;
+
+  /// No description provided for @optimizerPricePv.
+  ///
+  /// In de, this message translates to:
+  /// **'€/kWp PV'**
+  String get optimizerPricePv;
+
+  /// No description provided for @optimizerPriceInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'€/kW Wechselrichter'**
+  String get optimizerPriceInverter;
+
+  /// No description provided for @optimizerPriceBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'€/kWh Speicher'**
+  String get optimizerPriceBattery;
+
+  /// No description provided for @optimizerBudget.
+  ///
+  /// In de, this message translates to:
+  /// **'Budget (€, optional)'**
+  String get optimizerBudget;
+
+  /// No description provided for @optimizerHorizon.
+  ///
+  /// In de, this message translates to:
+  /// **'Horizont (Jahre)'**
+  String get optimizerHorizon;
+
+  /// No description provided for @optimizerSectionOptionalArrays.
+  ///
+  /// In de, this message translates to:
+  /// **'Optionale Arrays'**
+  String get optimizerSectionOptionalArrays;
+
+  /// No description provided for @optimizerOptionalArraysHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Markierte Arrays werden in jeder Kombination einmal mit und einmal ohne sie simuliert (max. 4).'**
+  String get optimizerOptionalArraysHint;
+
+  /// No description provided for @optimizerRunButton.
+  ///
+  /// In de, this message translates to:
+  /// **'Sweep starten'**
+  String get optimizerRunButton;
+
+  /// No description provided for @optimizerRunning.
+  ///
+  /// In de, this message translates to:
+  /// **'Optimierer läuft …'**
+  String get optimizerRunning;
+
+  /// No description provided for @optimizerCounters.
+  ///
+  /// In de, this message translates to:
+  /// **'{evaluated} ausgewertet · {overBudget} über Budget · {invalid} ungültig'**
+  String optimizerCounters(int evaluated, int overBudget, int invalid);
+
+  /// No description provided for @optimizerNoCandidates.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Kandidaten gefunden. Senke das Budget weniger streng oder erweitere die Sweep-Bereiche.'**
+  String get optimizerNoCandidates;
+
+  /// No description provided for @optimizerErrorPrefix.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehler: {message}'**
+  String optimizerErrorPrefix(String message);
+
+  /// No description provided for @optimizerColBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicher (kWh)'**
+  String get optimizerColBattery;
+
+  /// No description provided for @optimizerColInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'WR (kW)'**
+  String get optimizerColInverter;
+
+  /// No description provided for @optimizerColPvScale.
+  ///
+  /// In de, this message translates to:
+  /// **'PV-Faktor'**
+  String get optimizerColPvScale;
+
+  /// No description provided for @optimizerColDisabled.
+  ///
+  /// In de, this message translates to:
+  /// **'Deaktiviert'**
+  String get optimizerColDisabled;
+
+  /// No description provided for @optimizerColInvestment.
+  ///
+  /// In de, this message translates to:
+  /// **'Investition (€)'**
+  String get optimizerColInvestment;
+
+  /// No description provided for @optimizerColAutarky.
+  ///
+  /// In de, this message translates to:
+  /// **'Autarkie'**
+  String get optimizerColAutarky;
+
+  /// No description provided for @optimizerColLifetimeCost.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebenszykluskosten (€)'**
+  String get optimizerColLifetimeCost;
+
+  /// No description provided for @optimizerColPvAcKwh.
+  ///
+  /// In de, this message translates to:
+  /// **'PV AC (kWh/Jahr)'**
+  String get optimizerColPvAcKwh;
 }
 
 class _AppLocalizationsDelegate

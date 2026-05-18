@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -31,11 +32,16 @@ export 'src/weather.dart';
 // engine-private `_StepBuffer` columns directly without exposing them.
 part 'src/summary_aggregator.dart';
 
+// optimizer is `part of` so it can reach the engine's public types
+// (SimulationConfig, SimulationSummary, PvSimulator) without an
+// import cycle. No engine-private state is touched.
+part 'src/optimizer.dart';
+
 /// Version of the simulation engine — must track
 /// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
 /// change that can shift simulation results. Persisted alongside scenarios
 /// and simulation runs for reproducibility (PRD NFR-05).
-const String kEngineVersion = '0.11.0';
+const String kEngineVersion = '0.12.0';
 
 /// Reproducibility helpers on [SimulationConfig]. Kept as an extension so
 /// the core class stays pure data — adding `inputHash` here makes it clear

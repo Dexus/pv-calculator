@@ -1854,4 +1854,124 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get hintIrradianceMissing =>
       'No se han cargado datos de irradiación. La simulación usará el modelo sintético de demostración — abre la pestaña Irradiación para cargar valores reales.';
+
+  @override
+  String get optimizerEntryButton => 'Optimizar';
+
+  @override
+  String get optimizerEntryProTooltip => 'El optimizador es una función Pro.';
+
+  @override
+  String get optimizerTitle => 'Optimizador';
+
+  @override
+  String get optimizerIntro =>
+      'Varía el tamaño de batería, la potencia del inversor y la escala FV; clasifica por el objetivo elegido y respeta un presupuesto.';
+
+  @override
+  String get optimizerSectionObjective => 'Objetivo';
+
+  @override
+  String get optimizerObjectiveAutarky => 'Maximizar autarquía';
+
+  @override
+  String get optimizerObjectiveNetCost => 'Minimizar coste eléctrico';
+
+  @override
+  String get optimizerObjectiveNetCostHint =>
+      'Requiere una tarifa activa en la sección Tarifa.';
+
+  @override
+  String get optimizerSectionSweeps => 'Rangos de barrido';
+
+  @override
+  String get optimizerSweepBattery => 'Batería (kWh)';
+
+  @override
+  String get optimizerSweepInverter => 'Inversor AC (kW)';
+
+  @override
+  String get optimizerSweepPvScale => 'Factor FV';
+
+  @override
+  String get optimizerSweepMin => 'Mín';
+
+  @override
+  String get optimizerSweepMax => 'Máx';
+
+  @override
+  String get optimizerSweepSteps => 'Pasos';
+
+  @override
+  String get optimizerSweepHint =>
+      'Pasos = 1 fija el valor mínimo. Vacío = mantener el valor base.';
+
+  @override
+  String get optimizerSectionPrices => 'Precios';
+
+  @override
+  String get optimizerPricePv => '€/kWp FV';
+
+  @override
+  String get optimizerPriceInverter => '€/kW inversor';
+
+  @override
+  String get optimizerPriceBattery => '€/kWh batería';
+
+  @override
+  String get optimizerBudget => 'Presupuesto (€, opcional)';
+
+  @override
+  String get optimizerHorizon => 'Horizonte (años)';
+
+  @override
+  String get optimizerSectionOptionalArrays => 'Arrays opcionales';
+
+  @override
+  String get optimizerOptionalArraysHint =>
+      'Los arrays marcados se prueban con y sin ellos (máx. 4).';
+
+  @override
+  String get optimizerRunButton => 'Iniciar barrido';
+
+  @override
+  String get optimizerRunning => 'Optimizador en curso …';
+
+  @override
+  String optimizerCounters(int evaluated, int overBudget, int invalid) {
+    return '$evaluated evaluados · $overBudget fuera de presupuesto · $invalid inválidos';
+  }
+
+  @override
+  String get optimizerNoCandidates =>
+      'No hay candidatos. Aumenta el presupuesto o amplía los rangos.';
+
+  @override
+  String optimizerErrorPrefix(String message) {
+    return 'Error: $message';
+  }
+
+  @override
+  String get optimizerColBattery => 'Batería (kWh)';
+
+  @override
+  String get optimizerColInverter => 'Inversor (kW)';
+
+  @override
+  String get optimizerColPvScale => 'Factor FV';
+
+  @override
+  String get optimizerColDisabled => 'Desactivados';
+
+  @override
+  String get optimizerColInvestment => 'Inversión (€)';
+
+  @override
+  String get optimizerColAutarky => 'Autarquía';
+
+  @override
+  String get optimizerColLifetimeCost => 'Coste ciclo de vida (€)';
+
+  @override
+  String get optimizerColPvAcKwh => 'FV AC (kWh/año)';
 }

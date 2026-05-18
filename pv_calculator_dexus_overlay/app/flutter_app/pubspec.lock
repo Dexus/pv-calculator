@@ -602,7 +602,7 @@ packages:
       path: "../../packages/pv_engine"
       relative: true
     source: path
-    version: "0.11.0"
+    version: "0.12.0"
   qr:
     dependency: transitive
     description:

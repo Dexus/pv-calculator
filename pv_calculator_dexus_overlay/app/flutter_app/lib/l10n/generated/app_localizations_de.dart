@@ -1851,4 +1851,124 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get hintIrradianceMissing =>
       'Noch keine Einstrahlungsdaten geladen. Die Simulation läuft mit dem synthetischen Demo-Modell — Lade Daten über den Einstrahlung-Tab für reale Werte.';
+
+  @override
+  String get optimizerEntryButton => 'Optimieren';
+
+  @override
+  String get optimizerEntryProTooltip => 'Der Optimierer ist ein Pro-Feature.';
+
+  @override
+  String get optimizerTitle => 'Optimierer';
+
+  @override
+  String get optimizerIntro =>
+      'Variiert Speichergröße, Wechselrichter-Leistung und PV-Skalierung; rankt nach gewähltem Ziel und respektiert ein Budget.';
+
+  @override
+  String get optimizerSectionObjective => 'Ziel';
+
+  @override
+  String get optimizerObjectiveAutarky => 'Autarkie maximieren';
+
+  @override
+  String get optimizerObjectiveNetCost => 'Stromkosten minimieren';
+
+  @override
+  String get optimizerObjectiveNetCostHint =>
+      'Erfordert aktiven Tarif im Tarif-Abschnitt.';
+
+  @override
+  String get optimizerSectionSweeps => 'Sweep-Bereiche';
+
+  @override
+  String get optimizerSweepBattery => 'Speicher (kWh)';
+
+  @override
+  String get optimizerSweepInverter => 'Wechselrichter AC (kW)';
+
+  @override
+  String get optimizerSweepPvScale => 'PV-Skalierung (Faktor)';
+
+  @override
+  String get optimizerSweepMin => 'Min';
+
+  @override
+  String get optimizerSweepMax => 'Max';
+
+  @override
+  String get optimizerSweepSteps => 'Schritte';
+
+  @override
+  String get optimizerSweepHint =>
+      'Schritte = 1 hält den Min-Wert fest. Leer = Basiswert beibehalten.';
+
+  @override
+  String get optimizerSectionPrices => 'Preise';
+
+  @override
+  String get optimizerPricePv => '€/kWp PV';
+
+  @override
+  String get optimizerPriceInverter => '€/kW Wechselrichter';
+
+  @override
+  String get optimizerPriceBattery => '€/kWh Speicher';
+
+  @override
+  String get optimizerBudget => 'Budget (€, optional)';
+
+  @override
+  String get optimizerHorizon => 'Horizont (Jahre)';
+
+  @override
+  String get optimizerSectionOptionalArrays => 'Optionale Arrays';
+
+  @override
+  String get optimizerOptionalArraysHint =>
+      'Markierte Arrays werden in jeder Kombination einmal mit und einmal ohne sie simuliert (max. 4).';
+
+  @override
+  String get optimizerRunButton => 'Sweep starten';
+
+  @override
+  String get optimizerRunning => 'Optimierer läuft …';
+
+  @override
+  String optimizerCounters(int evaluated, int overBudget, int invalid) {
+    return '$evaluated ausgewertet · $overBudget über Budget · $invalid ungültig';
+  }
+
+  @override
+  String get optimizerNoCandidates =>
+      'Keine Kandidaten gefunden. Senke das Budget weniger streng oder erweitere die Sweep-Bereiche.';
+
+  @override
+  String optimizerErrorPrefix(String message) {
+    return 'Fehler: $message';
+  }
+
+  @override
+  String get optimizerColBattery => 'Speicher (kWh)';
+
+  @override
+  String get optimizerColInverter => 'WR (kW)';
+
+  @override
+  String get optimizerColPvScale => 'PV-Faktor';
+
+  @override
+  String get optimizerColDisabled => 'Deaktiviert';
+
+  @override
+  String get optimizerColInvestment => 'Investition (€)';
+
+  @override
+  String get optimizerColAutarky => 'Autarkie';
+
+  @override
+  String get optimizerColLifetimeCost => 'Lebenszykluskosten (€)';
+
+  @override
+  String get optimizerColPvAcKwh => 'PV AC (kWh/Jahr)';
 }
