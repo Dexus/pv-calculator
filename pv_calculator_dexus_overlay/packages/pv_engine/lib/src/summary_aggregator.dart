@@ -1,4 +1,4 @@
-import '../pv_engine.dart';
+part of '../pv_engine.dart';
 
 /// Per-bank coverage report over the full reporting horizon.
 ///
@@ -139,6 +139,57 @@ class SummaryAggregator {
   }
 
   static List<MonthlyBucket> monthly(List<SimulationStep> steps) {
+    if (steps is _StepListView) {
+      return _monthlyFromBuffer(steps._buffer);
+    }
+    return _monthlyFromList(steps);
+  }
+
+  static List<MonthlyBucket> _monthlyFromBuffer(_StepBuffer buf) {
+    final pv = Float64List(12);
+    final load = Float64List(12);
+    final self = Float64List(12);
+    final charge = Float64List(12);
+    final discharge = Float64List(12);
+    final import = Float64List(12);
+    final export = Float64List(12);
+    final curtailedDc = Float64List(12);
+    final curtailedAc = Float64List(12);
+    final curtailedExport = Float64List(12);
+
+    for (var i = 0; i < buf.length; i++) {
+      final m = monthOfDayOfYear(buf.dayOfYear[i]) - 1;
+      pv[m] += buf.pvAcKwh[i];
+      load[m] += buf.loadKwh[i];
+      self[m] += buf.selfConsumptionKwh[i];
+      charge[m] += buf.batteryChargeKwh[i];
+      discharge[m] += buf.batteryDischargeKwh[i];
+      import[m] += buf.gridImportKwh[i];
+      export[m] += buf.gridExportKwh[i];
+      curtailedDc[m] += buf.curtailedDcKwh[i];
+      curtailedAc[m] += buf.curtailedAcKwh[i];
+      curtailedExport[m] += buf.curtailedExportKwh[i];
+    }
+
+    return List<MonthlyBucket>.generate(
+      12,
+      (i) => MonthlyBucket(
+        month: i + 1,
+        pvAcKwh: pv[i],
+        loadKwh: load[i],
+        selfConsumptionKwh: self[i],
+        batteryChargeKwh: charge[i],
+        batteryDischargeKwh: discharge[i],
+        gridImportKwh: import[i],
+        gridExportKwh: export[i],
+        curtailedDcKwh: curtailedDc[i],
+        curtailedAcKwh: curtailedAc[i],
+        curtailedExportKwh: curtailedExport[i],
+      ),
+    );
+  }
+
+  static List<MonthlyBucket> _monthlyFromList(List<SimulationStep> steps) {
     final pv = List<double>.filled(12, 0);
     final load = List<double>.filled(12, 0);
     final self = List<double>.filled(12, 0);
@@ -193,6 +244,66 @@ class SummaryAggregator {
     required TimeStep timeStep,
   }) {
     if (bankCount == 0) return const <BankRuntimeStats>[];
+    if (steps is _StepListView) {
+      return _bankRuntimeFromBuffer(steps._buffer,
+          bankCount: bankCount, timeStep: timeStep);
+    }
+    return _bankRuntimeFromList(steps,
+        bankCount: bankCount, timeStep: timeStep);
+  }
+
+  static List<BankRuntimeStats> _bankRuntimeFromBuffer(
+    _StepBuffer buf, {
+    required int bankCount,
+    required TimeStep timeStep,
+  }) {
+    final delivered = Float64List(bankCount);
+    final shortfall = Float64List(bankCount);
+    final activeHours = Float64List(bankCount);
+    final scheduledHours = Float64List(bankCount);
+    final fullDeliveryHours = Float64List(bankCount);
+    final stepHours = timeStep.hours;
+    // Buffer column may be wider than the requested bankCount when the
+    // simulator was configured with extra banks; clamp once so the inner
+    // loop bound is the lesser of the two.
+    final innerCount =
+        buf.bankCount < bankCount ? buf.bankCount : bankCount;
+
+    for (var s = 0; s < buf.length; s++) {
+      final base = s * buf.bankCount;
+      for (var i = 0; i < innerCount; i++) {
+        final d = buf.bankDeliveries[base + i];
+        final sh = buf.bankShortfalls[base + i];
+        final target = d + sh;
+        delivered[i] += d;
+        shortfall[i] += sh;
+        if (d > 0) activeHours[i] += stepHours;
+        if (target > 0) {
+          scheduledHours[i] += stepHours;
+          if (d >= target * 0.999) fullDeliveryHours[i] += stepHours;
+        }
+      }
+    }
+
+    return List<BankRuntimeStats>.generate(
+      bankCount,
+      (i) => BankRuntimeStats(
+        bankIndex: i,
+        targetKwh: delivered[i] + shortfall[i],
+        deliveredKwh: delivered[i],
+        shortfallKwh: shortfall[i],
+        activeHours: activeHours[i],
+        scheduledHours: scheduledHours[i],
+        fullDeliveryHours: fullDeliveryHours[i],
+      ),
+    );
+  }
+
+  static List<BankRuntimeStats> _bankRuntimeFromList(
+    List<SimulationStep> steps, {
+    required int bankCount,
+    required TimeStep timeStep,
+  }) {
     final delivered = List<double>.filled(bankCount, 0.0);
     final shortfall = List<double>.filled(bankCount, 0.0);
     final activeHours = List<double>.filled(bankCount, 0.0);
@@ -241,6 +352,61 @@ class SummaryAggregator {
   /// bank are returned as zeroes. Drives the Flutter runtime/coverage
   /// chart on the Auswertung tab.
   static List<BankDayStats> bankDaily(
+    List<SimulationStep> steps, {
+    required int bankIndex,
+    required TimeStep timeStep,
+  }) {
+    if (steps is _StepListView) {
+      return _bankDailyFromBuffer(steps._buffer,
+          bankIndex: bankIndex, timeStep: timeStep);
+    }
+    return _bankDailyFromList(steps,
+        bankIndex: bankIndex, timeStep: timeStep);
+  }
+
+  static List<BankDayStats> _bankDailyFromBuffer(
+    _StepBuffer buf, {
+    required int bankIndex,
+    required TimeStep timeStep,
+  }) {
+    final delivered = Float64List(365);
+    final shortfall = Float64List(365);
+    final active = Float64List(365);
+    final scheduled = Float64List(365);
+    final full = Float64List(365);
+    final stepHours = timeStep.hours;
+    final bankInRange = bankIndex < buf.bankCount;
+    final bw = buf.bankCount;
+
+    for (var s = 0; s < buf.length; s++) {
+      final d = bankInRange ? buf.bankDeliveries[s * bw + bankIndex] : 0.0;
+      final sh = bankInRange ? buf.bankShortfalls[s * bw + bankIndex] : 0.0;
+      final dayIdx = (buf.dayOfYear[s] - 1).clamp(0, 364).toInt();
+      final target = d + sh;
+      delivered[dayIdx] += d;
+      shortfall[dayIdx] += sh;
+      if (d > 0) active[dayIdx] += stepHours;
+      if (target > 0) {
+        scheduled[dayIdx] += stepHours;
+        if (d >= target * 0.999) full[dayIdx] += stepHours;
+      }
+    }
+
+    return List<BankDayStats>.generate(
+      365,
+      (i) => BankDayStats(
+        dayOfYear: i + 1,
+        targetKwh: delivered[i] + shortfall[i],
+        deliveredKwh: delivered[i],
+        shortfallKwh: shortfall[i],
+        activeHours: active[i],
+        scheduledHours: scheduled[i],
+        fullDeliveryHours: full[i],
+      ),
+    );
+  }
+
+  static List<BankDayStats> _bankDailyFromList(
     List<SimulationStep> steps, {
     required int bankIndex,
     required TimeStep timeStep,
