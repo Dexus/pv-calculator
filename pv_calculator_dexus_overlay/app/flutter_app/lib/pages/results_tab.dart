@@ -26,6 +26,7 @@ import '../widgets/forms/topology_section.dart';
 import '../widgets/results/bank_runtime_chart.dart';
 import '../widgets/results/monthly_table.dart';
 import '../widgets/settings_page.dart';
+import 'optimizer_page.dart';
 
 /// Default share-PDF implementation. Lifted from `_ResultsBody`'s call
 /// site so widget tests can pass an injected stub instead of pulling
@@ -667,6 +668,26 @@ class _ResultsBody extends StatelessWidget {
               onPressed: null,
               icon: const Icon(Icons.picture_as_pdf),
               label: Text('${l.resultsPdfReport} (Pro)'),
+            ),
+          ),
+        // Optimizer (Pro). Same gating pattern as the PDF button.
+        if (proFeatures)
+          FilledButton.tonalIcon(
+            key: const Key('open-optimizer'),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const OptimizerPage(),
+            )),
+            icon: const Icon(Icons.tune),
+            label: Text(l.optimizerEntryButton),
+          )
+        else
+          Tooltip(
+            message: l.optimizerEntryProTooltip,
+            child: FilledButton.tonalIcon(
+              key: const Key('open-optimizer'),
+              onPressed: null,
+              icon: const Icon(Icons.tune),
+              label: Text('${l.optimizerEntryButton} (Pro)'),
             ),
           ),
       ]),

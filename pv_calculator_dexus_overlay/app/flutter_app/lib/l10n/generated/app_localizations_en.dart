@@ -1843,4 +1843,124 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get hintIrradianceMissing =>
       'No irradiance data loaded. The simulation will use the synthetic demo model — open the Irradiance tab to load real values.';
+
+  @override
+  String get optimizerEntryButton => 'Optimize';
+
+  @override
+  String get optimizerEntryProTooltip => 'The optimizer is a Pro feature.';
+
+  @override
+  String get optimizerTitle => 'Optimizer';
+
+  @override
+  String get optimizerIntro =>
+      'Varies battery size, inverter output and PV scale; ranks by the chosen objective and respects a budget.';
+
+  @override
+  String get optimizerSectionObjective => 'Objective';
+
+  @override
+  String get optimizerObjectiveAutarky => 'Maximize autarky';
+
+  @override
+  String get optimizerObjectiveNetCost => 'Minimize electricity cost';
+
+  @override
+  String get optimizerObjectiveNetCostHint =>
+      'Requires an active tariff in the Tariff section.';
+
+  @override
+  String get optimizerSectionSweeps => 'Sweep ranges';
+
+  @override
+  String get optimizerSweepBattery => 'Battery (kWh)';
+
+  @override
+  String get optimizerSweepInverter => 'Inverter AC (kW)';
+
+  @override
+  String get optimizerSweepPvScale => 'PV scale factor';
+
+  @override
+  String get optimizerSweepMin => 'Min';
+
+  @override
+  String get optimizerSweepMax => 'Max';
+
+  @override
+  String get optimizerSweepSteps => 'Steps';
+
+  @override
+  String get optimizerSweepHint =>
+      'Steps = 1 pins the Min value. Empty = keep baseline value.';
+
+  @override
+  String get optimizerSectionPrices => 'Prices';
+
+  @override
+  String get optimizerPricePv => '€/kWp PV';
+
+  @override
+  String get optimizerPriceInverter => '€/kW inverter';
+
+  @override
+  String get optimizerPriceBattery => '€/kWh battery';
+
+  @override
+  String get optimizerBudget => 'Budget (€, optional)';
+
+  @override
+  String get optimizerHorizon => 'Horizon (years)';
+
+  @override
+  String get optimizerSectionOptionalArrays => 'Optional arrays';
+
+  @override
+  String get optimizerOptionalArraysHint =>
+      'Ticked arrays are tried both with and without (max. 4).';
+
+  @override
+  String get optimizerRunButton => 'Run sweep';
+
+  @override
+  String get optimizerRunning => 'Optimizer running …';
+
+  @override
+  String optimizerCounters(int evaluated, int overBudget, int invalid) {
+    return '$evaluated evaluated · $overBudget over budget · $invalid invalid';
+  }
+
+  @override
+  String get optimizerNoCandidates =>
+      'No candidates. Loosen the budget or widen the sweep ranges.';
+
+  @override
+  String optimizerErrorPrefix(String message) {
+    return 'Error: $message';
+  }
+
+  @override
+  String get optimizerColBattery => 'Battery (kWh)';
+
+  @override
+  String get optimizerColInverter => 'Inverter (kW)';
+
+  @override
+  String get optimizerColPvScale => 'PV factor';
+
+  @override
+  String get optimizerColDisabled => 'Disabled';
+
+  @override
+  String get optimizerColInvestment => 'Investment (€)';
+
+  @override
+  String get optimizerColAutarky => 'Autarky';
+
+  @override
+  String get optimizerColLifetimeCost => 'Lifetime cost (€)';
+
+  @override
+  String get optimizerColPvAcKwh => 'PV AC (kWh/year)';
 }

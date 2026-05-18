@@ -14,6 +14,54 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-05-18 (app) / [0.12.0] — 2026-05-18 (engine)
+
+Phase 10 — Optimizer (Pro). Parametric sweep over battery capacity,
+inverter AC output and PV scale (with optional per-array on/off
+toggles), ranked by either maximum autarky or minimum lifetime
+electricity cost, respecting a hard budget cap.
+
+### Added — Engine
+- **`Optimizer`, `OptimizerSpec`, `OptimizerPrices`, `OptimizerObjective`,
+  `OptimizerCandidate`, `OptimizerResult`** in
+  `packages/pv_engine/lib/src/optimizer.dart`. Pure-Dart, zero new runtime
+  deps. Cartesian sweep on `(batteryKwh × inverterKw × pvScale ×
+  arraySubset)`; per candidate the optimizer (1) computes a linear
+  investment from `OptimizerPrices`, (2) skips over-budget candidates,
+  (3) clones the baseline via `fromJson(toJson())` and patches the
+  swept fields, scaling battery power and `minSocKwh` proportionally
+  to preserve the baseline's C-rate and SOC-floor fraction, (4) forces
+  `keepSteps: false` and `simulationYears: 1`, (5) runs the simulator,
+  (6) computes `lifetimeNetCostEur = investmentEur + horizonYears ×
+  summary.netCostEur` when the baseline has a tariff. Candidates are
+  sorted ascending by internal score (`-autarkyRate` for `maxAutarky`,
+  `lifetimeNetCostEur` for `minNetCost`) and truncated to `topN`.
+  Non-serialised `weatherSource` and `temperatureModel` are re-attached
+  from the baseline so the optimizer sees the user's loaded PVGIS data
+  instead of falling back to the synthetic model. Failed engine
+  validation (e.g. `pvScale = 0`) increments `failedValidation` and
+  the sweep continues.
+- Engine version bumped `0.11.0 → 0.12.0`.
+
+### Added — App
+- **Optimizer page** (`app/flutter_app/lib/pages/optimizer_page.dart`)
+  with sweep ranges (min/max/steps per dimension), prices (€/kWp PV,
+  €/kW inverter, €/kWh battery), optional budget cap, horizon years,
+  objective dropdown, optional-array checkboxes and a top-N results
+  table (`widgets/results/optimizer_results_table.dart`).
+- **`OptimizerController`** (`lib/state/optimizer_controller.dart`)
+  holds the last spec + result, runs `Optimizer.run` in-process on the
+  calling isolate using `ConfigDraft.buildForRun()` as baseline so Pro
+  gating is honoured. Indeterminate progress indicator while the
+  synchronous loop runs (moving the sweep to `dart:isolate` is captured
+  as a deferred item in the roadmap).
+- **Entry button "Optimieren (Pro)"** in the Results tab, gated
+  identically to the existing PDF report button.
+- New provider wired into `main.dart` `MultiProvider`.
+- L10n keys `optimizer*` added to all four ARBs (de/en/es/fr).
+- App version bumped `0.7.0 → 0.8.0` (`0.7.0` shipped Catalog v2; this
+  release stacks on top of it).
+
 ## [0.7.0] — 2026-05-18 (app)
 
 Phase 10 — Catalog v2 management UI and JSON import/export. Closes the

@@ -9,6 +9,7 @@ import 'persistence/project_repository.dart';
 import 'persistence/scenario_repository.dart';
 import 'persistence/simulation_run_repository.dart';
 import 'persistence/sp_migration.dart';
+import 'state/optimizer_controller.dart';
 import 'state/project_controller.dart';
 import 'state/scenario_comparison_controller.dart';
 import 'state/settings_controller.dart';
@@ -113,6 +114,9 @@ class PvCalculatorApp extends StatelessWidget {
             scenarios: ScenarioRepository(database),
             runs: SimulationRunRepository(database),
           ),
+        ),
+        ChangeNotifierProvider<OptimizerController>(
+          create: (_) => OptimizerController(),
         ),
       ],
       child: Consumer<SettingsController>(
