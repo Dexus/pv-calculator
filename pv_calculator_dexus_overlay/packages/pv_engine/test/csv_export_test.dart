@@ -112,6 +112,69 @@ void main() {
       expect(headers.any((h) => h.contains(';')), isFalse,
           reason: 'delimiter must never appear in a header');
     });
+
+    test('cashflow columns are always present as trailing headers', () {
+      final csv = stepsCsv(const []);
+      final headers = csv.split('\r\n').first.split(';');
+      expect(headers, containsAllInOrder(['importCostEur', 'exportRevenueEur']));
+      expect(headers.last, 'exportRevenueEur');
+      expect(headers[headers.length - 2], 'importCostEur');
+    });
+
+    test('cashflow values populate when a tariff is configured', () {
+      final result = const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(id: 'r', label: 'R', peakKw: 1.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        loadProfile: const LoadProfile(dailyKwh: 5),
+        startDayOfYear: 172,
+        days: 1,
+        tariff: const TariffConfig(
+          importPricePerKwh: 0.30,
+          exportPricePerKwh: 0.08,
+        ),
+      ));
+      final csv = stepsCsv(result.steps);
+      final lines = csv.split('\r\n');
+      final headers = lines.first.split(';');
+      final importIdx = headers.indexOf('importCostEur');
+      final exportIdx = headers.indexOf('exportRevenueEur');
+      // At least one data row must have a non-zero € value once the
+      // simulator has spent or earned anything against the tariff.
+      var anyNonZero = false;
+      for (var i = 1; i < lines.length - 1; i++) {
+        final row = lines[i].split(';');
+        if (double.parse(row[importIdx]) > 0 ||
+            double.parse(row[exportIdx]) > 0) {
+          anyNonZero = true;
+          break;
+        }
+      }
+      expect(anyNonZero, isTrue);
+    });
+
+    test('cashflow values stay zero when no tariff is configured', () {
+      final result = const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(id: 'r', label: 'R', peakKw: 1.0, azimuthDeg: 180, tiltDeg: 35, inverterId: 'i'),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        loadProfile: const LoadProfile(dailyKwh: 5),
+        startDayOfYear: 172,
+        days: 1,
+      ));
+      final csv = stepsCsv(result.steps);
+      final lines = csv.split('\r\n');
+      final headers = lines.first.split(';');
+      final importIdx = headers.indexOf('importCostEur');
+      final exportIdx = headers.indexOf('exportRevenueEur');
+      for (var i = 1; i < lines.length - 1; i++) {
+        final row = lines[i].split(';');
+        expect(double.parse(row[importIdx]), 0);
+        expect(double.parse(row[exportIdx]), 0);
+      }
+    });
   });
 
   group('monthlyCsv', () {
@@ -122,6 +185,14 @@ void main() {
       expect(lines.first.split(';').first, 'month');
       expect(lines[1].split(';').first, '1');
       expect(lines[12].split(';').first, '12');
+    });
+
+    test('cashflow columns appear as trailing headers including netCostEur', () {
+      final csv = monthlyCsv(SummaryAggregator.monthly(const []));
+      final headers = csv.split('\r\n').first.split(';');
+      expect(headers, containsAllInOrder(
+          ['importCostEur', 'exportRevenueEur', 'netCostEur']));
+      expect(headers.last, 'netCostEur');
     });
   });
 }

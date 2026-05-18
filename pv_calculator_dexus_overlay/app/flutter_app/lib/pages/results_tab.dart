@@ -619,7 +619,10 @@ class _ResultsBody extends StatelessWidget {
       const SizedBox(height: 24),
       Text(l.resultsMonthly, style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 12),
-      Card(child: Padding(padding: const EdgeInsets.all(8), child: MonthlyTable(buckets: monthly))),
+      Card(child: Padding(padding: const EdgeInsets.all(8), child: MonthlyTable(
+        buckets: monthly,
+        showCashflow: s.importCostEur != null,
+      ))),
       const SizedBox(height: 24),
       Wrap(spacing: 12, runSpacing: 12, children: [
         FilledButton.tonalIcon(

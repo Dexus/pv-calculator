@@ -4,9 +4,18 @@ import 'package:pv_engine/pv_engine.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 class MonthlyTable extends StatelessWidget {
-  const MonthlyTable({super.key, required this.buckets});
+  const MonthlyTable({
+    super.key,
+    required this.buckets,
+    this.showCashflow = false,
+  });
 
   final List<MonthlyBucket> buckets;
+
+  /// Show the three trailing €-columns (import cost, export revenue,
+  /// net cost). Caller passes `summary.importCostEur != null` so the
+  /// columns appear exactly when a tariff was configured for the run.
+  final bool showCashflow;
 
   static List<String> _monthNames(AppLocalizations l) => [
         l.monthJan, l.monthFeb, l.monthMar, l.monthApr, l.monthMay, l.monthJun,
@@ -29,6 +38,11 @@ class MonthlyTable extends StatelessWidget {
           DataColumn(label: Text(l.monthlyColBatteryDischarge), numeric: true),
           DataColumn(label: Text(l.monthlyColImport), numeric: true),
           DataColumn(label: Text(l.monthlyColExport), numeric: true),
+          if (showCashflow) ...[
+            DataColumn(label: Text(l.monthlyColImportCost), numeric: true),
+            DataColumn(label: Text(l.monthlyColExportRevenue), numeric: true),
+            DataColumn(label: Text(l.monthlyColNetCost), numeric: true),
+          ],
         ],
         rows: [
           for (final b in buckets)
@@ -41,6 +55,11 @@ class MonthlyTable extends StatelessWidget {
               DataCell(Text(b.batteryDischargeKwh.toStringAsFixed(0))),
               DataCell(Text(b.gridImportKwh.toStringAsFixed(0))),
               DataCell(Text(b.gridExportKwh.toStringAsFixed(0))),
+              if (showCashflow) ...[
+                DataCell(Text('${b.importCostEur.toStringAsFixed(2)} €')),
+                DataCell(Text('${b.exportRevenueEur.toStringAsFixed(2)} €')),
+                DataCell(Text('${b.netCostEur.toStringAsFixed(2)} €')),
+              ],
             ]),
         ],
       ),

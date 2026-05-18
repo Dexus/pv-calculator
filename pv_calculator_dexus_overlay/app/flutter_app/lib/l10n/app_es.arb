@@ -4,6 +4,7 @@
   "commonAdd": "Añadir",
   "commonRemove": "Quitar",
   "commonCancel": "Cancelar",
+  "commonOk": "OK",
   "commonDelete": "Eliminar",
   "commonSearch": "Buscar",
 
@@ -113,6 +114,7 @@
   "pdfSectionPerYear": "Desglose anual",
   "pdfSectionMonthly": "Mensual",
   "pdfSectionMonthlyFinalYear": "Mensual (solo último año)",
+  "pdfSectionMonthlyCashflow": "Flujo mensual",
   "pdfSectionArrays": "Generadores FV",
   "pdfSectionBanks": "Bancos de microinversores",
   "pdfSectionWarnings": "Avisos",
@@ -274,6 +276,15 @@
   "monthlyColBatteryDischarge": "Bat-des. (kWh)",
   "monthlyColImport": "Import (kWh)",
   "monthlyColExport": "Inyec. (kWh)",
+  "monthlyColImportCost": "Coste import. (€)",
+  "monthlyColExportRevenue": "Ingreso inyec. (€)",
+  "monthlyColNetCost": "Neto (€)",
+
+  "catalogPickButton": "Elegir de la biblioteca",
+  "catalogPickerTitle": "Elegir componente",
+  "catalogSearchHint": "Buscar",
+  "catalogEmptyState": "Sin coincidencias",
+  "catalogModuleCountPrompt": "Número de módulos",
 
   "monthJan": "Ene",
   "monthFeb": "Feb",

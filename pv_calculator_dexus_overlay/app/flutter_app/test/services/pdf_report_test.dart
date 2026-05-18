@@ -183,6 +183,49 @@ void main() {
     expect(text, isNot(contains('Per-year breakdown')));
   });
 
+  test('PDF renders the monthly cashflow section when a tariff is configured',
+      () async {
+    final cfg = SimulationConfig(
+      arrays: _config().arrays,
+      inverters: _config().inverters,
+      loadProfile: _config().loadProfile,
+      days: 30,
+      tariff: const TariffConfig(
+        importPricePerKwh: 0.30,
+        exportPricePerKwh: 0.08,
+      ),
+    );
+    final result = const PvSimulator().run(cfg);
+    final draft = ConfigDraft.fromConfig(cfg);
+    final bytes = await buildReportPdf(
+      result: result,
+      draft: draft,
+      l: _l,
+      projectName: 'CashflowMonthly',
+      runTimestamp: DateTime.utc(2026, 5, 18, 12, 0),
+      engineVersion: '0.11.0',
+      compress: false,
+    );
+    final text = _pdfVisibleText(bytes);
+    expect(text, contains('Monthly cashflow'));
+  });
+
+  test('PDF without tariff omits the monthly cashflow section', () async {
+    final result = const PvSimulator().run(_config());
+    final draft = ConfigDraft.fromConfig(_config());
+    final bytes = await buildReportPdf(
+      result: result,
+      draft: draft,
+      l: _l,
+      projectName: 'NoCashflow',
+      runTimestamp: DateTime.utc(2026, 5, 18, 12, 0),
+      engineVersion: '0.11.0',
+      compress: false,
+    );
+    final text = _pdfVisibleText(bytes);
+    expect(text, isNot(contains('Monthly cashflow')));
+  });
+
   test('PDF prints the engine version and project name', () async {
     final result = const PvSimulator().run(_config());
     final draft = ConfigDraft.fromConfig(_config());

@@ -34,6 +34,7 @@ String stepsCsv(
     for (var i = 1; i <= batteryCount; i++) 'socKwh_$i',
     for (var i = 1; i <= bankCount; i++) 'bankDeliveredKwh_$i',
     for (var i = 1; i <= bankCount; i++) 'bankShortfallKwh_$i',
+    'importCostEur', 'exportRevenueEur',
   ];
 
   final buffer = StringBuffer()..write(headers.map((h) => _quote(h, delimiter)).join(delimiter))..write(_lineEnding);
@@ -73,6 +74,8 @@ String stepsCsv(
         _num(i < step.microInverterDeliveriesKwh.length ? step.microInverterDeliveriesKwh[i] : 0.0),
       for (var i = 0; i < bankCount; i++)
         _num(i < step.microInverterShortfallsKwh.length ? step.microInverterShortfallsKwh[i] : 0.0),
+      _num(step.importCostEur),
+      _num(step.exportRevenueEur),
     ];
     buffer..write(row.map((v) => _quote(v, delimiter)).join(delimiter))..write(_lineEnding);
   }
@@ -86,6 +89,7 @@ String monthlyCsv(List<MonthlyBucket> buckets, {String delimiter = ';'}) {
     'batteryChargeKwh', 'batteryDischargeKwh',
     'gridImportKwh', 'gridExportKwh',
     'curtailedDcKwh', 'curtailedAcKwh', 'curtailedExportKwh',
+    'importCostEur', 'exportRevenueEur', 'netCostEur',
   ];
 
   final buffer = StringBuffer()..write(headers.map((h) => _quote(h, delimiter)).join(delimiter))..write(_lineEnding);
@@ -103,6 +107,9 @@ String monthlyCsv(List<MonthlyBucket> buckets, {String delimiter = ';'}) {
       _num(b.curtailedDcKwh),
       _num(b.curtailedAcKwh),
       _num(b.curtailedExportKwh),
+      _num(b.importCostEur),
+      _num(b.exportRevenueEur),
+      _num(b.netCostEur),
     ];
     buffer..write(row.map((v) => _quote(v, delimiter)).join(delimiter))..write(_lineEnding);
   }

@@ -35,7 +35,7 @@ part 'src/summary_aggregator.dart';
 /// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
 /// change that can shift simulation results. Persisted alongside scenarios
 /// and simulation runs for reproducibility (PRD NFR-05).
-const String kEngineVersion = '0.10.0';
+const String kEngineVersion = '0.11.0';
 
 /// Reproducibility helpers on [SimulationConfig]. Kept as an extension so
 /// the core class stays pure data — adding `inputHash` here makes it clear
@@ -841,6 +841,8 @@ class SimulationStep {
     this.unservedLoadKwh = 0.0,
     this.dcKwhByArray = const [],
     this.acKwhByArray = const [],
+    this.importCostEur = 0.0,
+    this.exportRevenueEur = 0.0,
   });
 
   final int dayIndex;
@@ -909,6 +911,16 @@ class SimulationStep {
   /// the inverter-level (rawAc → limitedAc) outcome, so the sum equals
   /// [pvAcKwh] within floating-point tolerance.
   final List<double> acKwhByArray;
+
+  /// Grid-import cost for this step in €. `0.0` whenever
+  /// `SimulationConfig.tariff` is null; consumers should consult
+  /// `SimulationSummary.importCostEur` (nullable) for the
+  /// is-a-tariff-configured signal.
+  final double importCostEur;
+
+  /// Grid-export revenue for this step in €. Same zero-when-no-tariff
+  /// convention as [importCostEur].
+  final double exportRevenueEur;
 }
 
 class SimulationSummary {
@@ -1357,6 +1369,8 @@ class _StepBuffer {
         unservedLoadKwh: unservedLoadKwh[idx],
         dcKwhByArray: _row(arrayDc, idx, arrayCount),
         acKwhByArray: _row(arrayAc, idx, arrayCount),
+        importCostEur: importCostEur[idx],
+        exportRevenueEur: exportRevenueEur[idx],
       );
 }
 
