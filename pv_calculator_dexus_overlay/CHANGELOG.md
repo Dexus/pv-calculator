@@ -14,6 +14,56 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-05-18 (app) / [0.10.0] — 2026-05-18 (engine)
+
+Phase 10 — CSV load-profile import. Plus two deferred items picked up:
+Phase 8 structured engine warnings and the Phase 9 C4b buffer-column
+aggregator refactor.
+
+### Added — Engine
+- **`parseLoadProfileCsv`** in `lib/src/load_profile_csv.dart` — pure-
+  Dart parser for Smartmeter / Home Assistant / Shelly CSV exports.
+  Auto-detects delimiter (`;`, `,`, tab), header row, and value column
+  kind (power W/kW or energy Wh/kWh, inferred from header annotations
+  and value magnitude). Sub-hourly samples aggregate into 24 hourly
+  buckets and multi-day inputs average into one representative day.
+  ISO 8601 timestamps with timezone offsets are parsed by wall-clock
+  components so the recorded local hour is preserved.
+- **`SimulationWarning`** + **`SimulationConfigWarnings.nonBlockingWarnings()`**
+  — engine-side design rules (inverter oversizing, bank-vs-battery
+  discharge cap, deep min-SOC). Emits stable codes plus structured
+  args; the UI maps each code to its form section and appends the
+  one UI-only hint (`irradiance-missing`) that depends on a draft
+  cache the engine doesn't see. A future backend can now surface the
+  same warnings without spinning up the UI layer.
+
+### Changed — Engine
+- **`SummaryAggregator` reads `_StepBuffer` columns directly** when
+  the input is the `_StepListView` returned by `SimulationResult.steps`.
+  Achieved by converting `summary_aggregator.dart` into a `part of`
+  file so the engine-private buffer stays internal. Plain
+  `List<SimulationStep>` inputs (hand-crafted in tests) still take
+  the unchanged list-fallback path. Benchmark:
+  `monthly + bankRuntime` over 35 040 quarter-hourly steps drops
+  from ~10.5 ms to ~0.4 ms on the same desktop (~27× faster) — the
+  Phase 9 C4b deferred item is now closed.
+- Engine version bumped `0.9.0 → 0.10.0`.
+
+### Changed — App
+- **`LoadSection`** grows an "**CSV importieren**" button next to the
+  daily-kWh field; importing replaces both `dailyKwh` and the hourly
+  shape, and the hint text switches to a one-line summary that calls
+  out the imported peak hour. Translations added in de/en/es/fr.
+- **`FileIo.importLoadProfileCsv`** wraps the parser and the
+  `file_selector` flow (1 MB cap, mirrors the existing
+  `importConfig` pattern).
+- **`ConfigDraft.validationWarnings()`** delegates the three
+  arithmetic rules to `build().nonBlockingWarnings()` and only
+  appends the `irradiance-missing` UI-only hint locally. Existing
+  widget tests pass unchanged because codes and arg keys are
+  byte-identical.
+- App version bumped `0.4.0 → 0.5.0`.
+
 ## [0.4.0] — 2026-05-18 (app) / [0.9.0] — 2026-05-18 (engine)
 
 Phase 10 — Multi-year simulation, tariff model & PDF reports.

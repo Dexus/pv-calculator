@@ -115,7 +115,6 @@ Ziel: App für Endnutzer nutzbar, validiert, barrierefrei (PRD Kap. 7, 8.1).
 
 - **Vollständiges Design-System & Schrift-Skalierung** (NFR-07): die jetzt eingezogene `_KpiCard`-Semantik ist ein erster Schritt. Es fehlen kontrastsichere Theme-Tokens, MediaQuery-gestützte `textScaleFactor`-Anpassungen und VoiceOver/TalkBack-Labels auf Formular-Feldern. Nächste Triggerschwelle: erstes externes UX-Audit.
 - **Auto-Enable Expertenmodus beim Laden eines Expert-Szenarios**: Aktuell zeigt der Auswertung-Tab nur ein Banner. Ein automatisches Umschalten im `ProjectController.loadDraft`-Pfad wäre invasiver (UX-Preference vs. Szenario-State); im Banner-Status belassen, bis genug Telemetrie zeigt, dass Nutzer das Banner übersehen.
-- **Strukturierte Engine-Warnings**: aktuell laufen die nicht-blockierenden Warnungen UI-seitig (`ConfigDraft.validationWarnings()`). Sobald ein Server-Lauf der Engine zustande kommt (Phase 10 Backend), müssen die gleichen Regeln im Kern leben. Trigger: erster Backend-Endpoint, der eine Simulation ohne UI fährt.
 - **CSV-Übersetzung der Engine-Fehlertexte**: `ArgumentError.message`-Strings sind weiterhin englisch; UI-Karten haben lokalisierte Titel und englische Bodies. Trigger: erste echte fremdsprachige Anwender-Beschwerde.
 - **DOCX-Variante des Berichts**: Phase 8 listete „PDF/DOCX". Geliefert ist nur PDF — DOCX-Roundtrip mit Word/LibreOffice erfordert eine separate Dart-Bibliothek (Stand 05/2026 keine etablierte). Trigger: erster Kunde, der explizit eine editierbare Office-Version verlangt.
 
@@ -137,11 +136,8 @@ Ziel: 35 040 Schritte/Jahr auf Mittelklasse-Smartphone unter 5 s (PRD NFR-01, FR
   - Nach C3 (Sonnenstand-Cache):    hourly 60.2 ms,  quarterHourly 225.5 ms
   - Nach C4 (Akkumulator):          hourly 55.7 ms,  quarterHourly 219.1 ms
   - Nach C4a (Float64List-Buffer):  hourly 41.0 ms,  quarterHourly 170.8 ms
-  Report-Render (`monthly + bankRuntime` über 35 040 Steps): 10.5 ms.
-
-### Verschoben
-
-- **`SummaryAggregator` liest Buffer-Spalten direkt** (ursprünglich C4b der Phase-9-Planung). Die jetzigen Aggregatoren iterieren `_StepListView`, das `SimulationStep` pro Index lazy materialisiert. Messung: `monthly + bankRuntime` kostet 10.5 ms auf 35 040 Schritten desktop, ~50–100 ms Mittelklasse-Mobil — 6 % der Simulator-Laufzeit, gut innerhalb des 5 s-Budgets. Refactor benötigt entweder `StepBuffer` als öffentliche API oder eine `part of pv_engine.dart`-Umstrukturierung von `lib/src/summary_aggregator.dart`. Trigger zum Wiederaufnehmen: Phase-10-Funktion (Optimierer-Sweep, Mehrjahressimulation, Multi-Szenario-Dashboard) führt den Aggregator hunderte Male pro Session aus, oder Mobil-Profiling zeigt den Render-Pfad als Bottleneck.
+  - Nach C4b (Buffer-Spalten direkt im Aggregator): Report-Render `monthly + bankRuntime` auf 35 040 Schritten von ~10.5 ms → ~0.4 ms (≈ 27×), Simulator-Pfad unverändert.
+  Report-Render (`monthly + bankRuntime` über 35 040 Steps): 10.5 ms vor C4b, ~0.4 ms danach.
 
 ---
 
@@ -151,7 +147,7 @@ Ziel: Reale Wetterdaten, Komponentenbibliothek, optional Cloud (PRD FR-02, FR-04
 
 - [ ] Weather-Proxy-Backend: API-Keys serverseitig, Caching, Normalisierung (PVGIS, Global Solar Atlas).
 - [ ] Komponentenbibliothek: Module, Wechselrichter, Speicher lokal pflegbar, später remote aktualisierbar.
-- [ ] CSV-Lastprofile aus Smartmeter/Home Assistant/Shelly importieren.
+- [x] **CSV-Lastprofile aus Smartmeter/Home Assistant/Shelly importieren.** `parseLoadProfileCsv` in `packages/pv_engine/lib/src/load_profile_csv.dart` erkennt Delimiter (`;`, `,`, Tab), Header-Zeile und Wert-Spaltentyp (Leistung W/kW oder Energie Wh/kWh) automatisch; unterschiedliche Tagesproben werden zu einem 24-Stunden-Mittel verdichtet. UI-Knopf „CSV importieren" in `widgets/forms/load_section.dart`. Engine `0.9.0 → 0.10.0`.
 - [x] **Mehrjährige Simulation mit Degradationsmodell** (Pro): `SimulationConfig.simulationYears` (1..30) + `PvArray.degradationPctPerYear`. Engine läuft den existierenden Linear-Pfad pro Jahr mit deratiertem `peakKw` und SOC-Carry-over; Per-Jahr-KPIs in `SimulationSummary.perYearSummaries`. Im UI Pro-gated (Free-Build clamped auf `1`). Schema v4. Engine `0.7.0 → 0.8.0`.
 - [x] **Tarifmodell** (Free: Pauschalpreise · Pro: 24-Slot-TOU): `TariffConfig` in `lib/src/tariff.dart`, optionale `SimulationConfig.tariff`. Im UI `widgets/forms/tariff_section.dart` mit Master-Switch und Pro-gated TOU-Grid. Neue €-KPIs `importCostEur`/`exportRevenueEur`/`netCostEur` im Auswertung-Tab. Schema v5. Engine `0.8.0 → 0.9.0`.
 - [ ] Optimierer: Speichergröße, Ausgangsleistung, Array-Mix automatisch variieren (Budget-begrenzt).
