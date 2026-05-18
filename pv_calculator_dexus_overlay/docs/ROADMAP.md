@@ -146,7 +146,7 @@ Ziel: 35 040 Schritte/Jahr auf Mittelklasse-Smartphone unter 5 s (PRD NFR-01, FR
 Ziel: Reale Wetterdaten, Komponentenbibliothek, optional Cloud (PRD FR-02, FR-04; Architektur Kap. 9).
 
 - [ ] Weather-Proxy-Backend: API-Keys serverseitig, Caching, Normalisierung (PVGIS, Global Solar Atlas).
-- [ ] Komponentenbibliothek: Module, Wechselrichter, Speicher lokal pflegbar, später remote aktualisierbar.
+- [x] **Komponentenbibliothek (lokal)**: Neues pure-Dart-Paket `packages/component_catalog/` (`CatalogEntry`-Hierarchie, `CatalogSource`-Interface, `MergedCatalog`, Seed-Parser). Mitgelieferter Seed-Katalog (`assets/components_seed_v1.json`, 3–5 generische Module / Wechselrichter / Batterien). App-seitige Adapter (`BundledSeedCatalogSource`, `SqliteUserCatalogSource`) und `CatalogRepository` mit User-Overrides via sqlite (Schema v1 → v2). Picker-Knopf „Aus Bibliothek wählen" in den vier Formular-Sektionen (Arrays / Wechselrichter / Batterien / Micro-Bank). Engine `0.10.0 → 0.11.0`, App `0.5.0 → 0.6.0`, neues Paket `component_catalog 0.1.0`.
 - [x] **CSV-Lastprofile aus Smartmeter/Home Assistant/Shelly importieren.** `parseLoadProfileCsv` in `packages/pv_engine/lib/src/load_profile_csv.dart` erkennt Delimiter (`;`, `,`, Tab), Header-Zeile und Wert-Spaltentyp (Leistung W/kW oder Energie Wh/kWh) automatisch; unterschiedliche Tagesproben werden zu einem 24-Stunden-Mittel verdichtet. UI-Knopf „CSV importieren" in `widgets/forms/load_section.dart`. Engine `0.9.0 → 0.10.0`.
 - [x] **Mehrjährige Simulation mit Degradationsmodell** (Pro): `SimulationConfig.simulationYears` (1..30) + `PvArray.degradationPctPerYear`. Engine läuft den existierenden Linear-Pfad pro Jahr mit deratiertem `peakKw` und SOC-Carry-over; Per-Jahr-KPIs in `SimulationSummary.perYearSummaries`. Im UI Pro-gated (Free-Build clamped auf `1`). Schema v4. Engine `0.7.0 → 0.8.0`.
 - [x] **Tarifmodell** (Free: Pauschalpreise · Pro: 24-Slot-TOU): `TariffConfig` in `lib/src/tariff.dart`, optionale `SimulationConfig.tariff`. Im UI `widgets/forms/tariff_section.dart` mit Master-Switch und Pro-gated TOU-Grid. Neue €-KPIs `importCostEur`/`exportRevenueEur`/`netCostEur` im Auswertung-Tab. Schema v5. Engine `0.8.0 → 0.9.0`.
@@ -156,8 +156,7 @@ Ziel: Reale Wetterdaten, Komponentenbibliothek, optional Cloud (PRD FR-02, FR-04
 ### Verschoben
 
 - **Persistierte Per-Jahr-Zeitreihen für Multi-Year**: nur `perYearSummaries` (Skalare) wandern in `simulation_runs.summary_json`. Pro Jahr 8760×N Schritte wäre für eine 30-Jahres-Simulation untragbar (>10 M Floats). Trigger: erste konkrete Anforderung an Per-Jahr-Charts.
-- **Monatliche Cashflow-Aufschlüsselung**: aktuell nur Jahres-€-KPIs. `SimulationStep` müsste `importCostEur`/`exportRevenueEur` tragen, damit `SummaryAggregator.monthly` summieren kann — ein größerer Refactor des kolumnaren Step-Buffers. Trigger: erster Nutzer, der Monatswerte für €-Cashflow im UI erwartet.
-- **CSV-Spalten für €-Kosten**: dieselbe Voraussetzung wie monatliche Cashflows.
+- **Komponentenbibliothek v2 — Datenquellen & Management**: das Paket `packages/component_catalog/` lädt aktuell nur den mitgelieferten Seed-Katalog + sqlite-Userzeilen. Offen: weitere `CatalogSource`-Implementierungen (PVsol-Export-Importer, NREL SAM Library Konverter, Remote-HTTP-Source gegen ein zukünftiges Weather-/Catalog-Backend, Community-Datensatz), In-App-UI zum Anlegen / Bearbeiten / Löschen von User-Einträgen, JSON-Import/Export ganzer User-Kataloge, Anhang von Datenblättern. Trigger: konkreter externer Datensatz zum Importieren, oder so viele Seed-Einträge dass In-App-Pflege drängt.
 
 ---
 

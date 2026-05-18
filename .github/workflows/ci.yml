@@ -26,6 +26,21 @@ jobs:
         working-directory: pv_calculator_dexus_overlay/packages/pv_engine
         run: dart test
 
+  component-catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1
+      - name: Install dependencies
+        working-directory: pv_calculator_dexus_overlay/packages/component_catalog
+        run: dart pub get
+      - name: Analyze
+        working-directory: pv_calculator_dexus_overlay/packages/component_catalog
+        run: dart analyze
+      - name: Test
+        working-directory: pv_calculator_dexus_overlay/packages/component_catalog
+        run: dart test
+
   flutter-app:
     runs-on: ubuntu-latest
     steps:
