@@ -1,4 +1,6 @@
+import 'dart:collection';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'src/dispatch_policies.dart';
 import 'src/dispatch_policy.dart';
@@ -872,22 +874,186 @@ class _StepAccumulator {
   double microInverterShortfallKwh = 0;
   double unservedLoadKwh = 0;
 
-  void add(SimulationStep s) {
-    pvDcKwh += s.pvDcKwh;
-    pvAcKwh += s.pvAcKwh;
-    loadKwh += s.loadKwh;
-    selfConsumptionKwh += s.selfConsumptionKwh;
-    batteryChargeKwh += s.batteryChargeKwh;
-    batteryDischargeKwh += s.batteryDischargeKwh;
-    gridImportKwh += s.gridImportKwh;
-    gridExportKwh += s.gridExportKwh;
-    curtailedDcKwh += s.curtailedDcKwh;
-    curtailedAcKwh += s.curtailedAcKwh;
-    curtailedExportKwh += s.curtailedExportKwh;
-    microInverterDeliveredKwh += s.microInverterDeliveredKwh;
-    microInverterShortfallKwh += s.microInverterShortfallKwh;
-    unservedLoadKwh += s.unservedLoadKwh;
+  /// Reads scalar columns of `buf` at index `idx` and accumulates.
+  /// This is the hot-path entry: avoids materialising a `SimulationStep`
+  /// view just to feed the summary.
+  void addFromBuffer(_StepBuffer buf, int idx) {
+    pvDcKwh += buf.pvDcKwh[idx];
+    pvAcKwh += buf.pvAcKwh[idx];
+    loadKwh += buf.loadKwh[idx];
+    selfConsumptionKwh += buf.selfConsumptionKwh[idx];
+    batteryChargeKwh += buf.batteryChargeKwh[idx];
+    batteryDischargeKwh += buf.batteryDischargeKwh[idx];
+    gridImportKwh += buf.gridImportKwh[idx];
+    gridExportKwh += buf.gridExportKwh[idx];
+    curtailedDcKwh += buf.curtailedDcKwh[idx];
+    curtailedAcKwh += buf.curtailedAcKwh[idx];
+    curtailedExportKwh += buf.curtailedExportKwh[idx];
+    microInverterDeliveredKwh += buf.microInverterDeliveredKwh[idx];
+    microInverterShortfallKwh += buf.microInverterShortfallKwh[idx];
+    unservedLoadKwh += buf.unservedLoadKwh[idx];
   }
+}
+
+/// Columnar storage for one simulation's reported steps. Scalars live in
+/// parallel `Float64List`s / `Int32List`s; per-battery, per-bank and
+/// per-array breakdowns live in row-major 2D `Float64List`s (one strip
+/// per step). The simulator writes here directly — `SimulationStep`
+/// instances are only materialised lazily when callers iterate
+/// `SimulationResult.steps`.
+///
+/// Sizing: `capacity = days × stepsPerDay`. For a 365-day quarter-hourly
+/// year with 2 batteries / 1 bank / 3 arrays this is roughly:
+///   18 × 35 040 doubles (scalars)          ≈ 5 MiB
+///   3 × 35 040 × 2 doubles (battery 2D)    ≈ 1.7 MiB
+///   2 × 35 040 × 1 doubles (bank 2D)       ≈ 0.6 MiB
+///   2 × 35 040 × 3 doubles (array 2D)      ≈ 1.7 MiB
+/// Total ≈ 9 MiB, allocated once. Pre-Phase-9 this was 35 040
+/// `SimulationStep` objects + 35 040 × 7 unmodifiable `List` wrappers —
+/// many small allocations and the GC pressure that goes with them.
+class _StepBuffer {
+  _StepBuffer({
+    required this.batteryCount,
+    required this.bankCount,
+    required this.arrayCount,
+    required int capacity,
+  })  : dayIndex = Int32List(capacity),
+        dayOfYear = Int32List(capacity),
+        stepOfDay = Int32List(capacity),
+        hourOfDay = Float64List(capacity),
+        pvDcKwh = Float64List(capacity),
+        pvAcKwh = Float64List(capacity),
+        loadKwh = Float64List(capacity),
+        selfConsumptionKwh = Float64List(capacity),
+        batteryChargeKwh = Float64List(capacity),
+        batteryDischargeKwh = Float64List(capacity),
+        batterySocKwh = Float64List(capacity),
+        gridImportKwh = Float64List(capacity),
+        gridExportKwh = Float64List(capacity),
+        curtailedDcKwh = Float64List(capacity),
+        curtailedAcKwh = Float64List(capacity),
+        curtailedExportKwh = Float64List(capacity),
+        microInverterDeliveredKwh = Float64List(capacity),
+        microInverterShortfallKwh = Float64List(capacity),
+        unservedLoadKwh = Float64List(capacity),
+        batteryCharges = Float64List(capacity * batteryCount),
+        batteryDischarges = Float64List(capacity * batteryCount),
+        batterySocs = Float64List(capacity * batteryCount),
+        bankDeliveries = Float64List(capacity * bankCount),
+        bankShortfalls = Float64List(capacity * bankCount),
+        arrayDc = Float64List(capacity * arrayCount),
+        arrayAc = Float64List(capacity * arrayCount);
+
+  final int batteryCount;
+  final int bankCount;
+  final int arrayCount;
+
+  /// Number of steps written so far (`<= capacity` of the columns). The `_runLinear`
+  /// loop appends; `_runCyclic` resets this to 0 at the start of each
+  /// iteration so only the last cycle's data is observable.
+  int length = 0;
+
+  final Int32List dayIndex;
+  final Int32List dayOfYear;
+  final Int32List stepOfDay;
+  final Float64List hourOfDay;
+  final Float64List pvDcKwh;
+  final Float64List pvAcKwh;
+  final Float64List loadKwh;
+  final Float64List selfConsumptionKwh;
+  final Float64List batteryChargeKwh;
+  final Float64List batteryDischargeKwh;
+  final Float64List batterySocKwh;
+  final Float64List gridImportKwh;
+  final Float64List gridExportKwh;
+  final Float64List curtailedDcKwh;
+  final Float64List curtailedAcKwh;
+  final Float64List curtailedExportKwh;
+  final Float64List microInverterDeliveredKwh;
+  final Float64List microInverterShortfallKwh;
+  final Float64List unservedLoadKwh;
+
+  // Row-major 2D: index = `step * dim + slot`.
+  final Float64List batteryCharges;
+  final Float64List batteryDischarges;
+  final Float64List batterySocs;
+  final Float64List bankDeliveries;
+  final Float64List bankShortfalls;
+  final Float64List arrayDc;
+  final Float64List arrayAc;
+
+  /// Returns a non-copying view of one row of a 2D column. Sub-list
+  /// views share the underlying `ByteBuffer` so iterating
+  /// `step.batteryChargesKwh` is essentially free.
+  Float64List _row(Float64List col, int idx, int dim) {
+    if (dim == 0) return Float64List(0);
+    final start = idx * dim;
+    return Float64List.sublistView(col, start, start + dim);
+  }
+
+  /// Materialises a `SimulationStep` view backed by this buffer at the
+  /// given index. Scalar getters return the column slot; list getters
+  /// return non-copying `Float64List` views. Called only when a caller
+  /// indexes `SimulationResult.steps[i]`.
+  SimulationStep stepAt(int idx) => SimulationStep(
+        dayIndex: dayIndex[idx],
+        dayOfYear: dayOfYear[idx],
+        stepOfDay: stepOfDay[idx],
+        hourOfDay: hourOfDay[idx],
+        pvDcKwh: pvDcKwh[idx],
+        pvAcKwh: pvAcKwh[idx],
+        loadKwh: loadKwh[idx],
+        selfConsumptionKwh: selfConsumptionKwh[idx],
+        batteryChargeKwh: batteryChargeKwh[idx],
+        batteryDischargeKwh: batteryDischargeKwh[idx],
+        batterySocKwh: batterySocKwh[idx],
+        batteryChargesKwh: _row(batteryCharges, idx, batteryCount),
+        batteryDischargesKwh: _row(batteryDischarges, idx, batteryCount),
+        batterySocsKwh: _row(batterySocs, idx, batteryCount),
+        gridImportKwh: gridImportKwh[idx],
+        gridExportKwh: gridExportKwh[idx],
+        curtailedDcKwh: curtailedDcKwh[idx],
+        curtailedAcKwh: curtailedAcKwh[idx],
+        curtailedExportKwh: curtailedExportKwh[idx],
+        microInverterDeliveredKwh: microInverterDeliveredKwh[idx],
+        microInverterShortfallKwh: microInverterShortfallKwh[idx],
+        microInverterDeliveriesKwh: _row(bankDeliveries, idx, bankCount),
+        microInverterShortfallsKwh: _row(bankShortfalls, idx, bankCount),
+        unservedLoadKwh: unservedLoadKwh[idx],
+        dcKwhByArray: _row(arrayDc, idx, arrayCount),
+        acKwhByArray: _row(arrayAc, idx, arrayCount),
+      );
+}
+
+/// Lazy list view over `_StepBuffer`. Implements the public
+/// `List<SimulationStep>` API expected by `SimulationResult.steps` —
+/// CSV export, the monthly aggregator and any external consumer can
+/// iterate it normally. Each `[i]` materialises a fresh `SimulationStep`
+/// (with non-copying sub-list views over the buffer's 2D columns), so
+/// allocation only happens when callers actually read.
+class _StepListView extends ListBase<SimulationStep> {
+  _StepListView(this._buffer);
+
+  final _StepBuffer _buffer;
+
+  @override
+  int get length => _buffer.length;
+
+  @override
+  set length(int newLength) =>
+      throw UnsupportedError('SimulationResult.steps is immutable.');
+
+  @override
+  SimulationStep operator [](int index) {
+    if (index < 0 || index >= _buffer.length) {
+      throw RangeError.index(index, this, 'index', null, _buffer.length);
+    }
+    return _buffer.stepAt(index);
+  }
+
+  @override
+  void operator []=(int index, SimulationStep value) =>
+      throw UnsupportedError('SimulationResult.steps is immutable.');
 }
 
 class PvSimulator {
@@ -920,12 +1086,22 @@ class PvSimulator {
   /// but are dropped from the reported series — see Architektur §6
   /// "Der Pre-Run wird nicht in Jahres-KPIs eingerechnet".
   SimulationResult _runLinear(SimulationConfig config, {required int preRunDays, ProgressCallback? onProgress}) {
-    final steps = <SimulationStep>[];
     final accumulator = _StepAccumulator();
     final socs = [for (final b in config.batteries) b.effectiveInitialSocKwh];
     final startSocs = List<double>.unmodifiable(socs);
     var capturedReportSocs = false;
     var reportedStartSocs = startSocs;
+
+    final reportedSteps = config.days * config.timeStep.stepsPerDay;
+    final buf = _StepBuffer(
+      batteryCount: config.batteries.length,
+      bankCount: config.microInverterBanks.length,
+      arrayCount: config.arrays.length,
+      capacity: reportedSteps,
+    );
+    final arrayDcScratch = Float64List(config.arrays.length);
+    final arrayAcScratch = Float64List(config.arrays.length);
+    var writeIdx = 0;
 
     for (var dayIndex = -preRunDays; dayIndex < config.days; dayIndex++) {
       final dayOfYear = _wrapDay(config.startDayOfYear + dayIndex);
@@ -937,10 +1113,15 @@ class PvSimulator {
           capturedReportSocs = true;
         }
         final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
-        final step = _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay);
         if (dayIndex >= 0) {
-          accumulator.add(step);
-          if (config.keepSteps) steps.add(step);
+          _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay,
+              buf, writeIdx, arrayDcScratch, arrayAcScratch);
+          accumulator.addFromBuffer(buf, writeIdx);
+          writeIdx++;
+        } else {
+          // Pre-run: advance SOC only; no buffer write, no allocation.
+          _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay,
+              null, 0, arrayDcScratch, arrayAcScratch);
         }
       }
       if (onProgress != null) {
@@ -960,9 +1141,10 @@ class PvSimulator {
       }
     }
 
+    buf.length = writeIdx;
     final preRunActive = preRunDays > 0 && config.batteries.isNotEmpty;
     return SimulationResult(
-      steps: steps,
+      steps: config.keepSteps ? _StepListView(buf) : const [],
       summary: _summarize(
         accumulator,
         socs,
@@ -991,24 +1173,37 @@ class PvSimulator {
       for (final u in usable) u * config.convergenceToleranceFraction,
     ];
 
-    List<SimulationStep> lastSteps = const [];
     var lastAccumulator = _StepAccumulator();
     var iterations = 0;
     var converged = false;
     List<double> startSocs = List<double>.unmodifiable(socs);
 
+    final reportedSteps = 365 * config.timeStep.stepsPerDay;
+    // Reused across iterations — only the last cycle's data needs to
+    // survive into `SimulationResult.steps`, and `writeIdx` resets to 0
+    // at the start of every cycle so we overwrite in place.
+    final buf = _StepBuffer(
+      batteryCount: batteries.length,
+      bankCount: config.microInverterBanks.length,
+      arrayCount: config.arrays.length,
+      capacity: reportedSteps,
+    );
+    final arrayDcScratch = Float64List(config.arrays.length);
+    final arrayAcScratch = Float64List(config.arrays.length);
+
     while (iterations < config.maxConvergenceIterations) {
       iterations += 1;
       startSocs = List<double>.unmodifiable(socs);
-      final cycleSteps = <SimulationStep>[];
       final cycleAccumulator = _StepAccumulator();
+      var writeIdx = 0;
       for (var dayIndex = 0; dayIndex < 365; dayIndex++) {
         final dayOfYear = _wrapDay(config.startDayOfYear + dayIndex);
         for (var stepOfDay = 0; stepOfDay < config.timeStep.stepsPerDay; stepOfDay++) {
           final hourOfDay = (stepOfDay + 0.5) * config.timeStep.hours;
-          final step = _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay);
-          cycleAccumulator.add(step);
-          if (config.keepSteps) cycleSteps.add(step);
+          _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay,
+              buf, writeIdx, arrayDcScratch, arrayAcScratch);
+          cycleAccumulator.addFromBuffer(buf, writeIdx);
+          writeIdx++;
         }
         if (onProgress != null) {
           onProgress(SimulationProgress(
@@ -1019,7 +1214,7 @@ class PvSimulator {
           ));
         }
       }
-      lastSteps = cycleSteps;
+      buf.length = writeIdx;
       lastAccumulator = cycleAccumulator;
       // Convergence: every battery's |start - end| must be within its
       // own usable-capacity tolerance. Batteries with usable == 0 are
@@ -1037,11 +1232,11 @@ class PvSimulator {
       }
     }
 
-    // When the loop exits without convergence, `lastSteps` is the last
-    // (non-converged) cycle — the user still gets a complete year of
-    // output, just marked converged = false.
+    // When the loop exits without convergence, the buffer holds the
+    // last (non-converged) cycle — the user still gets a complete year
+    // of output, just marked converged = false.
     return SimulationResult(
-      steps: lastSteps,
+      steps: config.keepSteps ? _StepListView(buf) : const [],
       summary: _summarize(
         lastAccumulator,
         socs,
@@ -1054,14 +1249,33 @@ class PvSimulator {
     );
   }
 
-  SimulationStep _simulateStep(SimulationConfig config, List<double> socs, int dayIndex, int dayOfYear, int stepOfDay, double hourOfDay) {
+  /// Runs one step's energy compute and writes the results into [buf] at
+  /// [writeIdx]. Pass `buf = null` for pre-run steps — the SOC is still
+  /// advanced via `router.apply()` (it mutates `socs` in place), but no
+  /// step output is recorded.
+  ///
+  /// [arrayDcScratch] and [arrayAcScratch] are caller-owned reusable
+  /// buffers sized to `config.arrays.length`; reusing them across all
+  /// steps eliminates ~70 000 small list allocations on a quarter-hourly
+  /// year and the GC pressure that comes with them.
+  void _simulateStep(
+    SimulationConfig config,
+    List<double> socs,
+    int dayIndex,
+    int dayOfYear,
+    int stepOfDay,
+    double hourOfDay,
+    _StepBuffer? buf,
+    int writeIdx,
+    Float64List arrayDcScratch,
+    Float64List arrayAcScratch,
+  ) {
     final stepHours = config.timeStep.hours;
     final inverterById = {for (final i in config.inverters) i.id: i};
     final dcByInverter = <String, double>{};
     final source = config.effectiveWeatherSource;
     final tempModel = config.temperatureModel;
     var pvDcKwh = 0.0;
-    final dcKwhByArray = List<double>.filled(config.arrays.length, 0.0);
 
     for (var i = 0; i < config.arrays.length; i++) {
       final array = config.arrays[i];
@@ -1075,7 +1289,7 @@ class PvSimulator {
       ));
       final dcKwh = _dcPowerKwFromWeather(array, weather, tempModel) * stepHours;
       pvDcKwh += dcKwh;
-      dcKwhByArray[i] = dcKwh;
+      arrayDcScratch[i] = dcKwh;
       dcByInverter.update(array.inverterId, (value) => value + dcKwh, ifAbsent: () => dcKwh);
     }
 
@@ -1112,10 +1326,10 @@ class PvSimulator {
           entry.value > 0 ? limitedAc / entry.value : 0.0;
     }
 
-    final acKwhByArray = <double>[
-      for (var i = 0; i < config.arrays.length; i++)
-        dcKwhByArray[i] * (acRatioByInverter[config.arrays[i].inverterId] ?? 0.0),
-    ];
+    for (var i = 0; i < config.arrays.length; i++) {
+      arrayAcScratch[i] =
+          arrayDcScratch[i] * (acRatioByInverter[config.arrays[i].inverterId] ?? 0.0);
+    }
 
     final loadKwh = config.loadProfile.energyKwhForStep(hourOfDay: hourOfDay, timeStep: config.timeStep);
 
@@ -1195,40 +1409,65 @@ class PvSimulator {
       batteryAcCapKwh: acCapKwh,
     );
 
-    final aggregateSoc = socs.fold<double>(0.0, (a, b) => a + b);
-    final totalCharge = flows.batteryChargesKwh.fold<double>(0.0, (a, b) => a + b);
-    final totalDischarge = flows.batteryDischargesKwh.fold<double>(0.0, (a, b) => a + b);
-    final totalDelivered = flows.bankDeliveriesKwh.fold<double>(0.0, (a, b) => a + b);
-    final totalShortfall = flows.bankShortfallsKwh.fold<double>(0.0, (a, b) => a + b);
+    // For pre-run steps `buf` is null — the SOC mutation from
+    // `router.apply()` has already happened via `flows`, which is all
+    // pre-run needs. Skipping the buffer write here avoids the per-step
+    // SimulationStep + 7 List<double> allocations the simulator used to
+    // pay for results it threw away anyway.
+    if (buf == null) return;
 
-    return SimulationStep(
-      dayIndex: dayIndex,
-      dayOfYear: dayOfYear,
-      stepOfDay: stepOfDay,
-      hourOfDay: hourOfDay,
-      pvDcKwh: pvDcKwh,
-      pvAcKwh: pvAcKwh,
-      loadKwh: loadKwh,
-      selfConsumptionKwh: flows.selfConsumptionKwh,
-      batteryChargeKwh: totalCharge,
-      batteryDischargeKwh: totalDischarge,
-      batterySocKwh: aggregateSoc,
-      batteryChargesKwh: flows.batteryChargesKwh,
-      batteryDischargesKwh: flows.batteryDischargesKwh,
-      batterySocsKwh: flows.batterySocsKwh,
-      gridImportKwh: flows.gridImportKwh,
-      gridExportKwh: flows.gridExportKwh,
-      curtailedDcKwh: curtailedDcKwh,
-      curtailedAcKwh: curtailedAcKwh,
-      curtailedExportKwh: flows.curtailedExportKwh,
-      microInverterDeliveredKwh: totalDelivered,
-      microInverterShortfallKwh: totalShortfall,
-      microInverterDeliveriesKwh: flows.bankDeliveriesKwh,
-      microInverterShortfallsKwh: flows.bankShortfallsKwh,
-      unservedLoadKwh: flows.unservedLoadKwh,
-      dcKwhByArray: List<double>.unmodifiable(dcKwhByArray),
-      acKwhByArray: List<double>.unmodifiable(acKwhByArray),
-    );
+    var totalCharge = 0.0;
+    var totalDischarge = 0.0;
+    for (var i = 0; i < buf.batteryCount; i++) {
+      final c = flows.batteryChargesKwh[i];
+      final d = flows.batteryDischargesKwh[i];
+      totalCharge += c;
+      totalDischarge += d;
+      final row = writeIdx * buf.batteryCount + i;
+      buf.batteryCharges[row] = c;
+      buf.batteryDischarges[row] = d;
+      buf.batterySocs[row] = flows.batterySocsKwh[i];
+    }
+    var totalDelivered = 0.0;
+    var totalShortfall = 0.0;
+    for (var i = 0; i < buf.bankCount; i++) {
+      final del = flows.bankDeliveriesKwh[i];
+      final sh = flows.bankShortfallsKwh[i];
+      totalDelivered += del;
+      totalShortfall += sh;
+      final row = writeIdx * buf.bankCount + i;
+      buf.bankDeliveries[row] = del;
+      buf.bankShortfalls[row] = sh;
+    }
+    var aggregateSoc = 0.0;
+    for (var i = 0; i < socs.length; i++) {
+      aggregateSoc += socs[i];
+    }
+    for (var i = 0; i < buf.arrayCount; i++) {
+      final row = writeIdx * buf.arrayCount + i;
+      buf.arrayDc[row] = arrayDcScratch[i];
+      buf.arrayAc[row] = arrayAcScratch[i];
+    }
+
+    buf.dayIndex[writeIdx] = dayIndex;
+    buf.dayOfYear[writeIdx] = dayOfYear;
+    buf.stepOfDay[writeIdx] = stepOfDay;
+    buf.hourOfDay[writeIdx] = hourOfDay;
+    buf.pvDcKwh[writeIdx] = pvDcKwh;
+    buf.pvAcKwh[writeIdx] = pvAcKwh;
+    buf.loadKwh[writeIdx] = loadKwh;
+    buf.selfConsumptionKwh[writeIdx] = flows.selfConsumptionKwh;
+    buf.batteryChargeKwh[writeIdx] = totalCharge;
+    buf.batteryDischargeKwh[writeIdx] = totalDischarge;
+    buf.batterySocKwh[writeIdx] = aggregateSoc;
+    buf.gridImportKwh[writeIdx] = flows.gridImportKwh;
+    buf.gridExportKwh[writeIdx] = flows.gridExportKwh;
+    buf.curtailedDcKwh[writeIdx] = curtailedDcKwh;
+    buf.curtailedAcKwh[writeIdx] = curtailedAcKwh;
+    buf.curtailedExportKwh[writeIdx] = flows.curtailedExportKwh;
+    buf.microInverterDeliveredKwh[writeIdx] = totalDelivered;
+    buf.microInverterShortfallKwh[writeIdx] = totalShortfall;
+    buf.unservedLoadKwh[writeIdx] = flows.unservedLoadKwh;
   }
 
   double _dcPowerKwFromWeather(PvArray array, WeatherSample weather, TemperatureModel tempModel) {
