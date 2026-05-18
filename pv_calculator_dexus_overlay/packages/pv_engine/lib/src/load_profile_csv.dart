@@ -39,9 +39,44 @@ LoadProfile parseLoadProfileCsv(String csv) {
     throw const FormatException('Keine verwertbaren Zeilen gefunden.');
   }
 
+  // Energy columns may carry either per-interval increments (delta-style)
+  // or a monotonically non-decreasing meter reading (cumulative kWh, as
+  // a Home Assistant energy-sensor `state` export looks like). Sort by
+  // timestamp, and if the series never decreases convert it to deltas —
+  // otherwise summing inside the hour buckets would multiply the meter
+  // reading instead of accumulating the actual consumption.
+  if (cols.valueKind == _ValueKind.energy && samples.length >= 2) {
+    samples.sort((a, b) => a.ts.compareTo(b.ts));
+    var cumulative = true;
+    for (var i = 1; i < samples.length; i++) {
+      if (samples[i].value < samples[i - 1].value) {
+        cumulative = false;
+        break;
+      }
+    }
+    if (cumulative) {
+      final deltas = <_Sample>[];
+      for (var i = 1; i < samples.length; i++) {
+        deltas.add(_Sample(
+          samples[i].ts,
+          samples[i].value - samples[i - 1].value,
+        ));
+      }
+      samples
+        ..clear()
+        ..addAll(deltas);
+      if (samples.isEmpty) {
+        throw const FormatException(
+            'Keine verwertbaren Zeilen gefunden.');
+      }
+    }
+  }
+
   // Decide unit scaling from the column's magnitudes (a single sample is
   // not reliable; values around 850 are almost certainly W, while 0.85 is
-  // kW — household peaks rarely exceed ~20 kW).
+  // kW — household peaks rarely exceed ~20 kW). Runs after the cumulative-
+  // to-delta conversion above so the heuristic sees per-interval kWh, not
+  // a meter reading.
   final scaleToKw = _inferKwScale(samples);
 
   // Bucket per absolute calendar hour so two years of data don't collapse
