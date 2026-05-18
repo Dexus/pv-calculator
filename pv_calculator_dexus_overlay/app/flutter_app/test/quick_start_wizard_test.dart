@@ -141,4 +141,47 @@ void main() {
         reason:
             'empty project name must keep "Weiter" disabled — Stepper.controlsBuilder gates on _canContinue');
   });
+
+  testWidgets(
+      'continue stays disabled while a visible field shows a validation error',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1600));
+    addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+    QuickStartResult? captured;
+    var callbackFired = false;
+    await tester.pumpWidget(_host((r) {
+      callbackFired = true;
+      captured = r;
+    }));
+    await _openWizard(tester);
+
+    // Fill the project name so the step's only remaining gate is field
+    // validity, then type an out-of-range latitude. NumberField suppresses
+    // the onChanged for the bad value, so the wizard's internal latitude
+    // state stays on the default — without the Form/validate gate the
+    // user could still advance with "999" visible on screen.
+    await tester.enterText(find.byKey(const Key('wizard-name')), 'Bad lat');
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('wizard-latitude')), '999');
+    await tester.pump();
+
+    final continueButton =
+        tester.widget<FilledButton>(find.byKey(const Key('wizard-continue-0')));
+    expect(continueButton.onPressed, isNull,
+        reason:
+            'latitude=999 fails the field validator → FormState.validate() returns false → Continue is disabled');
+
+    // Fixing the field re-enables Continue.
+    await tester.enterText(find.byKey(const Key('wizard-latitude')), '52');
+    await tester.pump();
+    final fixedButton =
+        tester.widget<FilledButton>(find.byKey(const Key('wizard-continue-0')));
+    expect(fixedButton.onPressed, isNotNull,
+        reason: 'valid latitude → form is valid again → Continue re-enables');
+
+    // Sanity: nothing was captured because Continue never fired.
+    expect(callbackFired, isFalse);
+    expect(captured, isNull);
+  });
 }

@@ -75,7 +75,15 @@ class _ProjectsTabState extends State<ProjectsTab> {
     final name = existing.contains(baseName)
         ? _uniqueName(baseName, existing)
         : baseName;
-    final project = _projects.createProject(name: name);
+    // Seed the auto-created site row with the wizard's coordinates so
+    // the persisted site metadata matches the scenario config; without
+    // this the project's default `sites` row would always carry the
+    // 50.0/10.0 fallback regardless of what the user picked.
+    final project = _projects.createProject(
+      name: name,
+      latitudeDeg: result.draft.latitudeDeg,
+      longitudeDeg: result.draft.longitudeDeg,
+    );
     final scenario = _scenarios.create(
       projectId: project.id,
       siteId: _projects.defaultSiteFor(project.id)?.id,

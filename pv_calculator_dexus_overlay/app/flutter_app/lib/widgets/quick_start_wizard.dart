@@ -42,6 +42,14 @@ class _QuickStartWizard extends StatefulWidget {
 class _QuickStartWizardState extends State<_QuickStartWizard> {
   int _currentStep = 0;
 
+  // One Form per data-bearing step (0..3). Step 4 is read-only summary.
+  // Used by [_canContinue] so that invalid in-field input — including
+  // values [NumberField] swallows (out-of-range, unparseable) — keeps
+  // the Continue button disabled. The form validators run on every
+  // user interaction via [AutovalidateMode.onUserInteraction].
+  final List<GlobalKey<FormState>> _stepFormKeys =
+      List.generate(4, (_) => GlobalKey<FormState>());
+
   // Step 1 — site
   String _projectName = '';
   double _latitudeDeg = 50.1;
@@ -61,34 +69,50 @@ class _QuickStartWizardState extends State<_QuickStartWizard> {
   // Step 4 — load
   double _dailyKwh = 10.5;
 
-  /// Whether the user can advance past [_currentStep]. The wizard
-  /// gates `Weiter` on the same rules the engine would later enforce
-  /// in `SimulationConfig.validate()`, so the user never reaches the
-  /// summary with an invalid draft.
+  /// Whether the user can advance past [_currentStep]. Gates on both
+  /// the draft-level invariants (project name set, battery switch
+  /// state) and the *displayed* field validity via
+  /// `FormState.validate()`. `NumberField.onChanged` deliberately
+  /// suppresses out-of-range and unparseable input, so without the
+  /// form-level check the user could leave latitude="999" visible on
+  /// screen and still advance with the stale 50.1 default underneath.
   bool _canContinue() {
+    // High-level invariants that aren't visible at field level.
     switch (_currentStep) {
       case 0:
-        return _projectName.trim().isNotEmpty &&
-            _latitudeDeg.abs() <= 90 &&
-            _longitudeDeg.abs() <= 180;
-      case 1:
-        return _peakKw > 0 &&
-            _azimuthDeg >= 0 &&
-            _azimuthDeg <= 360 &&
-            _tiltDeg >= 0 &&
-            _tiltDeg <= 90;
+        if (_projectName.trim().isEmpty) return false;
+        break;
       case 2:
-        if (!_addBattery) return true;
-        return _batteryCapacityKwh > 0 &&
-            _batteryChargeKw > 0 &&
-            _batteryDischargeKw > 0;
-      case 3:
-        return _dailyKwh >= 0;
+        if (!_addBattery) return true; // skip battery fields entirely
+        break;
       case 4:
-        return true;
-      default:
-        return false;
+        return true; // summary — nothing to validate
     }
+    // Field-level validity for the current step. `currentState` may be
+    // `null` on the very first build before the Form mounts; treat
+    // that as "no input yet, allow continue to attempt advancing and
+    // let the field validators surface errors lazily" — the high-level
+    // checks above already cover the must-not-be-empty cases.
+    final formState = _stepFormKeys[_currentStep].currentState;
+    if (formState == null) return true;
+    return formState.validate();
+  }
+
+  /// Wraps a step's content in a [Form] whose [FormState] is exposed via
+  /// `_stepFormKeys[stepIndex]`. `onChanged` triggers a parent rebuild so
+  /// `_canContinue` re-runs whenever any inner field's value changes
+  /// (re-running the form validators in `onUserInteraction` mode).
+  Widget _wrapInForm(int stepIndex, Widget child) {
+    return Form(
+      key: _stepFormKeys[stepIndex],
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      onChanged: () {
+        // Bump the wizard so controlsBuilder re-asks _canContinue.
+        // No state mutation needed — the FormState carries validity.
+        if (mounted) setState(() {});
+      },
+      child: child,
+    );
   }
 
   void _onContinue() {
@@ -121,7 +145,14 @@ class _QuickStartWizardState extends State<_QuickStartWizard> {
         ),
       ],
       inverters: [
-        InverterDraft(id: 'main', label: '', maxAcKw: _peakKw.clamp(0.4, 30.0)),
+        InverterDraft(
+          id: 'main',
+          label: '',
+          // .clamp returns `num`; force to double so the draft's
+          // double-typed field doesn't trip static analysis on
+          // stricter Dart versions.
+          maxAcKw: _peakKw.clamp(0.4, 30.0).toDouble(),
+        ),
       ],
       batteries: _addBattery
           ? [
@@ -188,53 +219,61 @@ class _QuickStartWizardState extends State<_QuickStartWizard> {
           Step(
             title: Text(l.wizardStepSite),
             isActive: _currentStep >= 0,
-            content: _SiteStep(
-              initialName: _projectName,
-              initialLat: _latitudeDeg,
-              initialLon: _longitudeDeg,
-              onChanged: (name, lat, lon) => setState(() {
-                _projectName = name;
-                _latitudeDeg = lat;
-                _longitudeDeg = lon;
-              }),
+            content: _wrapInForm(0,
+              _SiteStep(
+                initialName: _projectName,
+                initialLat: _latitudeDeg,
+                initialLon: _longitudeDeg,
+                onChanged: (name, lat, lon) => setState(() {
+                  _projectName = name;
+                  _latitudeDeg = lat;
+                  _longitudeDeg = lon;
+                }),
+              ),
             ),
           ),
           Step(
             title: Text(l.wizardStepArray),
             isActive: _currentStep >= 1,
-            content: _ArrayStep(
-              initialPeak: _peakKw,
-              initialAzimuth: _azimuthDeg,
-              initialTilt: _tiltDeg,
-              onChanged: (peak, az, tilt) => setState(() {
-                _peakKw = peak;
-                _azimuthDeg = az;
-                _tiltDeg = tilt;
-              }),
+            content: _wrapInForm(1,
+              _ArrayStep(
+                initialPeak: _peakKw,
+                initialAzimuth: _azimuthDeg,
+                initialTilt: _tiltDeg,
+                onChanged: (peak, az, tilt) => setState(() {
+                  _peakKw = peak;
+                  _azimuthDeg = az;
+                  _tiltDeg = tilt;
+                }),
+              ),
             ),
           ),
           Step(
             title: Text(l.wizardStepBattery),
             isActive: _currentStep >= 2,
-            content: _BatteryStep(
-              addBattery: _addBattery,
-              capacity: _batteryCapacityKwh,
-              chargeKw: _batteryChargeKw,
-              dischargeKw: _batteryDischargeKw,
-              onChanged: (add, cap, ch, dis) => setState(() {
-                _addBattery = add;
-                _batteryCapacityKwh = cap;
-                _batteryChargeKw = ch;
-                _batteryDischargeKw = dis;
-              }),
+            content: _wrapInForm(2,
+              _BatteryStep(
+                addBattery: _addBattery,
+                capacity: _batteryCapacityKwh,
+                chargeKw: _batteryChargeKw,
+                dischargeKw: _batteryDischargeKw,
+                onChanged: (add, cap, ch, dis) => setState(() {
+                  _addBattery = add;
+                  _batteryCapacityKwh = cap;
+                  _batteryChargeKw = ch;
+                  _batteryDischargeKw = dis;
+                }),
+              ),
             ),
           ),
           Step(
             title: Text(l.wizardStepLoad),
             isActive: _currentStep >= 3,
-            content: _LoadStep(
-              initial: _dailyKwh,
-              onChanged: (v) => setState(() => _dailyKwh = v),
+            content: _wrapInForm(3,
+              _LoadStep(
+                initial: _dailyKwh,
+                onChanged: (v) => setState(() => _dailyKwh = v),
+              ),
             ),
           ),
           Step(

@@ -210,12 +210,12 @@ void main() {
   testWidgets('+ Neues Projekt: wizard result becomes a project + scenario',
       (tester) async {
     final captured = <String>[];
+    final draft = ConfigDraft.demo()
+      ..latitudeDeg = 47.37
+      ..longitudeDeg = 8.55;
     Future<QuickStartResult?> launcher(BuildContext context) async {
       captured.add('called');
-      return QuickStartResult(
-        projectName: 'Wizard Project',
-        draft: ConfigDraft.demo(),
-      );
+      return QuickStartResult(projectName: 'Wizard Project', draft: draft);
     }
 
     await tester.pumpWidget(_host(db, wizardLauncher: launcher));
@@ -229,6 +229,14 @@ void main() {
     final created = projects.listProjects().single;
     expect(created.name, 'Wizard Project');
     expect(scenarios.listForProject(created.id), hasLength(1));
+
+    // The auto-created site must carry the wizard's coordinates, not
+    // the repository's 50.0/10.0 default — otherwise persisted site
+    // metadata silently diverges from the scenario config.
+    final site = projects.defaultSiteFor(created.id);
+    expect(site, isNotNull);
+    expect(site!.latitudeDeg, closeTo(47.37, 1e-9));
+    expect(site.longitudeDeg, closeTo(8.55, 1e-9));
   });
 
   testWidgets('+ Neues Projekt: cancelling the wizard creates no row',
