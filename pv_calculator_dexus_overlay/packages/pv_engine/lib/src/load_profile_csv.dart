@@ -72,12 +72,13 @@ LoadProfile parseLoadProfileCsv(String csv) {
     }
   }
 
-  // Decide unit scaling from the column's magnitudes (a single sample is
-  // not reliable; values around 850 are almost certainly W, while 0.85 is
-  // kW — household peaks rarely exceed ~20 kW). Runs after the cumulative-
-  // to-delta conversion above so the heuristic sees per-interval kWh, not
-  // a meter reading.
-  final scaleToKw = _inferKwScale(samples);
+  // Decide unit scaling. Honor an explicit unit annotation from the
+  // header (`[W]`, `[kW]`, `[Wh]`, `[kWh]`) first — without it a
+  // `Wirkleistung [W]` file with 100 W in every hour would otherwise
+  // get the magnitude inference treatment and import as 2.4 MWh/day
+  // instead of 2.4 kWh/day. Falls back to the magnitude heuristic
+  // (95th percentile vs. 200) only when the header carries no unit.
+  final scaleToKw = cols.explicitKwScale ?? _inferKwScale(samples);
 
   // Bucket per absolute calendar hour so two years of data don't collapse
   // onto the same day-of-year slot.
@@ -97,18 +98,23 @@ LoadProfile parseLoadProfileCsv(String csv) {
     kwhPerBucket[key] = aggregated * scaleToKw;
   });
 
-  // Aggregate across distinct calendar days into a 24-hour shape.
+  // Aggregate per hour-of-day. Counting distinct calendar dates would
+  // halve a noon-to-noon 24-hour export (which crosses midnight but
+  // still samples each hour exactly once); instead, each hour-of-day
+  // bucket is divided by the number of (day, hour) buckets that
+  // actually contributed to it.
   final shape = List<double>.filled(24, 0.0);
-  final daysSeen = <int>{};
+  final occupancy = List<int>.filled(24, 0);
   kwhPerBucket.forEach((key, kwh) {
-    daysSeen.add(key ~/ 24);
-    shape[key % 24] += kwh;
+    final hour = key % 24;
+    shape[hour] += kwh;
+    occupancy[hour] += 1;
   });
-  if (daysSeen.isEmpty) {
+  if (!occupancy.any((c) => c > 0)) {
     throw const FormatException('Keine verwertbaren Zeilen gefunden.');
   }
   for (var h = 0; h < 24; h++) {
-    shape[h] /= daysSeen.length;
+    if (occupancy[h] > 0) shape[h] /= occupancy[h];
   }
 
   final dailyKwh = shape.fold<double>(0.0, (s, v) => s + v);
@@ -140,12 +146,19 @@ class _ColumnMap {
   const _ColumnMap({
     required this.valueIdx,
     required this.valueKind,
+    this.explicitKwScale,
     this.timeIdx,
     this.dateIdx,
     this.timeOfDayIdx,
   });
   final int valueIdx;
   final _ValueKind valueKind;
+
+  /// Multiplier from raw value to kWh when the header carries an
+  /// unambiguous unit annotation (`1.0` for kW/kWh, `0.001` for W/Wh).
+  /// `null` means the header was ambiguous and the magnitude heuristic
+  /// in `_inferKwScale` decides.
+  final double? explicitKwScale;
   final int? timeIdx;
   final int? dateIdx;
   final int? timeOfDayIdx;
@@ -184,8 +197,9 @@ _HeaderMatch _findHeader(List<String> lines, String delimiter) {
     final cells = _splitCsvRow(lines[i], delimiter);
     if (cells.isEmpty) continue;
     final lower = cells.map((c) => c.trim().toLowerCase()).toList();
-    final hasTime = lower.any(_isTimeHeader) ||
-        (lower.contains('date') && lower.contains('time'));
+    final hasDate = lower.any(_isDateOnlyHeader);
+    final hasTimeOfDay = lower.any(_isTimeOfDayOnlyHeader);
+    final hasTime = lower.any(_isTimeHeader) || (hasDate && hasTimeOfDay);
     final hasValue = lower.any((c) => _valueColumnKind(c) != null);
     if (hasTime && hasValue) {
       return _HeaderMatch(i, cells.map((c) => c.trim()).toList());
@@ -211,10 +225,12 @@ _ColumnMap _resolveColumns(List<String> headerCells) {
   }
   if (timeIdx == null) {
     for (var i = 0; i < lower.length; i++) {
-      if (lower[i] == 'date' && dateIdx == null) dateIdx = i;
-      if (lower[i] == 'time' && timeOfDayIdx == null) timeOfDayIdx = i;
+      if (_isDateOnlyHeader(lower[i]) && dateIdx == null) dateIdx = i;
+      if (_isTimeOfDayOnlyHeader(lower[i]) && timeOfDayIdx == null) {
+        timeOfDayIdx = i;
+      }
     }
-    // Single `time` column without a `date` column is still a combined
+    // Single time-of-day column without a date column is still a combined
     // timestamp (Shelly's split format always carries both).
     if (timeOfDayIdx != null && dateIdx == null) {
       timeIdx = timeOfDayIdx;
@@ -227,12 +243,14 @@ _ColumnMap _resolveColumns(List<String> headerCells) {
 
   int? valueIdx;
   _ValueKind? valueKind;
+  double? explicitKwScale;
   for (var i = 0; i < lower.length; i++) {
     if (i == timeIdx || i == dateIdx || i == timeOfDayIdx) continue;
     final kind = _valueColumnKind(lower[i]);
     if (kind != null) {
       valueIdx = i;
       valueKind = kind;
+      explicitKwScale = _explicitKwScale(lower[i]);
       break;
     }
   }
@@ -244,6 +262,7 @@ _ColumnMap _resolveColumns(List<String> headerCells) {
   return _ColumnMap(
     valueIdx: valueIdx,
     valueKind: valueKind,
+    explicitKwScale: explicitKwScale,
     timeIdx: timeIdx,
     dateIdx: dateIdx,
     timeOfDayIdx: timeOfDayIdx,
@@ -252,7 +271,9 @@ _ColumnMap _resolveColumns(List<String> headerCells) {
 
 bool _isTimeHeader(String h) {
   final s = h.trim().toLowerCase();
-  return _isCombinedTimeHeader(s) || s == 'date' || s == 'time';
+  return _isCombinedTimeHeader(s) ||
+      _isDateOnlyHeader(s) ||
+      _isTimeOfDayOnlyHeader(s);
 }
 
 bool _isCombinedTimeHeader(String h) {
@@ -261,6 +282,26 @@ bool _isCombinedTimeHeader(String h) {
       h == 'zeit' ||
       h == 'datetime' ||
       h == 'date/time';
+}
+
+bool _isDateOnlyHeader(String h) => h == 'date' || h == 'datum';
+
+bool _isTimeOfDayOnlyHeader(String h) => h == 'time' || h == 'uhrzeit';
+
+/// Returns the explicit kWh-per-value multiplier when [header] carries an
+/// unambiguous unit annotation (`[W]`, `[kW]`, `[Wh]`, `[kWh]`, or the same
+/// bare suffixes at the end of the label). `null` means the header was
+/// ambiguous and the caller's magnitude heuristic should take over.
+double? _explicitKwScale(String header) {
+  final h = header.trim().toLowerCase();
+  // Match unit tokens as standalone words so `power`/`wirkleistung` don't
+  // trigger on their `w` prefix. Order matters: kwh / wh before kw / w
+  // so `kWh` doesn't match `kw` first.
+  if (RegExp(r'(?<![a-z])kwh(?![a-z])').hasMatch(h)) return 1.0;
+  if (RegExp(r'(?<![a-z])wh(?![a-z])').hasMatch(h)) return 1.0 / 1000.0;
+  if (RegExp(r'(?<![a-z])kw(?![a-z])').hasMatch(h)) return 1.0;
+  if (RegExp(r'(?<![a-z])w(?![a-z])').hasMatch(h)) return 1.0 / 1000.0;
+  return null;
 }
 
 _ValueKind? _valueColumnKind(String header) {

@@ -146,6 +146,60 @@ void main() {
       expect(profile.hourlyShape[9], closeTo(0.80, 1e-9));
       expect(profile.hourlyShape[10], closeTo(1.20, 1e-9));
     });
+
+    test('explicit [W] unit beats the magnitude heuristic on small values',
+        () {
+      // 100 W in every hour. p95 = 100 < 200, so the magnitude heuristic
+      // alone would treat the readings as kW and import as 2.4 MWh/day.
+      // The explicit `[W]` annotation must win → 100 W × 24 h = 2.4 kWh/day.
+      final csv = StringBuffer('Zeitstempel;Wirkleistung [W]\n');
+      for (var h = 0; h < 24; h++) {
+        csv.writeln(
+            '2024-01-15 ${h.toString().padLeft(2, '0')}:00:00;100');
+      }
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      expect(profile.dailyKwh, closeTo(2.4, 1e-9));
+      for (var h = 0; h < 24; h++) {
+        expect(profile.hourlyShape[h], closeTo(0.1, 1e-9));
+      }
+    });
+  });
+
+  group('parseLoadProfileCsv — German split date/time headers', () {
+    test('Datum / Uhrzeit headers are recognised', () {
+      final csv = StringBuffer('Datum;Uhrzeit;Wirkleistung [W]\n');
+      csv.writeln('2024-01-15;10:00:00;800');
+      csv.writeln('2024-01-15;11:00:00;1200');
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      expect(profile.hourlyShape[10], closeTo(0.8, 1e-9));
+      expect(profile.hourlyShape[11], closeTo(1.2, 1e-9));
+    });
+  });
+
+  group('parseLoadProfileCsv — coverage averaging', () {
+    test('noon-to-noon 24-hour export is not halved by midnight crossing',
+        () {
+      // 24 consecutive hours starting at noon and wrapping past midnight.
+      // The CSV touches two calendar dates but each hour-of-day is sampled
+      // exactly once, so the daily total must equal the raw integral
+      // (500 W × 24 h = 12 kWh), not half of it.
+      final csv = StringBuffer('Zeitstempel;Wirkleistung [W]\n');
+      for (var i = 0; i < 24; i++) {
+        final hour = (i + 12) % 24;
+        final dayOffset = i >= 12 ? 1 : 0;
+        final day = 15 + dayOffset;
+        csv.writeln(
+            '2024-01-${day.toString().padLeft(2, '0')} ${hour.toString().padLeft(2, '0')}:00:00;500');
+      }
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      expect(profile.dailyKwh, closeTo(12.0, 1e-9));
+      for (var h = 0; h < 24; h++) {
+        expect(profile.hourlyShape[h], closeTo(0.5, 1e-9));
+      }
+    });
   });
 
   group('parseLoadProfileCsv — error paths', () {
