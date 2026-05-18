@@ -327,6 +327,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get resultsKpiNetCost => 'Coste neto de electricidad';
 
   @override
+  String get resultsPdfReport => 'Exportar informe (PDF)';
+
+  @override
+  String get resultsPdfReportProTooltip =>
+      'Los informes PDF son una función Pro.';
+
+  @override
   String get projectTimeStep => 'Paso temporal';
 
   @override

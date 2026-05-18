@@ -1,11 +1,15 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:pv_engine/pv_engine.dart';
 
 import '../config.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../persistence/file_io.dart';
+import '../services/pdf_report.dart';
 import '../state/config_draft.dart';
 import '../state/project_controller.dart';
 import '../state/settings_controller.dart';
@@ -21,6 +25,16 @@ import '../widgets/forms/topology_section.dart';
 import '../widgets/results/bank_runtime_chart.dart';
 import '../widgets/results/monthly_table.dart';
 import '../widgets/settings_page.dart';
+
+/// Default share-PDF implementation. Lifted from `_ResultsBody`'s call
+/// site so widget tests can pass an injected stub instead of pulling
+/// `package:printing` into the platform-channel-less test environment.
+Future<void> defaultSharePdf({
+  required Uint8List bytes,
+  required String filename,
+}) {
+  return Printing.sharePdf(bytes: bytes, filename: filename);
+}
 
 /// Auswertung tab — system definition (inverters + batteries + load
 /// profile), Run button, and result KPIs + monthly table. The PV array
@@ -114,6 +128,9 @@ class ResultsTab extends StatelessWidget {
           timeStep: draft.timeStep,
           onExportCsv: ({required String filename, required String content}) =>
               io.exportCsv(filename: filename, content: content),
+          draft: draft,
+          proFeatures: kProFeatures,
+          onSharePdf: defaultSharePdf,
         ),
         const SizedBox(height: 16),
         Text(
@@ -468,6 +485,14 @@ class _ErrorCard extends StatelessWidget {
 
 typedef _CsvExportCallback = Future<void> Function({required String filename, required String content});
 
+/// Tear-off so widget tests can swap out the OS-share path for an
+/// in-memory recorder without invoking package:printing during a test
+/// run (which would need a real platform channel).
+typedef SharePdfCallback = Future<void> Function({
+  required Uint8List bytes,
+  required String filename,
+});
+
 class _ResultsBody extends StatelessWidget {
   const _ResultsBody({
     required this.result,
@@ -476,6 +501,9 @@ class _ResultsBody extends StatelessWidget {
     required this.arrayIds,
     required this.timeStep,
     required this.onExportCsv,
+    required this.draft,
+    required this.proFeatures,
+    required this.onSharePdf,
   });
 
   final SimulationResult result;
@@ -484,6 +512,19 @@ class _ResultsBody extends StatelessWidget {
   final List<String> arrayIds;
   final TimeStep timeStep;
   final _CsvExportCallback onExportCsv;
+
+  /// Snapshot of the active draft at run time; needed for the PDF
+  /// report (per-array breakdown, warnings, etc.).
+  final ConfigDraft draft;
+
+  /// Pro gate for the PDF export button — defaults to `kProFeatures`
+  /// at the call site; injected so widget tests can flip the gate
+  /// without depending on the `--dart-define` build flag.
+  final bool proFeatures;
+
+  /// Sharing callback (defaults to `Printing.sharePdf` in production).
+  /// Tests provide a recording stub.
+  final SharePdfCallback onSharePdf;
 
   @override
   Widget build(BuildContext context) {
@@ -617,8 +658,58 @@ class _ResultsBody extends StatelessWidget {
           icon: const Icon(Icons.file_download),
           label: Text(l.resultsCsvMonthly),
         ),
+        // PDF report (Pro). Always rendered so the user knows the
+        // feature exists; disabled in the free build with the (Pro)
+        // suffix. Wrapped in a tooltip when disabled so hover/long-press
+        // explains why.
+        if (proFeatures)
+          FilledButton.tonalIcon(
+            key: const Key('export-report-pdf'),
+            onPressed: () => _exportPdf(context),
+            icon: const Icon(Icons.picture_as_pdf),
+            label: Text(l.resultsPdfReport),
+          )
+        else
+          Tooltip(
+            message: l.resultsPdfReportProTooltip,
+            child: FilledButton.tonalIcon(
+              key: const Key('export-report-pdf'),
+              onPressed: null,
+              icon: const Icon(Icons.picture_as_pdf),
+              label: Text('${l.resultsPdfReport} (Pro)'),
+            ),
+          ),
       ]),
     ]);
+  }
+
+  Future<void> _exportPdf(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
+    try {
+      final bytes = await buildReportPdf(
+        result: result,
+        draft: draft,
+        projectName: projectName,
+        runTimestamp: DateTime.now(),
+        engineVersion: kEngineVersion,
+      );
+      await onSharePdf(
+        bytes: bytes,
+        filename: '${_safe(projectName)}_report.pdf',
+      );
+      if (!context.mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(
+        kIsWeb
+            ? l.projectListDownloaded('${_safe(projectName)}_report.pdf')
+            : l.resultsExported('${_safe(projectName)}_report.pdf'),
+      )));
+    } catch (e) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.resultsExportFailed(e.toString()))),
+      );
+    }
   }
 
   Future<void> _exportCsv(BuildContext context, {required String filename, required String content}) async {

@@ -326,6 +326,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get resultsKpiNetCost => 'Netto-Stromkosten';
 
   @override
+  String get resultsPdfReport => 'Bericht exportieren (PDF)';
+
+  @override
+  String get resultsPdfReportProTooltip =>
+      'PDF-Berichte sind eine Pro-Funktion.';
+
+  @override
   String get projectTimeStep => 'Zeitschritt';
 
   @override
