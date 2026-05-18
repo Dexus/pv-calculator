@@ -275,6 +275,20 @@ class AppLocalizationsFr extends AppLocalizations {
   String get projectExportLimit => 'Limite d\'injection';
 
   @override
+  String get projectSimulationYears => 'Années de simulation';
+
+  @override
+  String get projectSimulationYearsHelp =>
+      'Nombre d\'années consécutives à simuler. Avec > 1, la puissance des modules est dégradée chaque année selon le facteur de dégradation ; le SOC est conservé entre les années.';
+
+  @override
+  String get pvArrayDegradation => 'Dégradation';
+
+  @override
+  String get pvArrayDegradationHelp =>
+      'Perte de puissance annuelle en %/an. Typique 0,4–0,7 pour silicium cristallin. Seulement effectif avec années de simulation > 1.';
+
+  @override
   String get projectTimeStep => 'Pas de temps';
 
   @override
