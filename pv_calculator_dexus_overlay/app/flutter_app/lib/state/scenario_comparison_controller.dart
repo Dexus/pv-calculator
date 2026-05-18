@@ -58,6 +58,12 @@ class ScenarioComparisonController extends ChangeNotifier {
   /// partial results instead of publishing entries for a stale ID list.
   int _resolveGeneration = 0;
 
+  /// Number of `resolve()` invocations currently in flight. The finally
+  /// block clears `_running` only when this drops to 0, so a stale
+  /// resolve superseded by a selection mutation (which doesn't itself
+  /// kick off a new `resolve()`) still tears down its loading state.
+  int _activeResolves = 0;
+
   List<String> get selectedIds => List.unmodifiable(_selectedIds);
   List<ScenarioCompareEntry>? get entries =>
       _entries == null ? null : List.unmodifiable(_entries!);
@@ -116,6 +122,7 @@ class ScenarioComparisonController extends ChangeNotifier {
     // (the DB cache is keyed on `scenarioId`/`inputHash`), but the
     // *entries* must reflect the current `_selectedIds`.
     final generation = ++_resolveGeneration;
+    _activeResolves++;
     final selectionSnapshot = List<String>.unmodifiable(_selectedIds);
     _running = true;
     _error = null;
@@ -140,7 +147,18 @@ class ScenarioComparisonController extends ChangeNotifier {
         }
         scenario.config.validate();
         final start = DateTime.now().toUtc();
-        final outcome = await _runner.run(scenario.config);
+        // Comparison only consumes `outcome.summary`. Rebuild the
+        // config with `keepSteps: false` so the worker isolate doesn't
+        // build, send back, and immediately discard a 35 040-row
+        // step buffer per scenario for uncached 15-minute years. JSON
+        // round-trip is enough because `weatherSource` is not part of
+        // the persisted config — scenarios load with the synthetic
+        // fallback either way.
+        final batchConfig = SimulationConfig.fromJson({
+          ...scenario.config.toJson(),
+          'keepSteps': false,
+        });
+        final outcome = await _runner.run(batchConfig);
         final end = DateTime.now().toUtc();
         // Record the run regardless — the DB cache is keyed on
         // (scenarioId, inputHash) and benefits other consumers — but
@@ -166,10 +184,12 @@ class ScenarioComparisonController extends ChangeNotifier {
       _error = e.toString();
       _entries = null;
     } finally {
-      // Only clear the running flag if we are still the current
-      // generation — a fresher resolve() may have started while we
-      // were awaiting and is responsible for its own teardown.
-      if (generation == _resolveGeneration) {
+      _activeResolves--;
+      // Clear the running flag once no other resolve() is in flight.
+      // A superseded resolve still tears down here even if no fresher
+      // resolve was kicked off (selection mutators only bump the
+      // generation token), so the comparison spinner doesn't get stuck.
+      if (_activeResolves == 0) {
         _running = false;
       }
       notifyListeners();

@@ -59,6 +59,15 @@ class ProjectController extends ChangeNotifier {
   /// draft while a long isolate simulation is still in flight.
   int _runGeneration = 0;
 
+  /// Number of `run()` invocations currently in flight. The finally
+  /// block clears `_running`/`_progress` only when this drops to 0
+  /// — that way an older, superseded run leaves the running flag set
+  /// while a fresher run is still active, but if no fresher run was
+  /// started (e.g. the supersedure came from `touch()` rather than a
+  /// second `run()`), the awaited isolate still tears the UI state
+  /// down so the Run button reactivates.
+  int _activeRuns = 0;
+
   /// Last whole-percent fraction we notified listeners about during the
   /// current run; reset on every fresh `run()` start. Used to throttle
   /// progress-event notifications to ≤ 101 per phase.
@@ -201,6 +210,15 @@ class ProjectController extends ChangeNotifier {
     if (i < 0 || i >= _draft.arrays.length) return;
     _draft.arrays[i].azimuthDeg = azimuthDeg;
     _lastError = null;
+    // Compass edits are draft mutations — they must supersede any in-
+    // flight `run()` the same way `touch()` does, so a long native
+    // isolate simulation can't commit KPIs for the old orientation
+    // back into `_result` after the user has already rotated the
+    // panel. (`touch()` is the canonical "draft changed" entry point;
+    // we inline its effects rather than call it to avoid wiping
+    // `_result`, which the compass overlay isn't trying to invalidate
+    // — only superseding a still-running compute.)
+    _runGeneration++;
     notifyListeners();
   }
 
@@ -257,6 +275,7 @@ class ProjectController extends ChangeNotifier {
   /// a small number of full-year step lists in memory at once.
   Future<bool> run() async {
     final generation = ++_runGeneration;
+    _activeRuns++;
     _running = true;
     _progress = null;
     _lastNotifiedPct = -1;
@@ -313,12 +332,13 @@ class ProjectController extends ChangeNotifier {
       _lastError = e.toString();
       return false;
     } finally {
-      // Only clear the running flag if we are still the current
-      // generation — otherwise a newer `run()` is in flight and is
-      // responsible for clearing it. Without this guard, finishing
-      // a superseded run would flip `_running` off while a fresher
-      // run is still going, hiding its progress bar mid-stream.
-      if (generation == _runGeneration) {
+      _activeRuns--;
+      // Clear the running flag whenever no other `run()` is in flight,
+      // regardless of whether we were superseded. If `touch()` or
+      // `loadSiteIrradiance()` bumped `_runGeneration` while we were
+      // awaiting and no replacement `run()` was triggered, the UI was
+      // otherwise stuck with `_running = true` forever.
+      if (_activeRuns == 0) {
         _running = false;
         _progress = null;
       }
