@@ -134,7 +134,26 @@ class ScenarioComparisonController extends ChangeNotifier {
         if (generation != _resolveGeneration) return;
         final scenario = _scenarios.findById(id);
         if (scenario == null) continue;
-        final cached = _runs.latestMatching(scenario.id, scenario.inputHash);
+        // Build the to-be-executed config first so the cache key
+        // reflects what the engine actually saw. Two reasons:
+        //  - `applyProGates` clamps Pro-only knobs in a free build, so
+        //    a Pro-authored scenario opened in Pro vs free executes
+        //    different inputs; keying by `scenario.inputHash` (the
+        //    persisted, un-gated hash) would let a free-build summary
+        //    masquerade as the Pro answer (and vice versa).
+        //  - `keepSteps: false` is enforced for batch runs; that
+        //    already changes the input JSON, but `scenario.inputHash`
+        //    is the saved-with-default value, so distinguishing on the
+        //    actual run hash keeps the bookkeeping consistent.
+        // JSON round-trip is enough because `weatherSource` is not
+        // part of the persisted config — scenarios load with the
+        // synthetic fallback either way.
+        final batchConfig = applyProGates(SimulationConfig.fromJson({
+          ...scenario.config.toJson(),
+          'keepSteps': false,
+        }));
+        final runHash = batchConfig.inputHash;
+        final cached = _runs.latestMatching(scenario.id, runHash);
         if (cached != null) {
           final summary = summaryFromJson(
             jsonDecode(cached.summaryJson) as Map<String, dynamic>,
@@ -146,33 +165,18 @@ class ScenarioComparisonController extends ChangeNotifier {
           ));
           continue;
         }
-        scenario.config.validate();
+        batchConfig.validate();
         final start = DateTime.now().toUtc();
-        // Comparison only consumes `outcome.summary`. Rebuild the
-        // config with `keepSteps: false` so the worker isolate doesn't
-        // build, send back, and immediately discard a 35 040-row
-        // step buffer per scenario for uncached 15-minute years. JSON
-        // round-trip is enough because `weatherSource` is not part of
-        // the persisted config — scenarios load with the synthetic
-        // fallback either way. `applyProGates` mirrors what
-        // `ConfigDraft.buildForRun` does for the Auswertung-tab Run
-        // button so a free build never executes Pro features (multi-
-        // year, TOU tariff) even when reopening a Pro-authored saved
-        // scenario from the comparison view.
-        final batchConfig = applyProGates(SimulationConfig.fromJson({
-          ...scenario.config.toJson(),
-          'keepSteps': false,
-        }));
         final outcome = await _runner.run(batchConfig);
         final end = DateTime.now().toUtc();
         // Record the run regardless — the DB cache is keyed on
-        // (scenarioId, inputHash) and benefits other consumers — but
+        // (scenarioId, runHash) and benefits other consumers — but
         // only publish entries when our selection is still current.
         _runs.recordRun(
           scenarioId: scenario.id,
           startedAt: start,
           finishedAt: end,
-          inputHash: scenario.inputHash,
+          inputHash: runHash,
           summary: outcome.summary,
         );
         if (generation != _resolveGeneration) return;
