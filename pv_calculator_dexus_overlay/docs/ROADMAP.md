@@ -120,16 +120,21 @@ Ziel: App für Endnutzer nutzbar, validiert, barrierefrei (PRD Kap. 7, 8.1).
 
 ---
 
-## Phase 9 – Performance & 15-Minuten-Auflösung (Pro)
+## Phase 9 – Performance & 15-Minuten-Auflösung (Pro) ✓
 
 Ziel: 35 040 Schritte/Jahr auf Mittelklasse-Smartphone unter 5 s (PRD NFR-01, FR-12; Architektur Kap. 10).
 
-- [ ] Simulation in Flutter Isolate auslagern, Streaming-Progress über `ReceivePort`.
-- [ ] `Float64List`-basierte Zeitreihen statt Objekt-Listen.
-- [ ] Precompute: Sonnenstand, Schedule-Faktoren, Temperaturfaktoren vor dem Loop.
-- [ ] Aggregation on-the-fly: Monats-/Jahreswerte im Loop akkumulieren.
-- [ ] Scenario-Hash-Cache: bei unverändertem Input kein Neurechnen.
-- [ ] 15-Minuten-Modus aktivieren, Schrittweite parametrierbar.
+- [x] **Simulation in Flutter Isolate ausgelagert, Streaming-Progress über `ReceivePort`** (C2). `services/simulation_runner.dart` spawnt einen Worker-Isolate auf Native; auf Web läuft sie in-process (kein `Isolate.run` verfügbar). `SimulationProgress`-Events fließen über einen `SendPort` zurück und treiben einen determinten Fortschrittsbalken im Auswertung-Tab.
+- [x] **Precompute: Sonnenstand** (C3). `HorizontalToPoaSource` cached `SolarPosition` pro `(dayOfYear, hourOfDay)`; mehrere Arrays am selben Zeitpunkt teilen sich einen Trig-Pass. `transposeToPoa` akzeptiert die vorgerechnete Position; neue öffentliche Helper `solarPositionFor()` + `SolarPosition`.
+- [x] **Aggregation on-the-fly** (C4). Neue private `_StepAccumulator`-Klasse summiert die 14 Summary-Felder im Hauptloop; `_summarize` liest Skalare statt über die kept-steps-Liste zu folden.
+- [x] **Scenario-Hash-Cache** (C5). In-Memory-LRU (Größe 3) im `ProjectController`, Key = `(inputHash, kEngineVersion)`. Wiederholter Run auf unveränderten Draft liefert sofort. Der Vergleichsmodus nutzt weiterhin den DB-Cache aus Phase 7 (`simulation_runs`).
+- [x] **15-Minuten-Modus aktiviert, Schrittweite parametrierbar** (C1). `TimeStep.quarterHourly` war bereits API-seitig vorhanden; Phase 9 verifiziert die Energieerhaltung auf 15-min-Ebene (`test/quarter_hourly_parity_test.dart`) und dokumentiert die Quantisierung (`LoadProfile`-Shape bleibt stündlich, `HourlyWeatherSeries.sampleFor` liefert für alle 4 Quartale einer Stunde denselben Sample — energieerhaltend bei konstanter Leistung).
+- [x] **`keepSteps`-Opt-out** (C4, zusätzlich zur Roadmap-Liste). `SimulationConfig.keepSteps: false` überspringt die Per-Step-Liste vollständig — KPIs bleiben identisch, ~35 040 `SimulationStep`-Allokationen pro Szenario entfallen. Nützlich für Vergleichs- und Batch-Läufe.
+- [x] **Benchmark-Harness** (C3). `packages/pv_engine/benchmark/year_sim.dart` — manueller Lauf, nicht in CI. Baseline: hourly 64.8 → 55.7 ms, quarterHourly 251.2 → 219.1 ms auf einem Desktop-Dev-Rechner mit 3 Arrays × 365 Tagen.
+
+### Verschoben
+
+- **`Float64List`-basierte Zeitreihen statt Objekt-Listen.** Ursprünglich als C4a/C4b in der Phase-9-Planung geführt. Die jetzige Quarter-Hourly-Laufzeit (219 ms desktop, lineare Mobil-Hochrechnung deutlich unter 5 s) lässt den Refactor seine Review-Kosten nicht verdienen. Trigger zum Wiederaufnehmen: Mobil-Profiling zeigt GC-Druck als Bottleneck oder eine kommende Phase-10-Funktion (z. B. Mehrjahressimulation, Optimierer-Sweep) erzwingt parallele Result-Tabellen im Speicher.
 
 ---
 

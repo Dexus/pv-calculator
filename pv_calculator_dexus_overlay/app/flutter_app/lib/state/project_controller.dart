@@ -44,6 +44,21 @@ class ProjectController extends ChangeNotifier {
   final bool _ownsPvgisApi;
   final SimulationRunner _runner;
 
+  /// Last few simulation results, keyed on `(inputHash, engineVersion)`.
+  /// Small bound — full-year `SimulationResult` keeps the steps list
+  /// while `keepSteps` defaults to true, so we don't want to retain many.
+  final Map<String, SimulationResult> _resultCache = {};
+  static const int _cacheSize = 3;
+
+  void _rememberResult(String key, SimulationResult result) {
+    if (_resultCache.containsKey(key)) {
+      _resultCache.remove(key);
+    } else if (_resultCache.length >= _cacheSize) {
+      _resultCache.remove(_resultCache.keys.first);
+    }
+    _resultCache[key] = result;
+  }
+
   String get projectName => _projectName;
   ConfigDraft get draft => _draft;
   SimulationResult? get result => _result;
@@ -203,6 +218,11 @@ class ProjectController extends ChangeNotifier {
   /// Validates and runs the simulation on a worker isolate (native) or
   /// the main isolate (web). Returns `true` on success. Progress events
   /// from the engine flow through [progress] while the run is in flight.
+  ///
+  /// Caches up to [_cacheSize] recent results keyed on
+  /// `(inputHash, kEngineVersion)`; a repeated Run on an unchanged draft
+  /// returns instantly. The cache is bounded so it never holds more than
+  /// a small number of full-year step lists in memory at once.
   Future<bool> run() async {
     _running = true;
     _progress = null;
@@ -210,10 +230,18 @@ class ProjectController extends ChangeNotifier {
     try {
       final config = _draft.build();
       config.validate();
+      final cacheKey = '${config.inputHash}@$kEngineVersion';
+      final cached = _resultCache[cacheKey];
+      if (cached != null) {
+        _result = cached;
+        _lastError = null;
+        return true;
+      }
       _result = await _runner.run(config, onProgress: (p) {
         _progress = p;
         notifyListeners();
       });
+      _rememberResult(cacheKey, _result!);
       _lastError = null;
       return true;
     } on ArgumentError catch (e) {
