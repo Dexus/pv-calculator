@@ -29,7 +29,7 @@ export 'src/weather.dart';
 /// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
 /// change that can shift simulation results. Persisted alongside scenarios
 /// and simulation runs for reproducibility (PRD NFR-05).
-const String kEngineVersion = '0.7.0';
+const String kEngineVersion = '0.8.0';
 
 /// Reproducibility helpers on [SimulationConfig]. Kept as an extension so
 /// the core class stays pure data — adding `inputHash` here makes it clear
@@ -95,6 +95,7 @@ class PvArray {
     this.shadingFactor = 0.0,
     this.temperatureCoefficientPctPerC = 0.0,
     this.nominalOperatingCellTempC = 45.0,
+    this.degradationPctPerYear = 0.0,
   });
 
   final String id;
@@ -117,6 +118,32 @@ class PvArray {
   /// into operating cell temperature. Typical 45–48 °C.
   final double nominalOperatingCellTempC;
 
+  /// Annual module degradation in percent per year. Typical crystalline
+  /// silicon: 0.4–0.7. Only used when `SimulationConfig.simulationYears
+  /// > 1`; for single-year runs the array's nominal `peakKw` is used
+  /// directly. Default 0.0 means no degradation (pre-Phase-10 behaviour).
+  final double degradationPctPerYear;
+
+  /// Returns a copy with `peakKw` derated for `year` years of operation.
+  /// `peakKw_eff = peakKw × (1 − degradationPctPerYear/100)^year`.
+  PvArray deratedForYear(int year) {
+    if (year <= 0 || degradationPctPerYear <= 0) return this;
+    final factor = math.pow(1 - degradationPctPerYear / 100.0, year).toDouble();
+    return PvArray(
+      id: id,
+      label: label,
+      peakKw: peakKw * factor,
+      azimuthDeg: azimuthDeg,
+      tiltDeg: tiltDeg,
+      inverterId: inverterId,
+      lossFactor: lossFactor,
+      shadingFactor: shadingFactor,
+      temperatureCoefficientPctPerC: temperatureCoefficientPctPerC,
+      nominalOperatingCellTempC: nominalOperatingCellTempC,
+      degradationPctPerYear: degradationPctPerYear,
+    );
+  }
+
   void validate() {
     _require(id.trim().isNotEmpty, 'PV array id must not be empty.');
     _require(peakKw > 0, 'PV array $id peakKw must be positive.');
@@ -127,6 +154,8 @@ class PvArray {
         'PV array $id temperatureCoefficientPctPerC must be in [-2, 0] %/°C.');
     _require(nominalOperatingCellTempC >= 20 && nominalOperatingCellTempC <= 70,
         'PV array $id nominalOperatingCellTempC must be in [20, 70] °C.');
+    _require(degradationPctPerYear >= 0 && degradationPctPerYear < 10,
+        'PV array $id degradationPctPerYear must be in [0, 10) %/year.');
   }
 
   Map<String, dynamic> toJson() => {
@@ -140,6 +169,10 @@ class PvArray {
         'shadingFactor': shadingFactor,
         'temperatureCoefficientPctPerC': temperatureCoefficientPctPerC,
         'nominalOperatingCellTempC': nominalOperatingCellTempC,
+        // Omit the degradation key from JSON when it's at the default so
+        // legacy projects round-trip byte-identically (input-hash stable).
+        if (degradationPctPerYear != 0.0)
+          'degradationPctPerYear': degradationPctPerYear,
       };
 
   static PvArray fromJson(Map<String, dynamic> json) => PvArray(
@@ -153,6 +186,7 @@ class PvArray {
         shadingFactor: _toDouble(json['shadingFactor'] ?? 0.0),
         temperatureCoefficientPctPerC: _toDouble(json['temperatureCoefficientPctPerC'] ?? 0.0),
         nominalOperatingCellTempC: _toDouble(json['nominalOperatingCellTempC'] ?? 45.0),
+        degradationPctPerYear: _toDouble(json['degradationPctPerYear'] ?? 0.0),
       );
 }
 
@@ -350,6 +384,7 @@ class SimulationConfig {
     this.weatherSource,
     this.temperatureModel = const NoctTemperatureModel(),
     this.keepSteps = true,
+    this.simulationYears = 1,
   });
 
   final List<PvArray> arrays;
@@ -416,6 +451,21 @@ class SimulationConfig {
   /// charts require `keepSteps: true`.
   final bool keepSteps;
 
+  /// Number of consecutive 365-day years to simulate. `1` (default) is
+  /// the legacy behaviour. For `simulationYears > 1` each year `y`
+  /// (0-indexed) derates every array's `peakKw` by
+  /// `(1 − degradationPctPerYear/100)^y`. SOC carries between years and
+  /// `preRunMode == singleWarmUp` runs the warm-up once before year 0
+  /// only. `cyclicConvergence` is incompatible with multi-year and
+  /// rejected at `validate()`.
+  ///
+  /// When `keepSteps: true && simulationYears > 1`,
+  /// [SimulationResult.steps] retains only the **final** year's per-step
+  /// data — concatenating all years would break aggregators that key on
+  /// `dayOfYear` (`SummaryAggregator.monthly`). Per-year scalar KPIs are
+  /// always available via [SimulationSummary.perYearSummaries].
+  final int simulationYears;
+
   IrradianceSource get effectiveWeatherSource => weatherSource ?? const SyntheticIrradianceSource();
 
   /// Topology used by the simulator: explicit if given, otherwise an
@@ -461,6 +511,17 @@ class SimulationConfig {
       _require(days == 365, 'cyclicConvergence requires days == 365.');
       _require(preRunDays == 0, 'cyclicConvergence cannot be combined with preRunDays > 0.');
     }
+    _require(simulationYears >= 1 && simulationYears <= 30,
+        'simulationYears must be in [1, 30].');
+    if (simulationYears > 1) {
+      // Multi-year is a full-year construct; partial years would corrupt
+      // the per-year summary semantics. And combining with cyclic
+      // settling is undefined — cyclic itself is a multi-iteration warm-
+      // up that targets a different invariant.
+      _require(days == 365, 'simulationYears > 1 requires days == 365.');
+      _require(preRunMode != PreRunMode.cyclicConvergence,
+          'simulationYears > 1 is incompatible with preRunMode.cyclicConvergence.');
+    }
     _require(latitudeDeg >= -90 && latitudeDeg <= 90, 'latitudeDeg must be in [-90, 90].');
     _require(longitudeDeg >= -180 && longitudeDeg <= 180, 'longitudeDeg must be in [-180, 180].');
     _require(gridExportLimitKw == null || gridExportLimitKw! >= 0, 'gridExportLimitKw must not be negative.');
@@ -504,15 +565,22 @@ class SimulationConfig {
 
   Map<String, dynamic> toJson() {
     // Bump to schema v2 only when one of the new Phase-4 fields is
-    // actually set, and to v3 only when a Phase-5 field differs from
-    // its default. Legacy projects continue to round-trip as v1.
+    // actually set, v3 only when a Phase-5 field differs from its
+    // default, and v4 only when a Phase-10 multi-year/degradation knob
+    // is non-default. Legacy projects continue to round-trip as v1.
     final hasPhase4 = topology != null ||
         dispatchPolicy != null ||
         microInverterBanks.isNotEmpty;
     final hasPhase5 = preRunMode != PreRunMode.singleWarmUp ||
         convergenceToleranceFraction != 0.005 ||
         maxConvergenceIterations != 10;
-    final version = hasPhase5 ? 3 : (hasPhase4 ? 2 : 1);
+    final hasPhase10 = simulationYears != 1 ||
+        arrays.any((a) => a.degradationPctPerYear != 0.0);
+    final version = hasPhase10
+        ? 4
+        : hasPhase5
+            ? 3
+            : (hasPhase4 ? 2 : 1);
     final json = <String, dynamic>{
       'schemaVersion': version,
       'arrays': arrays.map((a) => a.toJson()).toList(),
@@ -546,12 +614,15 @@ class SimulationConfig {
       json['convergenceToleranceFraction'] = convergenceToleranceFraction;
       json['maxConvergenceIterations'] = maxConvergenceIterations;
     }
+    if (hasPhase10) {
+      json['simulationYears'] = simulationYears;
+    }
     return json;
   }
 
   static SimulationConfig fromJson(Map<String, dynamic> json) {
     final version = json['schemaVersion'] as int? ?? 1;
-    if (version != 1 && version != 2 && version != 3) {
+    if (version != 1 && version != 2 && version != 3 && version != 4) {
       throw ArgumentError('Unknown SimulationConfig schemaVersion: $version');
     }
     final batteries = <BatteryConfig>[];
@@ -616,6 +687,7 @@ class SimulationConfig {
       latitudeDeg: _toDouble(json['latitudeDeg'] ?? 50.0),
       longitudeDeg: _toDouble(json['longitudeDeg'] ?? 10.0),
       keepSteps: (json['keepSteps'] as bool?) ?? true,
+      simulationYears: (json['simulationYears'] as num?)?.toInt() ?? 1,
     );
   }
 }
@@ -751,6 +823,7 @@ class SimulationSummary {
     this.startSocsUsedKwh = const [],
     this.convergenceIterations = 0,
     this.converged = true,
+    this.perYearSummaries = const [],
   });
 
   final double pvDcKwh;
@@ -816,8 +889,91 @@ class SimulationSummary {
   /// the non-cyclic modes.
   final bool converged;
 
+  /// Per-year scalar summaries for multi-year runs
+  /// (`SimulationConfig.simulationYears > 1`). Each entry is the full
+  /// summary of one 365-day year with the array `peakKw` derated for
+  /// that year. Empty for single-year runs — the top-level summary IS
+  /// the year's summary. Per-year summaries themselves carry
+  /// `perYearSummaries = const []` (no nesting).
+  final List<SimulationSummary> perYearSummaries;
+
   double get selfConsumptionRate => pvAcKwh <= 0 ? 0 : selfConsumptionKwh / pvAcKwh;
   double get autarkyRate => loadKwh <= 0 ? 0 : selfConsumptionKwh / loadKwh;
+
+  /// Canonical JSON encoding. Persisted by the Flutter app's
+  /// `simulation_runs.summary_json` and round-trips through
+  /// `SimulationSummary.fromJson`. Fields at their default (`converged`
+  /// true, no per-year detail, zero shortfall) are omitted to keep the
+  /// blob small and legacy-stable.
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'pvDcKwh': pvDcKwh,
+      'pvAcKwh': pvAcKwh,
+      'loadKwh': loadKwh,
+      'selfConsumptionKwh': selfConsumptionKwh,
+      'batteryChargeKwh': batteryChargeKwh,
+      'batteryDischargeKwh': batteryDischargeKwh,
+      'gridImportKwh': gridImportKwh,
+      'gridExportKwh': gridExportKwh,
+      'curtailedDcKwh': curtailedDcKwh,
+      'curtailedAcKwh': curtailedAcKwh,
+      'curtailedExportKwh': curtailedExportKwh,
+      'finalBatterySocKwh': finalBatterySocKwh,
+      'finalBatterySocsKwh': finalBatterySocsKwh,
+      'microInverterDeliveredKwh': microInverterDeliveredKwh,
+      'microInverterShortfallKwh': microInverterShortfallKwh,
+      'unservedLoadKwh': unservedLoadKwh,
+      'preRunMode': preRunMode.name,
+      'preRunActive': preRunActive,
+      'startSocsUsedKwh': startSocsUsedKwh,
+      'convergenceIterations': convergenceIterations,
+      'converged': converged,
+    };
+    if (perYearSummaries.length >= 2) {
+      json['perYearSummaries'] =
+          perYearSummaries.map((s) => s.toJson()).toList(growable: false);
+    }
+    return json;
+  }
+
+  static SimulationSummary fromJson(Map<String, dynamic> json) {
+    final rawPerYear = json['perYearSummaries'];
+    final perYear = rawPerYear is List
+        ? rawPerYear
+            .map((e) => SimulationSummary.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(growable: false)
+        : const <SimulationSummary>[];
+    return SimulationSummary(
+      pvDcKwh: _toDouble(json['pvDcKwh']),
+      pvAcKwh: _toDouble(json['pvAcKwh']),
+      loadKwh: _toDouble(json['loadKwh']),
+      selfConsumptionKwh: _toDouble(json['selfConsumptionKwh']),
+      batteryChargeKwh: _toDouble(json['batteryChargeKwh']),
+      batteryDischargeKwh: _toDouble(json['batteryDischargeKwh']),
+      gridImportKwh: _toDouble(json['gridImportKwh']),
+      gridExportKwh: _toDouble(json['gridExportKwh']),
+      curtailedDcKwh: _toDouble(json['curtailedDcKwh']),
+      curtailedAcKwh: _toDouble(json['curtailedAcKwh']),
+      curtailedExportKwh: _toDouble(json['curtailedExportKwh']),
+      finalBatterySocKwh: _toDouble(json['finalBatterySocKwh']),
+      finalBatterySocsKwh: (json['finalBatterySocsKwh'] as List?)
+              ?.map((e) => _toDouble(e))
+              .toList(growable: false) ??
+          const <double>[],
+      microInverterDeliveredKwh: _toDouble(json['microInverterDeliveredKwh'] ?? 0.0),
+      microInverterShortfallKwh: _toDouble(json['microInverterShortfallKwh'] ?? 0.0),
+      unservedLoadKwh: _toDouble(json['unservedLoadKwh'] ?? 0.0),
+      preRunMode: _preRunModeFromName(json['preRunMode'] as String?),
+      preRunActive: (json['preRunActive'] as bool?) ?? false,
+      startSocsUsedKwh: (json['startSocsUsedKwh'] as List?)
+              ?.map((e) => _toDouble(e))
+              .toList(growable: false) ??
+          const <double>[],
+      convergenceIterations: (json['convergenceIterations'] as num?)?.toInt() ?? 0,
+      converged: (json['converged'] as bool?) ?? true,
+      perYearSummaries: perYear,
+    );
+  }
 }
 
 class SimulationResult {
@@ -1077,6 +1233,9 @@ class PvSimulator {
     // a quiet zero-yield column in the summary.
     config.effectiveWeatherSource
         .validateForArrays(config.arrays.map((a) => a.id));
+    if (config.simulationYears > 1) {
+      return _runMultiYear(config, onProgress: onProgress);
+    }
     switch (config.preRunMode) {
       case PreRunMode.manual:
         return _runLinear(config, preRunDays: 0, onProgress: onProgress);
@@ -1085,6 +1244,174 @@ class PvSimulator {
       case PreRunMode.cyclicConvergence:
         return _runCyclic(config, onProgress: onProgress);
     }
+  }
+
+  /// Multi-year driver: runs the existing per-year path
+  /// (`_runLinear`) once per year with arrays derated for that year and
+  /// the SOC ledger carried across. Pre-run executes ONCE in year 0 only
+  /// (subsequent years start from the prior year's end SOC, which is
+  /// already physically warm). The reported [SimulationResult.steps]
+  /// holds only the **final** year's per-step data, when retained at
+  /// all; per-year scalar KPIs are returned via
+  /// [SimulationSummary.perYearSummaries]. The top-level summary is the
+  /// aggregate across all years.
+  SimulationResult _runMultiYear(SimulationConfig config,
+      {ProgressCallback? onProgress}) {
+    final years = config.simulationYears;
+    final perYear = <SimulationSummary>[];
+    SimulationResult? last;
+    // SOC ledger carried between years. Initialise from the configured
+    // initial SOC of every battery; subsequent years overwrite this
+    // from the prior year's final SOC.
+    var carriedSocs = <double>[
+      for (final b in config.batteries) b.effectiveInitialSocKwh,
+    ];
+    for (var y = 0; y < years; y++) {
+      final deratedArrays = [
+        for (final a in config.arrays) a.deratedForYear(y),
+      ];
+      final yearBatteries = [
+        for (var i = 0; i < config.batteries.length; i++)
+          BatteryConfig(
+            id: config.batteries[i].id,
+            label: config.batteries[i].label,
+            capacityKwh: config.batteries[i].capacityKwh,
+            maxChargeKw: config.batteries[i].maxChargeKw,
+            maxDischargeKw: config.batteries[i].maxDischargeKw,
+            roundTripEfficiency: config.batteries[i].roundTripEfficiency,
+            minSocKwh: config.batteries[i].minSocKwh,
+            initialSocKwh: carriedSocs[i],
+          ),
+      ];
+      // Only year 0 honours the configured pre-run; later years start
+      // from the warm carry-over SOC and do their own 365-day cycle.
+      final yearPreRunDays = y == 0 ? config.preRunDays : 0;
+      final yearPreRunMode =
+          y == 0 ? config.preRunMode : PreRunMode.manual;
+      final yearConfig = SimulationConfig(
+        arrays: deratedArrays,
+        inverters: config.inverters,
+        batteries: yearBatteries,
+        microInverterBanks: config.microInverterBanks,
+        topology: config.topology,
+        dispatchPolicy: config.dispatchPolicy,
+        loadProfile: config.loadProfile,
+        startDayOfYear: config.startDayOfYear,
+        days: config.days,
+        timeStep: config.timeStep,
+        preRunDays: yearPreRunDays,
+        preRunMode: yearPreRunMode,
+        convergenceToleranceFraction: config.convergenceToleranceFraction,
+        maxConvergenceIterations: config.maxConvergenceIterations,
+        gridExportLimitKw: config.gridExportLimitKw,
+        latitudeDeg: config.latitudeDeg,
+        longitudeDeg: config.longitudeDeg,
+        weatherSource: config.weatherSource,
+        temperatureModel: config.temperatureModel,
+        // Only keep per-step data for the final year; earlier years
+        // would be discarded anyway and `keepSteps:false` saves the
+        // ~9 MiB quarter-hourly buffer allocation per year.
+        keepSteps: config.keepSteps && y == years - 1,
+        simulationYears: 1,
+      );
+      final yearProgress = onProgress == null
+          ? null
+          : (SimulationProgress p) {
+              onProgress(SimulationProgress(
+                phase: p.phase,
+                completedDays: p.completedDays,
+                totalDays: p.totalDays,
+                iteration: y + 1,
+              ));
+            };
+      final res = const PvSimulator()
+          .run(yearConfig, onProgress: yearProgress);
+      perYear.add(res.summary);
+      carriedSocs = res.summary.finalBatterySocsKwh.toList();
+      last = res;
+    }
+    final aggregated = _aggregateYears(
+      perYear,
+      preRunMode: config.preRunMode,
+      // Multi-year always exercises at least one year of settling; the
+      // top-level `preRunActive` reflects whether year 0 ran a warm-up.
+      preRunActive: perYear.first.preRunActive,
+      startSocsUsedKwh: perYear.first.startSocsUsedKwh,
+      finalSocsKwh: last!.summary.finalBatterySocsKwh,
+    );
+    return SimulationResult(
+      steps: last.steps,
+      summary: aggregated,
+    );
+  }
+
+  /// Builds the top-level summary for a multi-year run by summing the
+  /// per-year scalar KPIs. The list itself is preserved on
+  /// `perYearSummaries`.
+  SimulationSummary _aggregateYears(
+    List<SimulationSummary> perYear, {
+    required PreRunMode preRunMode,
+    required bool preRunActive,
+    required List<double> startSocsUsedKwh,
+    required List<double> finalSocsKwh,
+  }) {
+    var pvDc = 0.0,
+        pvAc = 0.0,
+        load = 0.0,
+        sc = 0.0,
+        bc = 0.0,
+        bd = 0.0,
+        gi = 0.0,
+        ge = 0.0,
+        cdc = 0.0,
+        cac = 0.0,
+        cex = 0.0,
+        del = 0.0,
+        sh = 0.0,
+        unserved = 0.0;
+    for (final s in perYear) {
+      pvDc += s.pvDcKwh;
+      pvAc += s.pvAcKwh;
+      load += s.loadKwh;
+      sc += s.selfConsumptionKwh;
+      bc += s.batteryChargeKwh;
+      bd += s.batteryDischargeKwh;
+      gi += s.gridImportKwh;
+      ge += s.gridExportKwh;
+      cdc += s.curtailedDcKwh;
+      cac += s.curtailedAcKwh;
+      cex += s.curtailedExportKwh;
+      del += s.microInverterDeliveredKwh;
+      sh += s.microInverterShortfallKwh;
+      unserved += s.unservedLoadKwh;
+    }
+    return SimulationSummary(
+      pvDcKwh: pvDc,
+      pvAcKwh: pvAc,
+      loadKwh: load,
+      selfConsumptionKwh: sc,
+      batteryChargeKwh: bc,
+      batteryDischargeKwh: bd,
+      gridImportKwh: gi,
+      gridExportKwh: ge,
+      curtailedDcKwh: cdc,
+      curtailedAcKwh: cac,
+      curtailedExportKwh: cex,
+      finalBatterySocKwh:
+          finalSocsKwh.fold<double>(0.0, (a, b) => a + b),
+      finalBatterySocsKwh: List<double>.unmodifiable(finalSocsKwh),
+      microInverterDeliveredKwh: del,
+      microInverterShortfallKwh: sh,
+      unservedLoadKwh: unserved,
+      preRunMode: preRunMode,
+      preRunActive: preRunActive,
+      startSocsUsedKwh: List<double>.unmodifiable(startSocsUsedKwh),
+      // Per-year settling re-runs the linear path's warm-up only in
+      // year 0; mirror that single warm-up event here.
+      convergenceIterations: preRunActive ? 1 : 0,
+      converged: true,
+      perYearSummaries: List<SimulationSummary>.unmodifiable(perYear),
+    );
   }
 
   /// Linear (non-cyclic) execution path used by [PreRunMode.manual] and

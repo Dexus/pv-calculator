@@ -165,6 +165,112 @@ void main() {
       json['preRunMode'] = 'doesNotExist';
       expect(() => SimulationConfig.fromJson(json), throwsArgumentError);
     });
+
+    test('Phase-10 simulationYears and degradation round-trip as v4', () {
+      final base = _config();
+      final multi = SimulationConfig(
+        arrays: [
+          PvArray(
+            id: base.arrays.first.id,
+            label: base.arrays.first.label,
+            peakKw: base.arrays.first.peakKw,
+            azimuthDeg: base.arrays.first.azimuthDeg,
+            tiltDeg: base.arrays.first.tiltDeg,
+            inverterId: base.arrays.first.inverterId,
+            degradationPctPerYear: 0.5,
+          ),
+          base.arrays.last,
+        ],
+        inverters: base.inverters,
+        batteries: base.batteries,
+        loadProfile: base.loadProfile,
+        days: 365,
+        simulationYears: 5,
+      );
+      final json = multi.toJson();
+      expect(json['schemaVersion'], 4);
+      expect(json['simulationYears'], 5);
+      expect((json['arrays'] as List).first['degradationPctPerYear'], 0.5);
+
+      final decoded = SimulationConfig.fromJson(jsonDecode(jsonEncode(json)));
+      expect(decoded.simulationYears, 5);
+      expect(decoded.arrays.first.degradationPctPerYear, 0.5);
+      expect(decoded.arrays.last.degradationPctPerYear, 0.0);
+    });
+
+    test('legacy v1 without simulationYears defaults to 1 and degradation 0', () {
+      final legacy = _config().toJson();
+      expect(legacy['schemaVersion'], 1);
+      expect(legacy.containsKey('simulationYears'), isFalse);
+      final array = (legacy['arrays'] as List).first as Map<String, dynamic>;
+      expect(array.containsKey('degradationPctPerYear'), isFalse);
+
+      final decoded = SimulationConfig.fromJson(legacy);
+      expect(decoded.simulationYears, 1);
+      expect(decoded.arrays.first.degradationPctPerYear, 0.0);
+    });
+
+    test('SimulationSummary toJson / fromJson roundtrip', () {
+      const summary = SimulationSummary(
+        pvDcKwh: 5000,
+        pvAcKwh: 4800,
+        loadKwh: 3500,
+        selfConsumptionKwh: 2200,
+        batteryChargeKwh: 800,
+        batteryDischargeKwh: 700,
+        gridImportKwh: 600,
+        gridExportKwh: 2100,
+        curtailedDcKwh: 0,
+        curtailedAcKwh: 10,
+        curtailedExportKwh: 0,
+        finalBatterySocKwh: 4.0,
+        finalBatterySocsKwh: [2.5, 1.5],
+        microInverterDeliveredKwh: 50,
+        microInverterShortfallKwh: 5,
+        unservedLoadKwh: 0,
+        preRunActive: true,
+        startSocsUsedKwh: [3.75, 1.5],
+        convergenceIterations: 1,
+        converged: true,
+      );
+      final decoded = SimulationSummary.fromJson(
+          jsonDecode(jsonEncode(summary.toJson())));
+      expect(decoded.pvAcKwh, 4800);
+      expect(decoded.finalBatterySocsKwh, [2.5, 1.5]);
+      expect(decoded.preRunActive, isTrue);
+      expect(decoded.startSocsUsedKwh, [3.75, 1.5]);
+      expect(decoded.perYearSummaries, isEmpty);
+    });
+
+    test('SimulationSummary with perYearSummaries roundtrips', () {
+      const year0 = SimulationSummary(
+        pvDcKwh: 1000, pvAcKwh: 950, loadKwh: 800, selfConsumptionKwh: 500,
+        batteryChargeKwh: 0, batteryDischargeKwh: 0,
+        gridImportKwh: 300, gridExportKwh: 450,
+        curtailedDcKwh: 0, curtailedAcKwh: 0, curtailedExportKwh: 0,
+        finalBatterySocKwh: 0, finalBatterySocsKwh: [],
+      );
+      const year1 = SimulationSummary(
+        pvDcKwh: 995, pvAcKwh: 945, loadKwh: 800, selfConsumptionKwh: 495,
+        batteryChargeKwh: 0, batteryDischargeKwh: 0,
+        gridImportKwh: 305, gridExportKwh: 450,
+        curtailedDcKwh: 0, curtailedAcKwh: 0, curtailedExportKwh: 0,
+        finalBatterySocKwh: 0, finalBatterySocsKwh: [],
+      );
+      const total = SimulationSummary(
+        pvDcKwh: 1995, pvAcKwh: 1895, loadKwh: 1600, selfConsumptionKwh: 995,
+        batteryChargeKwh: 0, batteryDischargeKwh: 0,
+        gridImportKwh: 605, gridExportKwh: 900,
+        curtailedDcKwh: 0, curtailedAcKwh: 0, curtailedExportKwh: 0,
+        finalBatterySocKwh: 0, finalBatterySocsKwh: [],
+        perYearSummaries: [year0, year1],
+      );
+      final decoded = SimulationSummary.fromJson(
+          jsonDecode(jsonEncode(total.toJson())));
+      expect(decoded.perYearSummaries, hasLength(2));
+      expect(decoded.perYearSummaries[0].pvAcKwh, 950);
+      expect(decoded.perYearSummaries[1].gridImportKwh, 305);
+    });
   });
 }
 
