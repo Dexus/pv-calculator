@@ -93,6 +93,57 @@ void main() {
       expect(profile.dailyKwh, closeTo(1.50, 1e-9));
     });
 
+    test(
+        'monotonic interval-energy series stays as deltas (no cumulative misdetect)',
+        () {
+      // 0.10, 0.20, 0.30 kWh per hour is monotonic but obviously delta-style:
+      // the first reading is tiny relative to a meter base, so the parser
+      // must not difference these. Expected daily total 0.60 kWh.
+      final csv = StringBuffer('timestamp;energy [kWh]\n');
+      csv.writeln('2024-01-15 09:00:00;0.10');
+      csv.writeln('2024-01-15 10:00:00;0.20');
+      csv.writeln('2024-01-15 11:00:00;0.30');
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      expect(profile.hourlyShape[9], closeTo(0.10, 1e-9));
+      expect(profile.hourlyShape[10], closeTo(0.20, 1e-9));
+      expect(profile.hourlyShape[11], closeTo(0.30, 1e-9));
+      expect(profile.dailyKwh, closeTo(0.60, 1e-9));
+    });
+
+    test('cumulative meter with a single reset still converts to deltas', () {
+      // Meter at 1000.0 climbs to 1000.45, resets to 0, then climbs to
+      // 0.30. The drop at the reset boundary is treated as "the new
+      // reading represents the energy since the reset" rather than
+      // disqualifying the whole series.
+      final csv = StringBuffer('timestamp;state [kWh]\n');
+      csv.writeln('2024-01-15 09:00:00;1000.00');
+      csv.writeln('2024-01-15 10:00:00;1000.45');
+      csv.writeln('2024-01-15 11:00:00;0.00');
+      csv.writeln('2024-01-15 12:00:00;0.30');
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      // delta @ 10:00 = 0.45 ; reset @ 11:00 contributes 0.00 ;
+      // delta @ 12:00 = 0.30.
+      expect(profile.hourlyShape[10], closeTo(0.45, 1e-9));
+      expect(profile.hourlyShape[11], closeTo(0.00, 1e-9));
+      expect(profile.hourlyShape[12], closeTo(0.30, 1e-9));
+    });
+
+    test('last_changed column is recognised as the time alias', () {
+      // Untouched HA history exports look like
+      //   entity_id,state,last_changed
+      // and we must accept `last_changed` as the timestamp column.
+      final csv = StringBuffer('entity_id,state,last_changed\n');
+      csv.writeln('sensor.x,1000.00,2024-01-15T09:00:00+01:00');
+      csv.writeln('sensor.x,1000.45,2024-01-15T10:00:00+01:00');
+      csv.writeln('sensor.x,1001.20,2024-01-15T11:00:00+01:00');
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      expect(profile.hourlyShape[10], closeTo(0.45, 1e-9));
+      expect(profile.hourlyShape[11], closeTo(0.75, 1e-9));
+    });
+
     test('cumulative readings in Wh are handled after delta conversion', () {
       // Same shape as the kWh case but expressed in Wh — the magnitude
       // heuristic must run after the delta conversion, otherwise the
@@ -145,6 +196,31 @@ void main() {
       profile.validate();
       expect(profile.hourlyShape[9], closeTo(0.80, 1e-9));
       expect(profile.hourlyShape[10], closeTo(1.20, 1e-9));
+    });
+
+    test('German thousands-dot + decimal-comma parses as one number', () {
+      // `1.234,56` is one thousand two hundred thirty-four point five-six
+      // in German formatting — the last separator is the decimal point.
+      // Smaller `0,40 kW` values land in subsequent hours so the explicit
+      // `[kW]` annotation drives the unit and we exercise both formats.
+      final csv = StringBuffer('Zeitstempel;Wirkleistung [kW]\n');
+      csv.writeln('2024-01-15 09:00:00;1.234,56');
+      csv.writeln('2024-01-15 10:00:00;0,40');
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      expect(profile.hourlyShape[9], closeTo(1234.56, 1e-6));
+      expect(profile.hourlyShape[10], closeTo(0.40, 1e-9));
+    });
+
+    test('UTF-8 BOM at the start of the file does not break header match',
+        () {
+      final csv = StringBuffer('﻿Zeitstempel;Wirkleistung [W]\n');
+      csv.writeln('2024-01-15 09:00:00;800');
+      csv.writeln('2024-01-15 10:00:00;1200');
+      final profile = parseLoadProfileCsv(csv.toString());
+      profile.validate();
+      expect(profile.hourlyShape[9], closeTo(0.8, 1e-9));
+      expect(profile.hourlyShape[10], closeTo(1.2, 1e-9));
     });
 
     test('explicit [W] unit beats the magnitude heuristic on small values',

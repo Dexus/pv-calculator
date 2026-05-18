@@ -22,6 +22,11 @@ class FileIo {
   /// 5 KB; the limit guards against memory exhaustion via crafted uploads.
   static const int maxImportBytes = 1024 * 1024;
 
+  /// Cap on imported load-profile CSV size. A full-year quarter-hourly
+  /// export (35 040 rows × ~40 B per row) overruns the 1 MiB project
+  /// cap; raw time-series files need their own headroom.
+  static const int maxCsvBytes = 16 * 1024 * 1024;
+
   /// Wraps [config] in the Phase-7 reproducibility envelope and writes it.
   /// The envelope pins the engine version and the canonical input hash of
   /// the embedded config — pre-Phase-7 readers that look for `arrays` at
@@ -81,7 +86,7 @@ class FileIo {
     );
     final file = await openFile(acceptedTypeGroups: const [typeGroup]);
     if (file == null) return null;
-    await _enforceSizeLimit(file, maxImportBytes, kind: 'Load profile');
+    await _enforceSizeLimit(file, maxCsvBytes, kind: 'Load profile');
     final raw = await file.readAsString();
     return parseLoadProfileCsv(raw);
   }
