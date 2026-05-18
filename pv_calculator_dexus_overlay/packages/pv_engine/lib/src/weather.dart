@@ -217,6 +217,12 @@ class HourlyWeatherSeries extends IrradianceSource {
     // `num.clamp` is statically typed `num`, so cast back to `int`
     // before computing the list index.
     final day = (query.dayOfYear - 1).clamp(0, 364).toInt();
+    // At `TimeStep.quarterHourly` the simulator queries the same hour
+    // four times (0.125 h, 0.375 h, 0.625 h, 0.875 h all floor to the
+    // same hour index). Returning the same sample for each quarter is
+    // energy-conserving because the simulator multiplies the resulting
+    // POA power by `stepHours` — four 15-min steps at constant power
+    // P deliver the same kWh as one 60-min step at P.
     final hour = query.hourOfDay.floor().clamp(0, 23).toInt();
     return series[day * 24 + hour];
   }
@@ -298,7 +304,10 @@ class HorizontalIrradianceSeries {
   }
 
   /// Returns the sample for the given day-of-year (1..365) and
-  /// hour-of-day (0..23, integer-floored).
+  /// hour-of-day (0..23, integer-floored). At sub-hourly step widths
+  /// the same sample is returned for every sub-step inside one hour;
+  /// see [HourlyWeatherSeries.sampleFor] for the energy-conservation
+  /// argument.
   HorizontalIrradianceSample sampleAt({required int dayOfYear, required double hourOfDay}) {
     final day = (dayOfYear - 1).clamp(0, 364).toInt();
     final hour = hourOfDay.floor().clamp(0, 23).toInt();
