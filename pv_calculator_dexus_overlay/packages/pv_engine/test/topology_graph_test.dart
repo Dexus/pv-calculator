@@ -219,4 +219,151 @@ void main() {
       expect(topo.toJson().containsKey('chargeControllers'), isFalse);
     });
   });
+
+  group('Phase 4b cross-references', () {
+    test('rule 2: DC-coupled battery without a chargeController on its bus is rejected', () {
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        batteryCouplings: [
+          BatteryCouplingSpec(
+            batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+        ],
+      );
+      expect(
+        () => topo.validate(
+            arrayIds: {}, inverterIds: {}, batteryIds: {'b1'}, bankIds: {}),
+        throwsArgumentError,
+      );
+      // Adding any cc to the bus satisfies the rule.
+      const ok = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+        batteryCouplings: [
+          BatteryCouplingSpec(
+            batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+        ],
+      );
+      ok.validate(
+          arrayIds: {}, inverterIds: {}, batteryIds: {'b1'}, bankIds: {});
+    });
+
+    test('rule 5: an array cannot be wired to a chargeController and an MPPT at once', () {
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        mppts: [MpptNode(id: 'mppt-inv', inverterId: 'inv')],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+        edges: [
+          BusEdge(fromId: 'a1', toId: 'cc-1'),
+          BusEdge(fromId: 'a1', toId: 'mppt-inv'),
+        ],
+      );
+      expect(
+        () => topo.validate(
+            arrayIds: {'a1'},
+            inverterIds: {'inv'},
+            batteryIds: {},
+            bankIds: {}),
+        throwsArgumentError,
+      );
+    });
+
+    test('rule 3: batteryFed bus needs exactly one DC battery', () {
+      // Zero batteries: rejected.
+      const zero = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1', mode: BusMode.batteryFed)],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+      );
+      expect(
+        () => zero.validate(
+            arrayIds: {}, inverterIds: {}, batteryIds: {}, bankIds: {}),
+        throwsArgumentError,
+      );
+      // Two batteries: rejected.
+      const two = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1', mode: BusMode.batteryFed)],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+        batteryCouplings: [
+          BatteryCouplingSpec(
+            batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          BatteryCouplingSpec(
+            batteryId: 'b2', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+        ],
+      );
+      expect(
+        () => two.validate(
+            arrayIds: {},
+            inverterIds: {},
+            batteryIds: {'b1', 'b2'},
+            bankIds: {}),
+        throwsArgumentError,
+      );
+    });
+
+    test('rule 3: batteryFed bus needs exactly one outgoing inverter edge', () {
+      // The bus has 1 battery but no edge to an inverter — rejected.
+      const noInverter = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1', mode: BusMode.batteryFed)],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+        batteryCouplings: [
+          BatteryCouplingSpec(
+            batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+        ],
+      );
+      expect(
+        () => noInverter.validate(
+            arrayIds: {},
+            inverterIds: {'inv'},
+            batteryIds: {'b1'},
+            bankIds: {}),
+        throwsArgumentError,
+      );
+    });
+
+    test('rule 4: batteryFed bus rejects PV on the inverter\'s MPPT path', () {
+      // batteryFed bus + a hybrid inverter that ALSO has an array on
+      // its MPPT — that PV would bypass the battery and break the
+      // "PV reaches AC only via the battery" semantics.
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1', mode: BusMode.batteryFed)],
+        mppts: [MpptNode(id: 'mppt-inv', inverterId: 'inv')],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+        edges: [
+          BusEdge(fromId: 'a1', toId: 'mppt-inv'),
+          BusEdge(fromId: 'dc-1', toId: 'inv'),
+        ],
+        batteryCouplings: [
+          BatteryCouplingSpec(
+            batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+        ],
+      );
+      expect(
+        () => topo.validate(
+            arrayIds: {'a1'},
+            inverterIds: {'inv'},
+            batteryIds: {'b1'},
+            bankIds: {}),
+        throwsArgumentError,
+      );
+    });
+
+    test('valid full-stack DC batteryFed topology passes validation', () {
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1', mode: BusMode.batteryFed)],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+        edges: [
+          BusEdge(fromId: 'a1', toId: 'cc-1'),
+          BusEdge(fromId: 'dc-1', toId: 'inv'),
+        ],
+        batteryCouplings: [
+          BatteryCouplingSpec(
+            batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+        ],
+      );
+      topo.validate(
+          arrayIds: {'a1'},
+          inverterIds: {'inv'},
+          batteryIds: {'b1'},
+          bankIds: {});
+    });
+  });
 }

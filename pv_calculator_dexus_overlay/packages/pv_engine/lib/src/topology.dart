@@ -452,6 +452,90 @@ class TopologyGraph {
         throw ArgumentError('Topology coupling for ${c.batteryId} references unknown inverter ${c.inverterId}.');
       }
     }
+
+    // === Phase 4b cross-references ===
+    // Rule 2: DC-coupled battery ⇒ its bus is fed by ≥ 1 chargeController.
+    final ccsByBus = <String, int>{};
+    for (final cc in chargeControllers) {
+      ccsByBus.update(cc.dcBusId, (n) => n + 1, ifAbsent: () => 1);
+    }
+    for (final c in batteryCouplings) {
+      if (c.coupling == BatteryCoupling.dc) {
+        final busId = c.dcBusId;
+        if (busId != null && (ccsByBus[busId] ?? 0) == 0) {
+          throw ArgumentError(
+              'DC-coupled battery ${c.batteryId} references dcBus $busId, '
+              'but no chargeController feeds that bus — add a chargeController '
+              "with dcBusId: '$busId' or change coupling to ac.");
+        }
+      }
+    }
+
+    // Rule 5: no array can be on both a charge-controller path (array
+    // → cc) and an inverter-MPPT path (array → mppt) at the same time.
+    final ccNodeIds = {for (final c in chargeControllers) c.id};
+    final mpptNodeIds = {for (final m in mppts) m.id};
+    final arrayToCc = <String>{};
+    final arrayToMppt = <String>{};
+    for (final e in edges) {
+      if (ccNodeIds.contains(e.toId)) arrayToCc.add(e.fromId);
+      if (mpptNodeIds.contains(e.toId)) arrayToMppt.add(e.fromId);
+    }
+    for (final arrayId in arrayToCc) {
+      if (arrayToMppt.contains(arrayId)) {
+        throw ArgumentError(
+            'PV array $arrayId is wired to both a chargeController and an '
+            'MPPT — pick exactly one path (DC-coupled or AC-coupled).');
+      }
+    }
+
+    // Rules 3 + 4: every `BusMode.batteryFed` DC bus must have exactly
+    // one DC-coupled battery and exactly one outgoing edge into an
+    // inverter, and that inverter must not also have an array→MPPT
+    // path (PV must arrive via a chargeController on this bus).
+    final dcBatteryCountByBus = <String, int>{};
+    for (final c in batteryCouplings) {
+      if (c.coupling == BatteryCoupling.dc && c.dcBusId != null) {
+        dcBatteryCountByBus.update(c.dcBusId!, (n) => n + 1,
+            ifAbsent: () => 1);
+      }
+    }
+    final mpptsByInverter = <String, Set<String>>{};
+    for (final m in mppts) {
+      mpptsByInverter.putIfAbsent(m.inverterId, () => <String>{}).add(m.id);
+    }
+    for (final bus in dcBuses) {
+      if (bus.mode != BusMode.batteryFed) continue;
+      final batteryCount = dcBatteryCountByBus[bus.id] ?? 0;
+      if (batteryCount != 1) {
+        throw ArgumentError(
+            'batteryFed dcBus ${bus.id} must have exactly one DC-coupled '
+            'battery (found $batteryCount). Switch to BusMode.hybrid for '
+            'multi-battery or no-battery buses.');
+      }
+      final outgoingInverters = <String>[
+        for (final e in edges)
+          if (e.fromId == bus.id && inverterIds.contains(e.toId)) e.toId,
+      ];
+      if (outgoingInverters.length != 1) {
+        throw ArgumentError(
+            'batteryFed dcBus ${bus.id} must have exactly one outgoing '
+            'inverter edge (found ${outgoingInverters.length}).');
+      }
+      // The inverter on a batteryFed bus must not receive any AC-path
+      // PV (which would defeat the "PV only via battery" semantics).
+      final invId = outgoingInverters.single;
+      final mpptsOfInv = mpptsByInverter[invId] ?? const <String>{};
+      for (final e in edges) {
+        if (mpptsOfInv.contains(e.toId)) {
+          throw ArgumentError(
+              'batteryFed dcBus ${bus.id}: inverter $invId still has a PV '
+              "array (edge ${e.fromId} → ${e.toId}) on its MPPT path. "
+              'Route the array through a chargeController on ${bus.id} '
+              'or switch the bus to BusMode.hybrid.');
+        }
+      }
+    }
   }
 
   Map<String, dynamic> toJson() {

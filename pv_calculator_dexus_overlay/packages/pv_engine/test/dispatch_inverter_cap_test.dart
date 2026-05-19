@@ -150,6 +150,12 @@ void main() {
       ],
       topology: const TopologyGraph(
         dcBuses: [DcBus(id: 'dc-main')],
+        // Phase 4b: DC-coupled batteries must have at least one charge
+        // controller on their bus. The test only exercises the discharge
+        // path, so the controller is inert in practice.
+        chargeControllers: [
+          ChargeController(id: 'cc-main', dcBusId: 'dc-main'),
+        ],
         batteryCouplings: [
           BatteryCouplingSpec(
             batteryId: 'b1',
