@@ -24,6 +24,8 @@ class DispatchContext {
     required this.gridExportLimitKw,
     this.pvDcByBus = const {},
     this.dcBusForBattery = const {},
+    this.dcBusesWithAcPath = const {},
+    this.estimatedBypassAcKwh = 0.0,
   });
 
   final double hourOfDay;
@@ -60,6 +62,24 @@ class DispatchContext {
   /// Policies use this to detect that a battery's charge target
   /// must be sourced from [pvDcByBus] rather than from AC surplus.
   final Map<int, String> dcBusForBattery;
+
+  /// Phase-4b: ids of DC buses that have a `dcBus → inverter` edge
+  /// (i.e. an actual AC path for hybrid bypass). Policies use this
+  /// to decide whether reserving DC for AC load makes sense — a
+  /// charge-only hybrid bus (no inverter edge) cannot serve load
+  /// directly, so reserving DC there would just curtail.
+  final Set<String> dcBusesWithAcPath;
+
+  /// Phase-4b: best-estimate AC that the simulator's DC pre-step
+  /// will deliver via hybrid bypass after this policy returns
+  /// (before any DC-coupled batteries claim part of the bus pool).
+  /// Policies use it to inflate the AC surplus when deciding AC-
+  /// coupled battery charging — without it, an AC-coupled battery
+  /// in a mixed AC+DC scenario would see `pvAcKwh = 0` from the
+  /// AC-path alone and refuse to charge from what is actually
+  /// surplus PV that ends up exporting. DO NOT use this for DC
+  /// reservation: it is exactly the energy being decided here.
+  final double estimatedBypassAcKwh;
 }
 
 /// Output of a [DispatchPolicy]. Carries **request** energies; the
