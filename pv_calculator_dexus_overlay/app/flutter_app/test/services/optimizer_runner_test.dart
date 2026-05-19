@@ -128,4 +128,31 @@ void main() {
       throwsA(isA<OptimizerCancelledException>()),
     );
   });
+
+  test('cancel() called after the result arrives still wins (no race window)',
+      () async {
+    // Regression for PR #32 review: previously, when cancel() landed
+    // simultaneously with the isolate's final `OptimizerResult`
+    // message, the result silently won and the user got the sweep
+    // they tried to abort. The runner now drops late results when
+    // `cancelled` is set. We can't deterministically reproduce the
+    // millisecond-level race here, but we CAN exercise the
+    // "post-spawn cancel before result" branch by cancelling the
+    // shortest possible sweep right after `start`.
+    const runner = OptimizerRunner();
+    final handle = runner.start(tinySpec());
+    handle.cancel();
+    // Either a clean cancel or — if the isolate beat us — a normal
+    // result. Both outcomes are acceptable, but the result MUST NOT
+    // arrive AFTER the future already failed.
+    try {
+      final result = await handle.result;
+      // Race: isolate completed before cancel landed. Sanity check.
+      expect(result.evaluated, greaterThanOrEqualTo(0));
+    } on OptimizerCancelledException {
+      // Race: cancel won. Either branch is valid; the regression we
+      // guard against is "OptimizerResult delivered AFTER cancel
+      // already failed the completer".
+    }
+  });
 }

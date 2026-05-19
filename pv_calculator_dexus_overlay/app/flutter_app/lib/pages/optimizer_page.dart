@@ -48,11 +48,28 @@ class _OptimizerPageState extends State<OptimizerPage> {
   /// optimizer enumerates every subset of these per combo.
   final Set<String> _optionalArrayIds = <String>{};
 
+  /// Cached reference to the (app-scoped) controller so `dispose` can
+  /// supersede any in-flight run without touching `context` after the
+  /// element is unmounted. Captured the first time `build` reads it.
+  OptimizerController? _controllerRef;
+
+  @override
+  void dispose() {
+    // The controller is provided at app scope, so a sweep kicked off
+    // here keeps running after the user navigates away. Supersede the
+    // generation (and cancel the underlying isolate when supported) so
+    // a late result can't clobber the controller's state after the
+    // user has loaded a different project.
+    _controllerRef?.supersede();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final draft = context.watch<ProjectController>().draft;
     final controller = context.watch<OptimizerController>();
+    _controllerRef = controller;
     final tariffActive = draft.tariff.enabled;
     // Derived view of the objective: if the tariff is inactive we
     // can't actually run `minNetCost`, so the dropdown and the run

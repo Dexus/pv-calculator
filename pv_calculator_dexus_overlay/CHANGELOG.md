@@ -14,6 +14,37 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+### Fixed — App (review fixes for PR #32)
+- `OptimizerRunner` (native isolate): when `cancel()` lands on the same
+  tick the isolate sends its final `OptimizerResult`, the result is now
+  dropped and the future fails with `OptimizerCancelledException`
+  instead of silently returning the sweep the user tried to abort.
+  Previously the listener checked `cancelled` for progress events but
+  not for the result message (Copilot).
+- `OptimizerController`: notify listeners immediately after assigning
+  `_currentHandle` so `canCancel` flips true and the Cancel button
+  enables during the isolate-spawn window, rather than only after the
+  first progress event arrives (Copilot).
+- `OptimizerProgress` docstring: removed the incorrect claim that the
+  runner emits a `(0, 0)` event for empty sweeps — the engine always
+  falls every empty sweep dimension back to a single baseline value,
+  so `total >= 1` (Copilot).
+
+### Changed — App (review fixes for PR #32)
+- `OptimizerController` now throttles `notifyListeners()` to integer-
+  percent transitions during progress callbacks (≤ 101 notifies per
+  run) so a maximal documented sweep (12 × 12 × 12 × 16 ≈ 27 k
+  candidates) doesn't trigger 27 k back-to-back Provider rebuilds.
+  Mirrors `ProjectController._lastNotifiedPct` (Codex).
+- `OptimizerController` gains an `_runGeneration` guard plus a public
+  `supersede()` method. With the native isolate path a sweep can keep
+  running after the user navigates away and edits another project;
+  the page now calls `supersede()` from `dispose()`, which bumps the
+  generation, cancels the underlying handle, and clears local state.
+  Any late result lands in a higher-generation bucket and is dropped
+  by the guards in `runFromDraft`. Mirrors `ProjectController._runGeneration`
+  (Codex).
+
 ## [0.8.1] — 2026-05-18 (app)
 
 Phase 10 follow-up — Optimizer sweep runs off the UI thread on native,
