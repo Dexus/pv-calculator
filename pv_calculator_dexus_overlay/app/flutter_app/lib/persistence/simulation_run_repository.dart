@@ -146,6 +146,10 @@ Map<String, dynamic> summaryToJson(SimulationSummary s) {
   if (s.importCostEur != null) json['importCostEur'] = s.importCostEur;
   if (s.exportRevenueEur != null) json['exportRevenueEur'] = s.exportRevenueEur;
   if (s.netCostEur != null) json['netCostEur'] = s.netCostEur;
+  // Phase-4b DC-coupling KPIs. Persist only when non-zero so legacy
+  // cached runs round-trip byte-identically through this codec.
+  if (s.dcDirectChargeKwh != 0.0) json['dcDirectChargeKwh'] = s.dcDirectChargeKwh;
+  if (s.dcCurtailedKwh != 0.0) json['dcCurtailedKwh'] = s.dcCurtailedKwh;
   return json;
 }
 
@@ -194,5 +198,7 @@ SimulationSummary summaryFromJson(Map<String, dynamic> json) {
     exportRevenueEur:
         json['exportRevenueEur'] == null ? null : toD(json['exportRevenueEur']),
     netCostEur: json['netCostEur'] == null ? null : toD(json['netCostEur']),
+    dcDirectChargeKwh: (json['dcDirectChargeKwh'] as num?)?.toDouble() ?? 0.0,
+    dcCurtailedKwh: (json['dcCurtailedKwh'] as num?)?.toDouble() ?? 0.0,
   );
 }

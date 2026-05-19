@@ -584,6 +584,158 @@ void main() {
       expect(brokenCfg.validate, throwsArgumentError);
     });
 
+    test('ConstantFeed24h policy charges DC-coupled batteries via DC pool', () {
+      // Codex P2: without a DC branch in `ConstantFeed24hPolicy`, an
+      // `array → cc → batteryFed → battery` setup driven by a bank
+      // would request 0 charge (no AC surplus exists), so the DC
+      // pre-step would curtail all PV and the bank would have an
+      // empty battery to draw from.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1000.0, maxChargeKw: 100.0,
+            maxDischargeKw: 100.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        dispatchPolicy: const ConstantFeed24hPolicy(),
+        topology: _topology(
+          mode: BusMode.batteryFed, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _FullSunWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      expect(result.summary.dcDirectChargeKwh,
+          closeTo(result.summary.pvDcKwh, 1e-9));
+      expect(result.summary.dcCurtailedKwh, closeTo(0.0, 1e-9));
+    });
+
+    test('two DC batteries on one hybrid bus share the load reservation', () {
+      // Codex P2: per-bus charge budget. Two empty DC batteries on
+      // the same bus must not each independently subtract the load
+      // — otherwise the second battery sees the same DC pool minus
+      // load and the load reservation is double-counted.
+      final cfg = SimulationConfig(
+        arrays: const [
+          PvArray(
+              id: 'a1', label: 'A1', peakKw: 3.0, azimuthDeg: 180, tiltDeg: 35,
+              inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0),
+        ],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1000.0, maxChargeKw: 1.0,
+            maxDischargeKw: 1.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+          BatteryConfig(
+            id: 'b2', capacityKwh: 1000.0, maxChargeKw: 1.0,
+            maxDischargeKw: 1.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        topology: const TopologyGraph(
+          dcBuses: [DcBus(id: 'dc-1')],
+          acBuses: [AcBus(id: 'ac-main')],
+          chargeControllers: [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+            BusEdge(fromId: 'dc-1', toId: 'inv'),
+            BusEdge(fromId: 'inv', toId: 'ac-main', maxPowerKw: 10.0),
+          ],
+          batteryCouplings: [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+            BatteryCouplingSpec(
+                batteryId: 'b2', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _FullSunWeather(),
+        gridExportLimitKw: 100.0,
+      );
+      final result = const PvSimulator().run(cfg);
+      // No load, no `remainingLoad` reservation. Each battery is
+      // rate-limited at 1 kW; together they absorb ≤ 2 kWh per peak
+      // hour. The 1 kWh excess (3 PV - 2 absorbed) bypasses to AC.
+      var sawPeak = false;
+      for (final s in result.steps) {
+        if (s.pvDcKwh >= 2.999) {
+          sawPeak = true;
+          expect(s.batteryChargesKwh[0], closeTo(1.0, 1e-9));
+          expect(s.batteryChargesKwh[1], closeTo(1.0, 1e-9));
+          // ~1 kWh bypasses to AC (no load, exports).
+          expect(s.pvAcKwh, closeTo(1.0, 1e-9));
+        }
+      }
+      expect(sawPeak, isTrue);
+    });
+
+    test('batteryFed bus discharge respects the bus inverter\'s AC cap', () {
+      // Codex P2: a 1 kW bus inverter and a 5 kW battery — direct
+      // discharge must stay at the 1 kW inverter cap.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'BatInv', maxAcKw: 1.0, efficiency: 1.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 50.0, maxChargeKw: 100.0,
+            maxDischargeKw: 5.0, minSocKwh: 0, initialSocKwh: 20.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 24.0 * 5.0),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.batteryFed, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _DarkWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // Every step where the battery had energy to discharge: capped at
+      // 1 kWh per hour, not the 5 kWh the battery rate would allow.
+      for (final s in result.steps) {
+        if (s.batteryDischargeKwh > 0) {
+          expect(s.batteryDischargeKwh, lessThanOrEqualTo(1.0 + 1e-9),
+              reason: 'discharge must respect bus-inverter AC cap of 1 kW');
+        }
+      }
+    });
+
+    test('curtailedDcKwh includes batteryFed residual losses', () {
+      // Codex P2: existing KPI consumers read `curtailedDcKwh`. Fold
+      // batteryFed residual into it so the legacy KPI report doesn't
+      // silently show 0 curtailment while energy is lost.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1.0, maxChargeKw: 10.0,
+            maxDischargeKw: 10.0, minSocKwh: 0, initialSocKwh: 1.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.batteryFed, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _FullSunWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      expect(result.summary.dcCurtailedKwh, greaterThan(0.0));
+      // The breakdown is a subset of the headline curtailment KPI.
+      expect(result.summary.curtailedDcKwh,
+          greaterThanOrEqualTo(result.summary.dcCurtailedKwh - 1e-9));
+    });
+
     test('zero-PV step in DC topology produces no NaNs in per-array AC', () {
       // Dark hour, DC topology configured — array DC = 0, every ratio
       // computation must not divide by zero.
