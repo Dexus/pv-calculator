@@ -136,10 +136,13 @@ class MonthlyBucket {
   /// Derived net cost: [importCostEur] minus [exportRevenueEur].
   double get netCostEur => importCostEur - exportRevenueEur;
 
-  /// Canonical JSON encoding. Named-key map (not positional) so a
-  /// truncated or reordered persistence record stays decodable; the
-  /// ~5 KB overhead per multi-year run is dwarfed by the existing
-  /// `summary_json` blob.
+  /// Canonical JSON encoding. Named-key map (not positional) so future
+  /// additions can be made in any order and old encoders interleaved
+  /// with new ones round-trip. `fromJson` still requires the original
+  /// 11 numeric fields plus `month` — emit them all in `toJson` so
+  /// records stay decodable; only `importCostEur` / `exportRevenueEur`
+  /// default to `0.0` when absent. The ~5 KB overhead per multi-year
+  /// run is dwarfed by the existing `summary_json` blob.
   Map<String, dynamic> toJson() => <String, dynamic>{
         'month': month,
         'pvAcKwh': pvAcKwh,

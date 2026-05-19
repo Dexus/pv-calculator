@@ -197,14 +197,59 @@ void main() {
     });
 
     test('keepSteps:false on multi-year still produces per-year monthly', () {
-      // Sanity check: the user's `keepSteps: false` opt-out applies to
-      // `result.steps` only; per-year monthly is computed in-line and
-      // does not depend on the user-facing steps list.
+      // The user's `keepSteps: false` opt-out applies to
+      // `result.steps`; per-year monthly is streamed into the engine-
+      // private `_MonthlyAccumulator` so no per-year step buffer is
+      // allocated. Verified indirectly: the result carries non-trivial
+      // monthly KPIs while `result.steps` stays empty.
       final cfg = _baseConfig(years: 3);
       final result = const PvSimulator().run(cfg);
       expect(result.steps, isEmpty);
       expect(result.summary.perYearMonthly, hasLength(3));
       expect(result.summary.perYearMonthly.first, hasLength(12));
+      // Non-zero on at least one month — confirms the streaming
+      // accumulator actually accumulated (not just zero-initialised).
+      final hasYield = result.summary.perYearMonthly.first
+          .any((b) => b.pvAcKwh > 0);
+      expect(hasYield, isTrue);
+    });
+
+    test(
+        'keepSteps:false multi-year monthly equals keepSteps:true multi-year monthly',
+        () {
+      // Byte-identity guard for the streaming accumulator path: the
+      // per-year buckets produced via `_MonthlyAccumulator` (when
+      // `keepSteps: false` skips the full step buffer) must match the
+      // buckets produced via `SummaryAggregator.monthly(result.steps)`
+      // on the final year of a `keepSteps: true` run.
+      final cfgNoSteps = _baseConfig(years: 3);
+      final cfgWithSteps = SimulationConfig(
+        arrays: cfgNoSteps.arrays,
+        inverters: cfgNoSteps.inverters,
+        batteries: cfgNoSteps.batteries,
+        loadProfile: cfgNoSteps.loadProfile,
+        days: 365,
+        simulationYears: 3,
+        keepSteps: true,
+        tariff: cfgNoSteps.tariff,
+      );
+      final noSteps = const PvSimulator().run(cfgNoSteps);
+      final withSteps = const PvSimulator().run(cfgWithSteps);
+      expect(noSteps.summary.perYearMonthly, hasLength(3));
+      expect(withSteps.summary.perYearMonthly, hasLength(3));
+      for (var y = 0; y < 3; y++) {
+        for (var m = 0; m < 12; m++) {
+          final a = noSteps.summary.perYearMonthly[y][m];
+          final b = withSteps.summary.perYearMonthly[y][m];
+          expect(a.pvAcKwh, closeTo(b.pvAcKwh, 1e-9),
+              reason: 'year $y month ${m + 1} pvAcKwh');
+          expect(a.loadKwh, closeTo(b.loadKwh, 1e-9));
+          expect(a.gridImportKwh, closeTo(b.gridImportKwh, 1e-9));
+          expect(a.gridExportKwh, closeTo(b.gridExportKwh, 1e-9));
+          expect(a.batteryChargeKwh, closeTo(b.batteryChargeKwh, 1e-9));
+          expect(a.batteryDischargeKwh, closeTo(b.batteryDischargeKwh, 1e-9));
+        }
+      }
     });
   });
 }

@@ -44,13 +44,21 @@ too large for the on-disk blob.
 
 ### Changed — Engine
 
-- **`PvSimulator._runMultiYear`** now sets `keepSteps: true` for every
-  inner-year run, aggregates the year's buffer to a `MonthlyBucket`
-  list before the buffer goes out of scope, then drops it. Peak
-  memory is unchanged (one year × ~9 MiB quarter-hourly buffer that
-  the final year already allocated). The user-facing `result.steps`
-  still honours `config.keepSteps == false` — the per-year buffer is
-  internal-only.
+- **New `_MonthlyAccumulator`** (engine-private) streams per-month
+  bucket totals alongside the per-step `_StepAccumulator` so per-year
+  monthly aggregation does not require keeping the per-year
+  `_StepBuffer`. `_runLinear` gains an optional `monthlyAcc`
+  parameter; public callers pass `null` and pay only the
+  predict-friendly `?.` null check per step.
+- **`PvSimulator._runMultiYear`** calls `_runLinear` directly
+  (bypassing `PvSimulator.run`, safe because cyclic + multi-year is
+  rejected at `validate()`), threads a fresh `_MonthlyAccumulator`
+  per year, and preserves the original Phase-9 `keepSteps`
+  optimisation `keepSteps: config.keepSteps && y == years - 1`. A
+  caller passing `keepSteps: false` continues to pay only the 1-slot
+  scratch buffer per year — no full-year buffer regression. The user-
+  facing `result.steps` is `last.steps`, which is already empty when
+  the user opted out.
 - **`_aggregateYears` signature** gains a `perYearMonthly` parameter
   and threads it onto the top-level `SimulationSummary`. The buckets
   themselves are not summed across years (callers wanting the rolled-
@@ -59,6 +67,11 @@ too large for the on-disk blob.
 - **`MonthlyBucket.importCostEur` doc** drops the stale "for single-
   year runs only" caveat — multi-year callers now have a precise
   per-year breakdown via `summary.perYearMonthly[y]`.
+- **`MonthlyBucket.toJson` doc** clarifies that `fromJson` still
+  requires the original 11 numeric fields (`pvAcKwh`, `loadKwh`,
+  etc.) plus `month`; only `importCostEur` / `exportRevenueEur`
+  default to `0.0` when absent. Named-key encoding still buys
+  reorder-tolerance for forward-compatible additions.
 - `kEngineVersion` bumps `0.16.0 → 0.17.0` (new public field on
   `SimulationSummary`, semver minor).
 
@@ -104,7 +117,9 @@ too large for the on-disk blob.
   aggregated top-level summary (1e-9); `toJson` round-trip preserves
   shape + values (1e-12); single-year `toJson` omits the key; multi-
   year `toJson` shape; `keepSteps:false` multi-year still produces
-  per-year monthly.
+  per-year monthly with at least one non-zero pvAc month; byte-identity
+  guard `keepSteps:false ↔ keepSteps:true` per-year monthly buckets
+  match within `1e-9` across every (year, month) cell.
 - `packages/pv_engine/test/multi_year_test.dart` — per-year count
   assertion extended to `perYearMonthly.length == years` (each year
   has 12 buckets).
