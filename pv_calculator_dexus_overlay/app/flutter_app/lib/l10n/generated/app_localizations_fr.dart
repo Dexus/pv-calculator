@@ -1000,6 +1000,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get catalogManagerTabBatteries => 'Batteries';
 
   @override
+  String get catalogManagerTabChargeControllers => 'Régulateurs de charge';
+
+  @override
   String get catalogManagerUserSection => 'Vos entrées';
 
   @override
@@ -1039,6 +1042,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get catalogManagerAddBatteryFab => 'Ajouter une batterie';
+
+  @override
+  String get catalogManagerAddChargeControllerFab =>
+      'Ajouter un régulateur de charge';
 
   @override
   String get catalogManagerDeleteConfirmTitle => 'Supprimer l\'entrée ?';
@@ -1095,6 +1102,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get catalogEditorTitleNewBattery => 'Nouvelle batterie';
+
+  @override
+  String get catalogEditorTitleNewChargeController =>
+      'Nouveau régulateur de charge';
 
   @override
   String catalogEditorTitleEdit(String name) {
@@ -1170,6 +1181,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get catalogEditorFieldMinSoc => 'SOC min. (kWh)';
 
   @override
+  String get catalogEditorFieldCcEfficiency => 'Rendement';
+
+  @override
+  String get catalogEditorFieldCcMaxInputKw => 'Entrée PV max (kW)';
+
+  @override
+  String get catalogEditorFieldCcMaxOutputKw => 'Sortie bus CC max (kW)';
+
+  @override
+  String get catalogEditorFieldCcStandbyW => 'Consommation en veille (W)';
+
+  @override
+  String get catalogEditorFieldCcMpptCount => 'Traqueurs MPPT';
+
+  @override
   String get catalogEditorFieldUnitPrice => 'Prix unitaire (€)';
 
   @override
@@ -1183,6 +1209,10 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get catalogEditorFieldUnitPriceHelpBattery =>
       'Prix catalogue par batterie. Optionnel.';
+
+  @override
+  String get catalogEditorFieldUnitPriceHelpChargeController =>
+      'Prix catalogue par régulateur. Optionnel.';
 
   @override
   String catalogSummaryUnitPriceModule(String price) {
