@@ -22,6 +22,8 @@ class DispatchContext {
     required this.banks,
     required this.topology,
     required this.gridExportLimitKw,
+    this.pvDcByBus = const {},
+    this.dcBusForBattery = const {},
   });
 
   final double hourOfDay;
@@ -45,6 +47,19 @@ class DispatchContext {
   final List<MicroInverterBank> banks;
   final TopologyGraph topology;
   final double? gridExportLimitKw;
+
+  /// Phase-4b: per-DC-bus PV energy already pooled on the bus side
+  /// of the charge controllers this step (after cc clip + efficiency,
+  /// before any battery charging). Empty unless the simulator detects
+  /// at least one `array → chargeController` path; policies may use
+  /// this to issue DC-side charge requests for DC-coupled batteries.
+  final Map<String, double> pvDcByBus;
+
+  /// Phase-4b: maps each DC-coupled battery's index in
+  /// [batteryIds] to its DC bus id. Empty for AC-only topologies.
+  /// Policies use this to detect that a battery's charge target
+  /// must be sourced from [pvDcByBus] rather than from AC surplus.
+  final Map<int, String> dcBusForBattery;
 }
 
 /// Output of a [DispatchPolicy]. Carries **request** energies; the

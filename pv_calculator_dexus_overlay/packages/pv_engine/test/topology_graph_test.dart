@@ -234,17 +234,53 @@ void main() {
             arrayIds: {}, inverterIds: {}, batteryIds: {'b1'}, bankIds: {}),
         throwsArgumentError,
       );
-      // Adding any cc to the bus satisfies the rule.
+      // Adding any cc to the bus + at least one `array → cc` edge
+      // satisfies the rule (the cc itself must not be inert).
       const ok = TopologyGraph(
         dcBuses: [DcBus(id: 'dc-1')],
         chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+        edges: [BusEdge(fromId: 'a1', toId: 'cc-1')],
         batteryCouplings: [
           BatteryCouplingSpec(
             batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
         ],
       );
       ok.validate(
-          arrayIds: {}, inverterIds: {}, batteryIds: {'b1'}, bankIds: {});
+          arrayIds: {'a1'},
+          inverterIds: {},
+          batteryIds: {'b1'},
+          bankIds: {});
+    });
+
+    test('rule 7: every chargeController must have at least one `array → cc` edge', () {
+      const inert = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1')],
+      );
+      expect(
+        () => inert.validate(
+            arrayIds: {'a1'},
+            inverterIds: {},
+            batteryIds: {},
+            bankIds: {}),
+        throwsArgumentError,
+      );
+    });
+
+    test('rule 8: chargeController id must be disjoint from other node ids', () {
+      const collidesWithArray = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        chargeControllers: [ChargeController(id: 'a1', dcBusId: 'dc-1')],
+        edges: [BusEdge(fromId: 'a1', toId: 'a1')],
+      );
+      expect(
+        () => collidesWithArray.validate(
+            arrayIds: {'a1'},
+            inverterIds: {},
+            batteryIds: {},
+            bankIds: {}),
+        throwsArgumentError,
+      );
     });
 
     test('rule 5: an array cannot be wired to a chargeController and an MPPT at once', () {

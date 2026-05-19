@@ -151,10 +151,15 @@ void main() {
       topology: const TopologyGraph(
         dcBuses: [DcBus(id: 'dc-main')],
         // Phase 4b: DC-coupled batteries must have at least one charge
-        // controller on their bus. The test only exercises the discharge
-        // path, so the controller is inert in practice.
+        // controller on their bus, and every controller must have at
+        // least one incoming `array → cc` edge. The test only
+        // exercises discharge, so this PV → cc edge produces no
+        // measurable PV (peakKw is 0.001).
         chargeControllers: [
           ChargeController(id: 'cc-main', dcBusId: 'dc-main'),
+        ],
+        edges: [
+          BusEdge(fromId: 'a1', toId: 'cc-main'),
         ],
         batteryCouplings: [
           BatteryCouplingSpec(
