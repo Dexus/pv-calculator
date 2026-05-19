@@ -7,6 +7,7 @@ import '../persistence/irradiance_cache_repository.dart';
 import '../services/pvgis_api.dart';
 import '../services/simulation_runner.dart';
 import 'config_draft.dart';
+import 'settings_controller.dart';
 
 /// Holds the editor's working draft plus the latest simulation result.
 ///
@@ -18,12 +19,14 @@ class ProjectController extends ChangeNotifier {
     PvgisApiService? pvgisApi,
     SimulationRunner? simulationRunner,
     IrradianceCacheRepository? irradianceCache,
+    SettingsController? settings,
   })  : _projectName = projectName ?? 'Neues Projekt',
         _draft = draft ?? ConfigDraft.demo(),
         _ownsPvgisApi = pvgisApi == null,
         _pvgisApi = pvgisApi ?? PvgisApiService(),
         _runner = simulationRunner ?? const SimulationRunner(),
-        _irradianceCache = irradianceCache;
+        _irradianceCache = irradianceCache,
+        _settings = settings;
 
   String _projectName;
   ConfigDraft _draft;
@@ -48,6 +51,13 @@ class ProjectController extends ChangeNotifier {
   final PvgisApiService _pvgisApi;
   final bool _ownsPvgisApi;
   final SimulationRunner _runner;
+
+  /// Optional reference to the settings controller. When provided,
+  /// [loadDraft] flips `expertMode` on if the loaded scenario uses
+  /// advanced features that would otherwise be hidden. Tests and the
+  /// `_FakeRunner`-based controllers that don't need this wiring leave
+  /// it null.
+  final SettingsController? _settings;
 
   /// Persistent cache for PVGIS horizontal-series fetches. When set,
   /// [loadSiteIrradiance] consults it before reaching for the network
@@ -146,6 +156,17 @@ class ProjectController extends ChangeNotifier {
     _draft = draft;
     _scenarioId = scenarioId;
     _projectId = projectId;
+    // If the loaded scenario uses sections that are gated behind expert
+    // mode (topology, micro-inverter banks, non-default dispatch policy,
+    // charge controllers), flip the flag on so those panels become
+    // visible instead of leaving the user to chase a banner. The
+    // existing `_ExpertOffHint` self-hides once `expertMode == true`.
+    final settings = _settings;
+    if (settings != null &&
+        !settings.expertMode &&
+        draft.usesAdvancedFeatures) {
+      unawaited(settings.setExpertMode(true));
+    }
     _result = null;
     // A different draft may bring a different (non-serialised) weather
     // source even when the electrical inputs hash the same. Clear the
