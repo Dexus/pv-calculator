@@ -70,7 +70,7 @@ Net: ~277 lines of engine code removed (449 added, 726 deleted).
   inverter-side vs bus-side cap conversions, and a bus DC ledger
   invariant.
 - **`packages/pv_engine/test/dc_dispatch_invariants_test.dart`** —
-  property-based backstop. Originally 100 random topologies × 24
+  property-based backstop. Previously 200 random topologies × 24
   hourly steps; extended (this release) to 250 random topologies
   with multi-bus shared-inverter shapes and a two-sided I6
   invariant plus a new I8 DC-side ledger sanity check.

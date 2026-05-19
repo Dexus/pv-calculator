@@ -19,9 +19,10 @@ import 'package:test/test.dart';
 ///       ≤ DC rate because every η ≤ 1).
 ///   I4: every reported per-step kWh field is finite and ≥ 0.
 ///   I5: grid export ≤ gridExportLimitKw × stepHours when set.
-///   I6: two-sided energy balance — `inputs - outputs - curtailment`
-///       is the conversion-loss slack, which must be ≥ 0 and ≤ an
-///       η-derived upper bound. The Phase 4b/4c review rounds found
+///   I6: two-sided energy balance — `inputs - outputs` is the
+///       conversion-loss slack (curtailment buckets are subtracted
+///       inside `outputs`), which must be ≥ 0 and ≤ an η-derived
+///       upper bound. The Phase 4b/4c review rounds found
 ///       cases where η or clip energy disappeared silently into the
 ///       slack; bounding it forces every kWh into either a delivery
 ///       bucket, a curtailment bucket, or a known conversion loss.
@@ -57,9 +58,11 @@ class _ConfigBuilder {
   final couplings = <BatteryCouplingSpec>[];
   final chargeControllers = <ChargeController>[];
   // Inverters that must NOT get a default `mppt-<id>` node in
-  // `_buildTopology`. Used for shared bus-inverters that feed at least
-  // one batteryFed bus — topology rule 3 forbids `array → mppt` on
-  // such inverters.
+  // `_buildTopology`. Used for shared bus-inverters that feed at
+  // least one batteryFed bus — topology Rule 4 (the "no array→mppt
+  // on batteryFed inverter" half of "Rules 3 + 4" in
+  // `lib/src/topology.dart:568`) forbids `array → mppt` on such
+  // inverters.
   final mpptlessInverters = <String>{};
   int _nextId = 0;
 
@@ -127,10 +130,11 @@ TopologyGraph _buildTopology(_ConfigBuilder b) {
   b.acBuses.add(ac);
   for (final inv in b.inverters) {
     // Inverters in `mpptlessInverters` are shared bus-inverters that
-    // feed at least one batteryFed DC bus. Rule 3 in
-    // `topology.dart:583-614` requires those to have no `array → mppt`
-    // path, so skip the MPPT node + edges entirely. PV arrays for
-    // these inverters reach the bus via a charge controller instead.
+    // feed at least one batteryFed DC bus. Rule 4 (the second half
+    // of the "Rules 3 + 4" block in `topology.dart:583-614`) requires
+    // those to have no `array → mppt` path, so skip the MPPT node +
+    // edges entirely. PV arrays for these inverters reach the bus
+    // via a charge controller instead.
     if (!b.mpptlessInverters.contains(inv.id)) {
       b.mppts.add(MpptNode(id: 'mppt-${inv.id}', inverterId: inv.id));
       b.edges.add(BusEdge(
