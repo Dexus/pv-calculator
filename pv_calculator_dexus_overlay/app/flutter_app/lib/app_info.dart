@@ -5,4 +5,4 @@
 /// mirrors the user-visible portion (without the `+buildNumber` suffix)
 /// for runtime display, since Dart code can't read pubspec metadata
 /// without an extra runtime dependency.
-const String appVersion = '0.9.3';
+const String appVersion = '0.10.0';

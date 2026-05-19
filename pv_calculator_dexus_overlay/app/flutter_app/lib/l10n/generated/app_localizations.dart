@@ -558,6 +558,30 @@ abstract class AppLocalizations {
   /// **'Zyklische Konvergenz (Pro)'**
   String get projectPreRunModeCyclicPro;
 
+  /// No description provided for @projectPreRunModePreviousYear.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorjahr'**
+  String get projectPreRunModePreviousYear;
+
+  /// No description provided for @projectPreRunModePreviousYearPro.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorjahr (Pro)'**
+  String get projectPreRunModePreviousYearPro;
+
+  /// No description provided for @projectPreRunYear.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorjahr für SOC-Vorlauf'**
+  String get projectPreRunYear;
+
+  /// No description provided for @projectPreRunYearHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Kalenderjahr, dessen PVGIS-Wetterdaten für den SOC-Vorlauf verwendet werden. Standard: ein Jahr vor dem Ergebnisjahr.'**
+  String get projectPreRunYearHelp;
+
   /// No description provided for @projectConvergenceTolerance.
   ///
   /// In de, this message translates to:

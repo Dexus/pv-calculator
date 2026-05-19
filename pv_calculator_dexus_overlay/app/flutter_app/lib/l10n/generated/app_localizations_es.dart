@@ -272,6 +272,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get projectPreRunModeCyclicPro => 'Convergencia cíclica (Pro)';
 
   @override
+  String get projectPreRunModePreviousYear => 'Año anterior';
+
+  @override
+  String get projectPreRunModePreviousYearPro => 'Año anterior (Pro)';
+
+  @override
+  String get projectPreRunYear => 'Año de precarga';
+
+  @override
+  String get projectPreRunYearHelp =>
+      'Año natural cuyos datos meteorológicos PVGIS alimentan la precarga del SOC. Por defecto, un año antes del año reportado.';
+
+  @override
   String get projectConvergenceTolerance => 'Tolerancia de convergencia';
 
   @override

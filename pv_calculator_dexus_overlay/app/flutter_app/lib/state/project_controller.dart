@@ -183,8 +183,12 @@ class ProjectController extends ChangeNotifier {
     // a background restore: cache-hit returns instantly without a
     // network call; cache-miss falls through to the regular PVGIS
     // fetch so the user does not have to press "Lade Daten" again on
-    // every project open.
-    if (draft.siteIrradiance.samples == null) {
+    // every project open. Also covers the prior-year warm-up: if the
+    // user configured `preRunYear` and we don't have its series cached
+    // on the draft yet, the same call fetches it.
+    final s = draft.siteIrradiance;
+    final missingPreRun = s.preRunYear != null && s.preRunSamples == null;
+    if (s.samples == null || missingPreRun) {
       unawaited(loadSiteIrradiance());
     }
   }
@@ -269,6 +273,11 @@ class ProjectController extends ChangeNotifier {
   /// Subsequent arrays consume that cache via [HorizontalToPoaSource] —
   /// no per-array network call.
   ///
+  /// When the draft has `siteIrradiance.preRunYear` set, a second fetch
+  /// is performed for that calendar year (same lat/lon/db) so the engine
+  /// can build a non-null `preRunWeatherSource` for
+  /// `PreRunMode.previousYearWarmUp`.
+  ///
   /// Errors surface via [lastIrradianceError]; the UI reads that to show
   /// the inline banner on the Einstrahlung tab.
   Future<void> loadSiteIrradiance() async {
@@ -289,74 +298,58 @@ class ProjectController extends ChangeNotifier {
     final reqLon = draftAtStart.longitudeDeg;
     final reqYear = draftAtStart.siteIrradiance.year;
     final reqDb = draftAtStart.siteIrradiance.radDatabase;
+    final reqPreYear = draftAtStart.siteIrradiance.preRunYear;
     bool stillCurrent() =>
         identical(_draft, draftAtStart) &&
         _runGeneration == generationAtStart &&
         _draft.latitudeDeg == reqLat &&
         _draft.longitudeDeg == reqLon &&
         _draft.siteIrradiance.year == reqYear &&
-        _draft.siteIrradiance.radDatabase == reqDb;
+        _draft.siteIrradiance.radDatabase == reqDb &&
+        _draft.siteIrradiance.preRunYear == reqPreYear;
     try {
-      // 1) Local DB cache — instant, no network. Shared across every
-      // project that uses the same (lat, lon, year, radDatabase), so a
-      // second project at the same location never refetches.
-      final cache = _irradianceCache;
-      if (cache != null) {
-        final cached = cache.lookup(
-          latitudeDeg: reqLat,
-          longitudeDeg: reqLon,
-          year: reqYear,
-          radDatabase: reqDb,
-        );
-        if (cached != null) {
-          if (stillCurrent()) {
-            _draft.siteIrradiance.samples = cached;
-            _draft.siteIrradiance.loadedFromCache = true;
-            _result = null;
-            _resultCache.clear();
-            _runGeneration++;
-          }
-          return;
-        }
-      }
-      // 2) PVGIS — write through to the local cache on success.
-      final result = await _pvgisApi.fetchHorizontalSeries(
+      // Reported year — required leg. Throws `PvgisApiException` on
+      // failure; the outer try/catch surfaces it to the UI.
+      final main = await _fetchSeriesForYear(
         latitudeDeg: reqLat,
         longitudeDeg: reqLon,
         year: reqYear,
         radDatabase: reqDb,
       );
-      // Cache write is unconditional: the response is genuinely valid
-      // for the (reqLat, reqLon, reqYear, reqDb) tuple even if the
-      // user has since switched to a different draft, so future
-      // requests at the same location still benefit.
-      cache?.store(
-        latitudeDeg: reqLat,
-        longitudeDeg: reqLon,
-        year: reqYear,
-        radDatabase: reqDb,
-        series: result.series,
-      );
-      if (!stillCurrent()) {
-        // Draft/site changed mid-flight — don't pin the old location's
-        // data onto the new draft. The new draft has its own auto-load
-        // (or will), so we're not silently dropping work.
-        return;
-      }
-      _draft.siteIrradiance.samples = result.series;
-      _draft.siteIrradiance.loadedFromCache = result.fromCache;
-      // Invalidate any previous simulation: the site weather just
-      // changed under it. The hash-keyed result cache also has to go,
-      // because `SimulationConfig.toJson()` does not serialise the
-      // weather source — so two runs with identical electrical inputs
-      // but different irradiance would otherwise collide on the same
-      // `inputHash` and return a stale cached result. See PR #26
-      // review threads from Codex.
+      if (!stillCurrent()) return;
+      _draft.siteIrradiance.samples = main.series;
+      _draft.siteIrradiance.loadedFromCache = main.fromCache;
+      // Invalidate immediately so a prior-year failure below cannot
+      // leave us with new `samples` but a stale `_result` cache. See
+      // PR #26 Codex thread for the rationale.
       _result = null;
       _resultCache.clear();
-      // Bump the run generation: a `run()` started before this reload
-      // must not commit its (stale-weather) result over the new state.
       _runGeneration++;
+      // Optional prior-year leg for `previousYearWarmUp`. Skipped when
+      // not configured or when it coincides with the reported year
+      // (the same fetch would be wasted).
+      if (reqPreYear != null && reqPreYear != reqYear) {
+        final pre = await _fetchSeriesForYear(
+          latitudeDeg: reqLat,
+          longitudeDeg: reqLon,
+          year: reqPreYear,
+          radDatabase: reqDb,
+        );
+        if (!stillCurrent()) return;
+        _draft.siteIrradiance.preRunSamples = pre.series;
+        _draft.siteIrradiance.preRunLoadedFromCache = pre.fromCache;
+      } else if (reqPreYear == reqYear) {
+        // Reported-year samples can serve double duty as the warm-up
+        // year too — keep state consistent so the engine sees a
+        // non-null source.
+        _draft.siteIrradiance.preRunSamples = _draft.siteIrradiance.samples;
+        _draft.siteIrradiance.preRunLoadedFromCache =
+            _draft.siteIrradiance.loadedFromCache;
+      } else {
+        // Prior-year warm-up disabled — drop any stale series.
+        _draft.siteIrradiance.preRunSamples = null;
+        _draft.siteIrradiance.preRunLoadedFromCache = null;
+      }
     } on PvgisApiException catch (e) {
       if (stillCurrent()) _lastIrradianceError = e.message;
     } catch (e) {
@@ -365,6 +358,44 @@ class ProjectController extends ChangeNotifier {
       _loadingIrradiance = false;
       notifyListeners();
     }
+  }
+
+  /// Fetches one calendar year's horizontal series, consulting the
+  /// local cache before reaching for the network. Writes successful
+  /// API responses back to the cache. Throws `PvgisApiException` on
+  /// network/HTTP failure — handled by `loadSiteIrradiance`.
+  Future<_FetchedSeries> _fetchSeriesForYear({
+    required double latitudeDeg,
+    required double longitudeDeg,
+    required int year,
+    required String? radDatabase,
+  }) async {
+    final cache = _irradianceCache;
+    if (cache != null) {
+      final cached = cache.lookup(
+        latitudeDeg: latitudeDeg,
+        longitudeDeg: longitudeDeg,
+        year: year,
+        radDatabase: radDatabase,
+      );
+      if (cached != null) {
+        return _FetchedSeries(series: cached, fromCache: true);
+      }
+    }
+    final result = await _pvgisApi.fetchHorizontalSeries(
+      latitudeDeg: latitudeDeg,
+      longitudeDeg: longitudeDeg,
+      year: year,
+      radDatabase: radDatabase,
+    );
+    cache?.store(
+      latitudeDeg: latitudeDeg,
+      longitudeDeg: longitudeDeg,
+      year: year,
+      radDatabase: radDatabase,
+      series: result.series,
+    );
+    return _FetchedSeries(series: result.series, fromCache: result.fromCache);
   }
 
   /// Validates and runs the simulation on a worker isolate (native) or
@@ -456,4 +487,16 @@ class ProjectController extends ChangeNotifier {
     if (_ownsPvgisApi) _pvgisApi.dispose();
     super.dispose();
   }
+}
+
+/// Result of a single year's irradiance fetch. Mirrors the shape of
+/// `PvgisHorizontalFetchResult` so cache-hit and PVGIS responses can be
+/// returned through the same channel from `_fetchSeriesForYear`.
+class _FetchedSeries {
+  const _FetchedSeries({required this.series, required this.fromCache});
+  final HorizontalIrradianceSeries series;
+  // Tri-state, matching `PvgisHorizontalFetchResult.fromCache`:
+  // `true` for proxy R2 hit, `false` for upstream PVGIS fetch,
+  // `null` when the cache header was absent (or local DB hit).
+  final bool? fromCache;
 }

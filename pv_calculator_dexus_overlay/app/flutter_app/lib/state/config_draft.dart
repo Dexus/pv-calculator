@@ -235,6 +235,9 @@ class SiteIrradianceDraft {
     this.radDatabase = defaultRadDatabase,
     this.samples,
     this.loadedFromCache,
+    this.preRunYear,
+    this.preRunSamples,
+    this.preRunLoadedFromCache,
   });
 
   int year;
@@ -253,6 +256,22 @@ class SiteIrradianceDraft {
   /// Surfaced in the UI as a small badge so users can tell repeat
   /// queries are fast because of caching.
   bool? loadedFromCache;
+
+  /// Calendar year used by `PreRunMode.previousYearWarmUp` to warm the
+  /// SOC against a *different* year's PVGIS data. `null` means
+  /// "no prior-year warm-up configured" — the engine then rejects
+  /// `previousYearWarmUp` at validate-time. The `radDatabase` field is
+  /// shared with the reported year so the two fetches stay comparable.
+  int? preRunYear;
+
+  /// 365×24 cached samples for `preRunYear`/[radDatabase] — populated
+  /// in parallel to [samples] by [ProjectController.loadSiteIrradiance]
+  /// when `preRunYear` is set. Session-only, like [samples].
+  HorizontalIrradianceSeries? preRunSamples;
+
+  /// `true` / `false` / `null` cache-hit hint for the most recent
+  /// `preRunYear` fetch, mirroring [loadedFromCache].
+  bool? preRunLoadedFromCache;
 }
 
 /// Mutable working copy of [SimulationConfig] for UI editing.
@@ -358,6 +377,17 @@ class ConfigDraft {
     return HorizontalToPoaSource(samples);
   }
 
+  /// Builds the prior-year [IrradianceSource] consumed by
+  /// `PreRunMode.previousYearWarmUp`. Returns `null` when no prior-year
+  /// data is currently cached on the draft; the engine's `validate()`
+  /// then rejects the run with a clear message instead of silently
+  /// degrading to `singleWarmUp` behaviour against the same year.
+  IrradianceSource? buildPreRunWeatherSource() {
+    final samples = siteIrradiance.preRunSamples;
+    if (samples == null) return null;
+    return HorizontalToPoaSource(samples);
+  }
+
   /// `true` when this draft makes use of an editor section that is
   /// hidden in non-expert mode (topology, micro-inverter banks, or a
   /// non-default dispatch policy). Drives the auto-detect banner in the
@@ -423,6 +453,9 @@ class ConfigDraft {
       latitudeDeg: latitudeDeg,
       longitudeDeg: longitudeDeg,
       weatherSource: buildWeatherSource(),
+      preRunWeatherSource: preRunMode == PreRunMode.previousYearWarmUp
+          ? buildPreRunWeatherSource()
+          : null,
       simulationYears: simulationYears,
       tariff: tariff.build(includeTou: true),
       // Persist the user's PVGIS year/db only when they deviate from
@@ -437,6 +470,7 @@ class ConfigDraft {
           siteIrradiance.radDatabase == defaultRadDatabase
               ? null
               : siteIrradiance.radDatabase,
+      preRunIrradianceYear: siteIrradiance.preRunYear,
     );
   }
 
@@ -545,6 +579,7 @@ class ConfigDraft {
         siteIrradiance: SiteIrradianceDraft(
           year: config.irradianceYear ?? defaultIrradianceYear,
           radDatabase: config.irradianceRadDatabase ?? defaultRadDatabase,
+          preRunYear: config.preRunIrradianceYear,
         ),
       );
 

@@ -43,7 +43,7 @@ part 'src/optimizer.dart';
 /// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
 /// change that can shift simulation results. Persisted alongside scenarios
 /// and simulation runs for reproducibility (PRD NFR-05).
-const String kEngineVersion = '0.17.0';
+const String kEngineVersion = '0.18.0';
 
 /// Reproducibility helpers on [SimulationConfig]. Kept as an extension so
 /// the core class stays pure data — adding `inputHash` here makes it clear
@@ -160,9 +160,7 @@ enum TimeStep {
 /// Per `docs/PRD_PV_Calculator_Flutter_App.md` §6.2 and
 /// `docs/Architekturkonzept_PV_Calculator_Flutter_App.md` §6: a Jahres-
 /// simulation that starts with an arbitrary 0 %, 50 % or 100 % SOC
-/// distorts the January values. Three strategies are supported here;
-/// "Previous-Year Weather" (Architektur §6) is deferred to Phase 10
-/// because it depends on multi-year weather data.
+/// distorts the January values. Four strategies are supported here.
 enum PreRunMode {
   /// User-supplied start SOC (`BatteryConfig.initialSocKwh`, or the
   /// 50 %-of-capacity default when null) is used as-is. No warm-up.
@@ -181,6 +179,15 @@ enum PreRunMode {
   /// value unconditionally; any Pro/Free restriction is enforced by the
   /// calling UI (see Flutter `kProFeatures`), not here.
   cyclicConvergence,
+
+  /// Runs a separate calendar year's weather as the warm-up before the
+  /// reported year. The pre-run still consumes `preRunDays` days, but
+  /// the irradiance for those days is sourced from
+  /// `SimulationConfig.preRunWeatherSource` (e.g. a `HorizontalToPoaSource`
+  /// over the prior year's PVGIS series) instead of `weatherSource`.
+  /// Engine accepts this value unconditionally; the calling UI (see
+  /// Flutter `kProFeatures`) enforces Pro gating.
+  previousYearWarmUp,
 }
 
 class PvArray {
@@ -489,6 +496,8 @@ class SimulationConfig {
     this.irradianceYear,
     this.irradianceRadDatabase,
     this.chargeControllers = const [],
+    this.preRunWeatherSource,
+    this.preRunIrradianceYear,
   });
 
   final List<PvArray> arrays;
@@ -550,6 +559,22 @@ class SimulationConfig {
   /// [HourlyWeatherSeries] built from PVGIS data here to drive the
   /// simulation from real measurements.
   final IrradianceSource? weatherSource;
+
+  /// Irradiance source used **only** during pre-run steps when
+  /// [preRunMode] == [PreRunMode.previousYearWarmUp]. Typically a
+  /// `HorizontalToPoaSource` wrapping the calendar year before
+  /// [irradianceYear]. Required by [validate] for that mode; ignored
+  /// by every other mode. Runtime-only — not serialised through
+  /// [toJson] / [fromJson] (mirrors [weatherSource]).
+  final IrradianceSource? preRunWeatherSource;
+
+  /// Metadata mirror of [irradianceYear] for the prior-year warm-up.
+  /// Persisted in JSON so callers (the Flutter app) can re-fetch the
+  /// matching PVGIS series after a reload. The engine itself never
+  /// consumes this — the actual irradiance flows through
+  /// [preRunWeatherSource]. `null` means "no prior-year warm-up
+  /// recorded" and is the legacy default.
+  final int? preRunIrradianceYear;
 
   /// Strategy that maps weather + module NOCT into cell temperature
   /// for the array-level temperature derating.
@@ -640,6 +665,15 @@ class SimulationConfig {
       // mechanisms and make the reported iteration count meaningless.
       _require(days == 365, 'cyclicConvergence requires days == 365.');
       _require(preRunDays == 0, 'cyclicConvergence cannot be combined with preRunDays > 0.');
+    }
+    if (preRunMode == PreRunMode.previousYearWarmUp) {
+      // Without a separate source the mode would silently degrade to
+      // `singleWarmUp` against the same weather — the whole point of
+      // this mode is that the warm-up year is *different*.
+      _require(preRunWeatherSource != null,
+          'previousYearWarmUp requires preRunWeatherSource.');
+      _require(preRunDays >= 1,
+          'previousYearWarmUp requires preRunDays >= 1.');
     }
     _require(simulationYears >= 1 && simulationYears <= 30,
         'simulationYears must be in [1, 30].');
@@ -747,8 +781,9 @@ class SimulationConfig {
     // Bump to schema v2 only when one of the new Phase-4 fields is
     // actually set, v3 only when a Phase-5 field differs from its
     // default, v4 only when a Phase-10 multi-year/degradation knob is
-    // non-default, v5 when a tariff is configured, and v6 when one of
-    // the Phase-4b DC-coupling fields is non-default. Legacy projects
+    // non-default, v5 when a tariff is configured, v6 when one of the
+    // Phase-4b DC-coupling fields is non-default, and v7 only when the
+    // `previousYearWarmUp` pre-run mode is selected. Legacy projects
     // continue to round-trip as v1.
     final hasPhase4 = topology != null ||
         dispatchPolicy != null ||
@@ -766,15 +801,22 @@ class SimulationConfig {
     final hasDcCoupling = chargeControllers.isNotEmpty ||
         (topology?.chargeControllers.isNotEmpty ?? false) ||
         (topology?.dcBuses.any((b) => b.mode != BusMode.hybrid) ?? false);
-    final version = hasDcCoupling
-        ? 6
-        : hasTariff
-            ? 5
-            : hasPhase10
-                ? 4
-                : hasPhase5
-                    ? 3
-                    : (hasPhase4 ? 2 : 1);
+    // v7 is a forward-compat zaun on the new enum value. The pre-run
+    // weather source itself is runtime-only (see `weatherSource`), so
+    // no new JSON keys are emitted — only the mode bump.
+    final hasPreviousYearWarmUp =
+        preRunMode == PreRunMode.previousYearWarmUp;
+    final version = hasPreviousYearWarmUp
+        ? 7
+        : hasDcCoupling
+            ? 6
+            : hasTariff
+                ? 5
+                : hasPhase10
+                    ? 4
+                    : hasPhase5
+                        ? 3
+                        : (hasPhase4 ? 2 : 1);
     final json = <String, dynamic>{
       'schemaVersion': version,
       'arrays': arrays.map((a) => a.toJson()).toList(),
@@ -823,6 +865,13 @@ class SimulationConfig {
     if (irradianceRadDatabase != null) {
       json['irradianceRadDatabase'] = irradianceRadDatabase;
     }
+    // Mirror of `irradianceYear` — only persisted when the user
+    // configured a prior-year warm-up. Legacy projects without this
+    // field decode to `null`, the engine then rejects
+    // `previousYearWarmUp` at validate-time as expected.
+    if (preRunIrradianceYear != null) {
+      json['preRunIrradianceYear'] = preRunIrradianceYear;
+    }
     if (chargeControllers.isNotEmpty) {
       json['chargeControllers'] =
           chargeControllers.map((c) => c.toJson()).toList();
@@ -832,7 +881,7 @@ class SimulationConfig {
 
   static SimulationConfig fromJson(Map<String, dynamic> json) {
     final version = json['schemaVersion'] as int? ?? 1;
-    if (version < 1 || version > 6) {
+    if (version < 1 || version > 7) {
       throw ArgumentError('Unknown SimulationConfig schemaVersion: $version');
     }
     final batteries = <BatteryConfig>[];
@@ -903,6 +952,8 @@ class SimulationConfig {
           : null,
       irradianceYear: (json['irradianceYear'] as num?)?.toInt(),
       irradianceRadDatabase: json['irradianceRadDatabase'] as String?,
+      preRunIrradianceYear:
+          (json['preRunIrradianceYear'] as num?)?.toInt(),
       chargeControllers: () {
         final raw = json['chargeControllers'];
         if (raw is! List) return const <ChargeController>[];
@@ -1689,6 +1740,10 @@ class PvSimulator {
       case PreRunMode.manual:
         return _runLinear(config, preRunDays: 0, onProgress: onProgress);
       case PreRunMode.singleWarmUp:
+      case PreRunMode.previousYearWarmUp:
+        // Both modes consume `preRunDays` pre-run steps via `_runLinear`;
+        // the only difference is which irradiance source the loop uses
+        // when `dayIndex < 0`, applied inside `_runLinear` itself.
         return _runLinear(config, preRunDays: config.preRunDays, onProgress: onProgress);
       case PreRunMode.cyclicConvergence:
         return _runCyclic(config, onProgress: onProgress);
@@ -1738,6 +1793,11 @@ class PvSimulator {
       final yearPreRunDays = y == 0 ? config.preRunDays : 0;
       final yearPreRunMode =
           y == 0 ? config.preRunMode : PreRunMode.manual;
+      // `previousYearWarmUp` is a year-0 construct; propagate the
+      // prior-year source only for that year so years 1..N (which run
+      // in `manual`) don't carry a now-meaningless reference.
+      final yearPreRunWeatherSource =
+          y == 0 ? config.preRunWeatherSource : null;
       final yearConfig = SimulationConfig(
         arrays: deratedArrays,
         inverters: config.inverters,
@@ -1767,6 +1827,7 @@ class PvSimulator {
         keepSteps: config.keepSteps && y == years - 1,
         simulationYears: 1,
         tariff: config.tariff,
+        preRunWeatherSource: yearPreRunWeatherSource,
       );
       final yearProgress = onProgress == null
           ? null
@@ -1975,8 +2036,15 @@ class PvSimulator {
           if (config.keepSteps) writeIdx++;
         } else {
           // Pre-run: advance SOC only; no buffer write, no allocation.
+          // `previousYearWarmUp` swaps in the prior-year weather source
+          // here so the SOC settles on real-but-different conditions
+          // before the reported year (validated to be non-null above).
           _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay,
-              null, 0, arrayDcScratch, arrayAcScratch);
+              null, 0, arrayDcScratch, arrayAcScratch,
+              weatherSourceOverride:
+                  config.preRunMode == PreRunMode.previousYearWarmUp
+                      ? config.preRunWeatherSource
+                      : null);
         }
       }
       if (onProgress != null) {
@@ -2119,6 +2187,12 @@ class PvSimulator {
   /// buffers sized to `config.arrays.length`; reusing them across all
   /// steps eliminates ~70 000 small list allocations on a quarter-hourly
   /// year and the GC pressure that comes with them.
+  ///
+  /// [weatherSourceOverride] swaps the irradiance source for this step
+  /// only — used by [PreRunMode.previousYearWarmUp] so pre-run steps
+  /// read a different calendar year while the reported year keeps
+  /// reading [SimulationConfig.weatherSource]. `null` falls through to
+  /// the default behaviour (no allocation, no branch cost).
   void _simulateStep(
     SimulationConfig config,
     List<double> socs,
@@ -2129,12 +2203,13 @@ class PvSimulator {
     _StepBuffer? buf,
     int writeIdx,
     Float64List arrayDcScratch,
-    Float64List arrayAcScratch,
-  ) {
+    Float64List arrayAcScratch, {
+    IrradianceSource? weatherSourceOverride,
+  }) {
     final stepHours = config.timeStep.hours;
     final inverterById = {for (final i in config.inverters) i.id: i};
     final dcByInverter = <String, double>{};
-    final source = config.effectiveWeatherSource;
+    final source = weatherSourceOverride ?? config.effectiveWeatherSource;
     final tempModel = config.temperatureModel;
     final topology = config.effectiveTopology;
     var pvDcKwh = 0.0;

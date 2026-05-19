@@ -12,7 +12,82 @@ The two artefacts versioned here are:
 The About dialog in the app surfaces `appVersion (engine kEngineVersion)`
 so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
-## [Unreleased] — engine 0.17.0 / app 0.9.2
+## [Unreleased] — engine 0.18.0 / app 0.10.0
+
+Phase 5 deferred — `PreRunMode.previousYearWarmUp`. Closes the
+ROADMAP Phase-5 "Previous-Year Weather Pre-Run" deferred entry. The
+third SOC warm-up method from
+`docs/Architekturkonzept_PV_Calculator_Flutter_App.md` §6 (alongside
+`singleWarmUp` and `cyclicConvergence`) now runs a *different*
+calendar year's PVGIS weather during the warm-up while the reported
+year keeps using its own series — closer to a real prior-year state
+than repeating the same year. Pro-gated in the UI like cyclic
+convergence; engine accepts the value unconditionally.
+
+### Added — Engine
+
+- **`PreRunMode.previousYearWarmUp`** in `lib/pv_engine.dart`. Routed
+  through the existing `_runLinear` warm-up loop; the new branch only
+  swaps the `IrradianceSource` for `dayIndex < 0` steps. Validated to
+  require a non-null `preRunWeatherSource` and `preRunDays >= 1`.
+- **`SimulationConfig.preRunWeatherSource: IrradianceSource?`** — the
+  runtime-only source used during the warm-up. Mirrors `weatherSource`
+  in that it is **not** serialised through `toJson` / `fromJson`; the
+  caller re-supplies it on load.
+- **`SimulationConfig.preRunIrradianceYear: int?`** — JSON-persisted
+  mirror of `irradianceYear` for the prior-year leg, so the Flutter
+  app can re-fetch the correct year after reload. Engine itself
+  doesn't consume it.
+- **`previous_year_warmup_test.dart`** — 8 tests covering bright /
+  dark warm-up years, sanity vs. `singleWarmUp` with the same source,
+  validation, multi-year compatibility, and schema-v7 round-trip.
+
+### Changed — Engine
+
+- **`_simulateStep`** gains an optional `weatherSourceOverride`
+  parameter. Default `null` falls through to `config.effectiveWeatherSource`
+  — no behaviour change for every existing call site. Only `_runLinear`'s
+  pre-run branch passes a non-null override.
+- **`_runMultiYear`** propagates `preRunWeatherSource` to year 0 only;
+  years 1..N continue to run in `PreRunMode.manual` against the carry-
+  over SOC.
+- **JSON schema `v6 → v7`** — bumped only when `preRunMode ==
+  PreRunMode.previousYearWarmUp`. Legacy configs continue to round-trip
+  on their existing schema version (no DDL change in SQLite —
+  `config_json` is a TEXT blob).
+- **`kEngineVersion = '0.18.0'`**.
+
+### Added — App
+
+- **Previous-year radio option** in `_SimParamsSection` (results tab),
+  Pro-gated identically to the existing cyclic-convergence option.
+  When selected, the dropdown auto-defaults `preRunDays = 365` and
+  picks `siteIrradiance.year - 1` as the warm-up year.
+- **Warm-up year picker** (`Key('pre-run-year-field')`) renders inline
+  next to the pre-run-days field for the new mode. Editing it kicks
+  off a fresh `loadSiteIrradiance` for the new calendar year.
+- **`SiteIrradianceDraft.preRunYear` + `preRunSamples`** —
+  session-only mirrors of the existing `year` / `samples` pair for
+  the warm-up leg.
+- **`ConfigDraft.buildPreRunWeatherSource()`** + wiring in `build()`
+  — passes a `HorizontalToPoaSource` over the cached prior-year
+  series to the engine when the mode is `previousYearWarmUp`.
+- L10n: `projectPreRunModePreviousYear`, `projectPreRunModePreviousYearPro`,
+  `projectPreRunYear`, `projectPreRunYearHelp` in de/en/es/fr.
+
+### Changed — App
+
+- **`ProjectController.loadSiteIrradiance`** refactored: the per-year
+  fetch is now in a private `_fetchSeriesForYear` helper, called for
+  both the reported year and (when configured) the warm-up year. The
+  in-flight `stillCurrent()` guard now also keys on
+  `siteIrradiance.preRunYear`. Auto-trigger from `loadDraft` fires
+  when **either** year is missing on the draft.
+- **App `0.9.3 → 0.10.0`** — minor bump because the new mode is a
+  visible feature even though it's Pro-gated. About dialog reads
+  `appVersion (engine kEngineVersion)` as before.
+
+## engine 0.17.0 / app 0.9.2
 
 Phase 10 follow-up — per-year monthly buckets persisted for multi-year
 runs. Closes the ROADMAP "Persistierte Per-Jahr-Zeitreihen für

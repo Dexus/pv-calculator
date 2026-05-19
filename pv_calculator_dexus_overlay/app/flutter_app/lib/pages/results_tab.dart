@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -211,10 +212,18 @@ class _SimParamsSection extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final controller = context.watch<ProjectController>();
     final draft = controller.draft;
-    final showWarmUp = draft.preRunMode == PreRunMode.singleWarmUp;
+    final showWarmUp = draft.preRunMode == PreRunMode.singleWarmUp ||
+        draft.preRunMode == PreRunMode.previousYearWarmUp;
     final showConvergence = draft.preRunMode == PreRunMode.cyclicConvergence;
+    final showPreviousYear =
+        draft.preRunMode == PreRunMode.previousYearWarmUp;
     final cyclicSelectable = kProFeatures ||
         draft.preRunMode == PreRunMode.cyclicConvergence;
+    // Pro-gated like cyclic convergence. A free build that loads a
+    // Pro-authored scenario keeps the value selected (so saves don't
+    // downgrade) but doesn't let a free user pick it fresh.
+    final previousYearSelectable = kProFeatures ||
+        draft.preRunMode == PreRunMode.previousYearWarmUp;
     return Card(
       child: ExpansionTile(
         title: Text(l.projectSectionTitle),
@@ -256,6 +265,13 @@ class _SimParamsSection extends StatelessWidget {
                         ? l.projectPreRunModeCyclic
                         : l.projectPreRunModeCyclicPro),
                   ),
+                  DropdownMenuItem(
+                    value: PreRunMode.previousYearWarmUp,
+                    enabled: previousYearSelectable,
+                    child: Text(previousYearSelectable
+                        ? l.projectPreRunModePreviousYear
+                        : l.projectPreRunModePreviousYearPro),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v == null) return;
@@ -267,7 +283,31 @@ class _SimParamsSection extends StatelessWidget {
                     draft.days = 365;
                     draft.preRunDays = 0;
                   }
+                  // Previous-year warm-up needs a year picked + a
+                  // non-zero warm-up window. Default to the year before
+                  // the reported irradiance year (or the system year if
+                  // the reported year is the default), and seed a
+                  // 365-day warm-up so the engine has enough material
+                  // to settle SOC across a full season.
+                  if (v == PreRunMode.previousYearWarmUp) {
+                    final reqYear = draft.siteIrradiance.year;
+                    draft.siteIrradiance.preRunYear ??= reqYear - 1;
+                    if (draft.preRunDays < 1) draft.preRunDays = 365;
+                  } else {
+                    // Drop the prior-year cache when switching away so
+                    // memory isn't held for an unused leg.
+                    draft.siteIrradiance.preRunYear = null;
+                    draft.siteIrradiance.preRunSamples = null;
+                    draft.siteIrradiance.preRunLoadedFromCache = null;
+                  }
                   controller.touch();
+                  // Switching into the prior-year mode usually means a
+                  // new year fetch is needed — trigger it now so the
+                  // user doesn't have to press Lade Daten manually.
+                  if (v == PreRunMode.previousYearWarmUp &&
+                      draft.siteIrradiance.preRunSamples == null) {
+                    unawaited(controller.loadSiteIrradiance());
+                  }
                 },
               )),
               if (showWarmUp)
@@ -277,6 +317,30 @@ class _SimParamsSection extends StatelessWidget {
                   initialValue: draft.preRunDays.toDouble(),
                   min: 0, max: 365,
                   onChanged: (v) { if (v != null) { draft.preRunDays = v.round(); controller.touch(); } },
+                )),
+              if (showPreviousYear)
+                SizedBox(width: 200, child: NumberField(
+                  key: const Key('pre-run-year-field'),
+                  label: l.projectPreRunYear,
+                  helpText: l.projectPreRunYearHelp,
+                  initialValue:
+                      (draft.siteIrradiance.preRunYear ??
+                              draft.siteIrradiance.year - 1)
+                          .toDouble(),
+                  min: 2005, max: 2100,
+                  onChanged: (v) {
+                    if (v == null) return;
+                    final newYear = v.round();
+                    if (draft.siteIrradiance.preRunYear == newYear) return;
+                    draft.siteIrradiance.preRunYear = newYear;
+                    // Year changed: drop the stale series so the cache
+                    // or PVGIS re-fetch repopulates it for the new
+                    // year.
+                    draft.siteIrradiance.preRunSamples = null;
+                    draft.siteIrradiance.preRunLoadedFromCache = null;
+                    controller.touch();
+                    unawaited(controller.loadSiteIrradiance());
+                  },
                 )),
               if (showConvergence) ...[
                 SizedBox(width: 200, child: NumberField(
@@ -810,6 +874,8 @@ String _preRunModeLabel(AppLocalizations l, PreRunMode mode) {
       return l.projectPreRunModeSingle;
     case PreRunMode.cyclicConvergence:
       return l.projectPreRunModeCyclic;
+    case PreRunMode.previousYearWarmUp:
+      return l.projectPreRunModePreviousYear;
   }
 }
 

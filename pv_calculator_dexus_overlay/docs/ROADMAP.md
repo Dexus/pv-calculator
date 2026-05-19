@@ -138,7 +138,7 @@ Ziel: Realistische Startzustände; keine künstlich verzerrten Januarwerte (PRD 
 
 ### Verschoben
 
-- **Previous-Year Weather Pre-Run** (Architektur §6, dritte Methode): tatsächliches Vorjahr als Warm-Up. Benötigt mehrjährige Wetterdaten und gehört in Phase 10 (erweiterte Datenquellen) — frühestens umsetzbar wenn ein Wetter-Proxy mit Mehrjahres-Cache vorliegt.
+- ~~**Previous-Year Weather Pre-Run** (Architektur §6, dritte Methode)~~ — erledigt 2026-05-19 (Engine 0.18.0 / App 0.10.0). `PreRunMode.previousYearWarmUp` läuft den vorhandenen `_runLinear`-Warm-Up-Loop, ersetzt aber für `dayIndex < 0` die Irradianzquelle durch `SimulationConfig.preRunWeatherSource` — typischerweise ein `HorizontalToPoaSource` über die PVGIS-Daten des Vorjahres. Validate-Regel: `previousYearWarmUp` ⇒ `preRunWeatherSource != null && preRunDays >= 1`. Multi-Year-kompatibel (Jahr 0 ehrt den Vormodus, Jahre 1..N laufen weiter manuell). Schema-Bump v6 → v7 (nur wenn `previousYearWarmUp` aktiv); `preRunWeatherSource` ist runtime-only wie `weatherSource`, `preRunIrradianceYear` persistiert die Jahresauswahl. UI: Pro-gated Dropdown-Eintrag „Vorjahr" plus Jahres-Picker (`Key('pre-run-year-field')`) im Auswertung-Tab; `ProjectController.loadSiteIrradiance` zieht beide Jahre über denselben Cache/Proxy. Verifiziert in `packages/pv_engine/test/previous_year_warmup_test.dart` (8 Tests).
 
 ---
 
