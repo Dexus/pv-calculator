@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
 import 'package:pv_engine/pv_engine.dart';
 
@@ -11,7 +13,8 @@ import '../../l10n/generated/app_localizations.dart';
 /// When [paretoFrontier] is non-empty, a leading `Pareto` column is
 /// rendered. Rows whose [OptimizerCandidate] instance is identity-equal
 /// to a member of the frontier are marked with a star icon; all others
-/// get an em dash. Membership uses `identical()` because
+/// get an em dash. Membership uses `HashSet.identity()` (which compares
+/// by `identical()` rather than `==`) because
 /// `OptimizerResult.paretoFrontier` reuses the same Dart objects that
 /// appear in `candidates` (see `Optimizer.run` / `Optimizer._computePareto`).
 ///
@@ -33,13 +36,15 @@ class OptimizerResultsTable extends StatelessWidget {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
     final showPareto = paretoFrontier.isNotEmpty;
-    // Identity-hash lookup keeps the per-row check O(1). All candidate
-    // objects originate from the same sweep, so identity is sufficient.
-    final paretoIds = showPareto
-        ? {for (final c in paretoFrontier) identityHashCode(c)}
-        : const <int>{};
-    bool isPareto(OptimizerCandidate c) =>
-        paretoIds.contains(identityHashCode(c));
+    // Identity-set lookup keeps the per-row check O(1). All candidate
+    // objects originate from the same sweep, so `identical()` is sufficient
+    // — using identity avoids both spurious matches across structurally
+    // equal candidates and the (theoretical) hash collisions that a
+    // `identityHashCode`-only set would be vulnerable to.
+    final paretoSet = showPareto
+        ? (HashSet<OptimizerCandidate>.identity()..addAll(paretoFrontier))
+        : const <OptimizerCandidate>{};
+    bool isPareto(OptimizerCandidate c) => paretoSet.contains(c);
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
