@@ -55,6 +55,47 @@ Ziel: Mehrere PV-Arrays mit individuellen Ausrichtungen, gerichteter Energiegrap
 
 ---
 
+## Phase 4b – DC-Kopplung & Laderegler (in Arbeit)
+
+Ziel: Echte DC-gekoppelte Topologie simulieren — PV → Laderegler → DC-Bus → (Batterie ∥ Hybrid-/Batterie-Wechselrichter). Der `TopologyGraph` kennt bereits `BatteryCoupling.dc` und `dcBusId`, der UI-Editor zeigt die Wahl AC/DC; der Header-Kommentar in `packages/pv_engine/lib/src/topology.dart` Z. 9-11 markiert die Dispatch-Seite jedoch als „planned for future phases". Diese verschobene Arbeit wird hier nachgeholt. Bestehende AC-Szenarien rechnen byte-identisch weiter (Regressions-Test gegen Pre-Change-Fixture mit Toleranz `1e-9`).
+
+Begründung: Reale Aufbauten mit MPPT-Ladereglern und Hybrid- oder Off-Grid-Wechselrichtern lassen sich heute nicht modellieren — die Batterie wird ausschließlich aus dem AC-Überschuss geladen (`pvAcKwh − loadKwh`), der DC-Pfad ohne Inverter-η existiert nicht, und die Bauart „PV erreicht AC nur über die Batterie" ist nicht abbildbar.
+
+### Implementierungs-Chunks (jeweils eigener Commit auf `claude/add-battery-charger-topology-XgywK`)
+
+- **Chunk 1 – Engine-Domäne**: `class ChargeController { id, dcBusId, efficiency, maxInputKw?, standbyW, label }`, `enum BusMode { hybrid, batteryFed }`, `DcBus.mode`, `TopologyGraph.chargeControllers` in `packages/pv_engine/lib/src/topology.dart`. `kEngineVersion = '0.15.0'`. Dispatch-Logik unverändert ⇒ keine Verhaltensänderung.
+- **Chunk 2 – `SimulationConfig`**: `chargeControllers: List<ChargeController> = const []`, JSON-Schema-Stufe `v6` (nur wenn neue Felder genutzt werden). `effectiveTopology` reicht Controller durch `TopologyGraph.fromLegacy`; bei explizitem `topology` wird `config.chargeControllers.isEmpty` erzwungen (Single Source of Truth).
+- **Chunk 3 – Dispatch (Kern)**: `_simulateStep` partitioniert Arrays in AC-/DC-Pfad und akkumuliert `pvDcByBus`. `EnergyRouter.apply()` bekommt vorgelagerten DC-Block (Step 1a–1d): (1a) DC-Pool je Bus, (1b) DC-gekoppelte Batterien laden ohne Inverter-η, (1c) `hybrid`-Rest fließt über zugewiesenen Inverter zu AC, (1d) `batteryFed`-Rest landet in `dcCurtailedKwh`. Steps 2–6 = bestehende Legacy-Pipeline unverändert. Neue Felder `RoutedFlows.dcDirectChargeKwh` / `.dcCurtailedKwh`, `SimulationStep`/`SimulationSummary` analog (Default `0.0`).
+- **Chunk 4 – Policies + Validation**: `DispatchContext.pvDcByBus` & `dcBusForBattery`; alle drei Policies (`SelfConsumptionFirst`, `BatteryReserve`, `ConstantFeed24h`) erhalten einen einzeiligen Branch für DC-Batterien (sonst würden sie bei `pvAcKwh = 0` nie laden). `TopologyGraph.validate` und `SimulationConfig.validate` erzwingen die unten gelisteten Cross-Refs.
+- **Chunk 5 – Katalog + DB**: `ComponentKind.chargeController` + `ChargeControllerCatalogEntry` in `packages/component_catalog/`, Seed-JSON-Sektion `chargeControllers` (Seed-Version bleibt `1`, additiv). SQLite-Migration v2→v3 entspannt den `CHECK`-Constraint auf `component_catalog.kind` per Tabellen-Rename (`component_catalog__new` + `INSERT … SELECT *`) in einer Transaktion. Bestehende Zeilen unverändert übernommen.
+- **Chunk 6 – Flutter-UI**: Neue Section `widgets/forms/charge_controllers_section.dart` (Spiegel von `inverters_section.dart`, Katalog-Picker auf `ChargeControllerCatalogEntry`). `state/config_draft.dart` bekommt `ChargeControllerDraft` und `DcBusDraft.mode`; `classifyValidationMessage` routet `charge controller` / `laderegler` zu `ConfigSection.chargeControllers`. `topology_section.dart` ergänzt eine `BusMode`-Spalte je DC-Bus. `pages/results_tab.dart` mountet die neue Section zwischen Wechselrichter und Batterie. L10n-ARBs erweitert.
+
+### Validierungsregeln
+
+1. `ChargeController.dcBusId` zeigt auf bekannten `DcBus`; alle `ChargeController`-Ids eindeutig und disjunkt zu Array-/Inverter-/MPPT-/Battery-/Bank-/Bus-Ids.
+2. `BatteryCouplingSpec.coupling == dc` ⇒ `dcBusId` hat ≥ 1 `ChargeController`.
+3. `DcBus.mode == batteryFed` ⇒ genau eine DC-gekoppelte Batterie an diesem Bus und genau eine ausgehende `BusEdge` in einen Inverter.
+4. `DcBus.mode == batteryFed` ⇒ keine `array → mppt`-Kante für den/die Inverter dieses Bus (PV muss über `ChargeController` kommen).
+5. Keine Kombination `array → cc` und `array → mppt` für dasselbe Array (kein Doppelt-Routing).
+6. `SimulationConfig.topology != null` ⇒ `SimulationConfig.chargeControllers.isEmpty` (Single Source of Truth).
+
+### Verifikation
+
+- Engine-Tests in `packages/pv_engine/test/`:
+  - `charge_controller_clip_test.dart` — `maxInputKw`-Cap + Wirkungsgrad korrekt, Überlauf in `curtailedDcKwh`.
+  - `dc_coupled_charge_test.dart` — Batterie lädt mit `dcKwh × chargeEfficiency` ohne Inverter-η; `pvAcKwh == 0`.
+  - `dc_hybrid_bypass_test.dart` — Batterie voll ⇒ PV-Rest fließt über Hybrid-Inverter zu AC.
+  - `dc_battery_fed_no_bypass_test.dart` — `batteryFed` + Batterie voll ⇒ `dcCurtailedKwh == pvDcRest`, `pvAcKwh == 0`.
+  - `legacy_ac_regression_test.dart` — Pre-Change-Fixture step-für-step gegen Toleranz `1e-9`.
+  - `dc_validation_test.dart` — jede Regel oben löst `ArgumentError` mit Section-routender Message aus.
+  - `dc_coupled_charge_pre_run_test.dart` — SOC-Carry-Over bei `preRunDays > 0` weiterhin korrekt.
+- CI-Smoke vor jedem Push: `dart pub get / analyze / test` in `pv_engine` + `component_catalog`, `flutter pub get / analyze / test` in `app/flutter_app`.
+- End-to-End in der App: Hybrid- vs. `batteryFed`-Bus zeigen das erwartete Export-/Discharge-Verhalten; bestehendes Legacy-Projekt liefert identische KPI-Snapshots.
+
+Ablöse-Hinweis: Mit Abschluss dieser Phase wird der „planned for future phases"-Marker in `packages/pv_engine/lib/src/topology.dart` Z. 9-11 obsolet und beim Engine-Versions-Bump auf `0.15.0` entfernt.
+
+---
+
 ## Phase 5 – SOC Pre-Run & Jahresgrenzen ✓
 
 Ziel: Realistische Startzustände; keine künstlich verzerrten Januarwerte (PRD FR-11; Architektur Kap. 6; `docs/PRD_PV_Calculator_Flutter_App.md` §6.2; `docs/Architekturkonzept_PV_Calculator_Flutter_App.md` §6).
