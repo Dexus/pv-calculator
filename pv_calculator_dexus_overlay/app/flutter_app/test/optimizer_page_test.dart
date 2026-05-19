@@ -1,6 +1,9 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:pv_engine/pv_engine.dart' show OptimizerCandidate;
 import 'package:pv_calculator_app/pages/optimizer_page.dart';
 import 'package:pv_calculator_app/services/optimizer_runner.dart';
 import 'package:pv_calculator_app/state/config_draft.dart';
@@ -209,17 +212,15 @@ void main() {
     // render an em dash. At least one of the displayed candidates must
     // be on the frontier (the cheapest combo, by construction).
     final result = optimizer.lastResult!;
-    final frontierIds = <int>{
-      for (final c in result.paretoFrontier) identityHashCode(c),
-    };
+    final frontierSet = HashSet<OptimizerCandidate>.identity()
+      ..addAll(result.paretoFrontier);
     var stars = 0;
     var dashes = 0;
     for (var i = 0; i < result.candidates.length; i++) {
       final marker = find.byKey(ValueKey('optimizer-pareto-marker-$i'));
       expect(marker, findsOneWidget,
           reason: 'row $i missing Pareto marker');
-      final isOnFrontier =
-          frontierIds.contains(identityHashCode(result.candidates[i]));
+      final isOnFrontier = frontierSet.contains(result.candidates[i]);
       final widget = tester.widget(marker);
       if (isOnFrontier) {
         expect(widget, isA<Icon>(), reason: 'row $i should be ★');
