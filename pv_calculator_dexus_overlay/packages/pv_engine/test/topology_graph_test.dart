@@ -283,6 +283,28 @@ void main() {
       );
     });
 
+    test('rule 9: an array cannot be wired to two chargeControllers', () {
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        chargeControllers: [
+          ChargeController(id: 'cc-1', dcBusId: 'dc-1'),
+          ChargeController(id: 'cc-2', dcBusId: 'dc-1'),
+        ],
+        edges: [
+          BusEdge(fromId: 'a1', toId: 'cc-1'),
+          BusEdge(fromId: 'a1', toId: 'cc-2'),
+        ],
+      );
+      expect(
+        () => topo.validate(
+            arrayIds: {'a1'},
+            inverterIds: {},
+            batteryIds: {},
+            bankIds: {}),
+        throwsArgumentError,
+      );
+    });
+
     test('rule 5: an array cannot be wired to a chargeController and an MPPT at once', () {
       const topo = TopologyGraph(
         dcBuses: [DcBus(id: 'dc-1')],
