@@ -1417,6 +1417,63 @@ class _StepAccumulator {
   }
 }
 
+/// Streams 12-month bucket totals alongside the per-step loop so
+/// `_runMultiYear` can collect `perYearMonthly` without forcing
+/// `keepSteps: true` on inner-year `_runLinear` runs. Mirrors the 12
+/// numeric fields of [MonthlyBucket]; `month` is the bucket index, not
+/// summed. Private — used only by [_runMultiYear].
+class _MonthlyAccumulator {
+  final Float64List pvAcKwh = Float64List(12);
+  final Float64List loadKwh = Float64List(12);
+  final Float64List selfConsumptionKwh = Float64List(12);
+  final Float64List batteryChargeKwh = Float64List(12);
+  final Float64List batteryDischargeKwh = Float64List(12);
+  final Float64List gridImportKwh = Float64List(12);
+  final Float64List gridExportKwh = Float64List(12);
+  final Float64List curtailedDcKwh = Float64List(12);
+  final Float64List curtailedAcKwh = Float64List(12);
+  final Float64List curtailedExportKwh = Float64List(12);
+  final Float64List importCostEur = Float64List(12);
+  final Float64List exportRevenueEur = Float64List(12);
+
+  void addFromBuffer(_StepBuffer buf, int idx, int dayOfYear) {
+    final m = SummaryAggregator.monthOfDayOfYear(dayOfYear) - 1;
+    pvAcKwh[m] += buf.pvAcKwh[idx];
+    loadKwh[m] += buf.loadKwh[idx];
+    selfConsumptionKwh[m] += buf.selfConsumptionKwh[idx];
+    batteryChargeKwh[m] += buf.batteryChargeKwh[idx];
+    batteryDischargeKwh[m] += buf.batteryDischargeKwh[idx];
+    gridImportKwh[m] += buf.gridImportKwh[idx];
+    gridExportKwh[m] += buf.gridExportKwh[idx];
+    curtailedDcKwh[m] += buf.curtailedDcKwh[idx];
+    curtailedAcKwh[m] += buf.curtailedAcKwh[idx];
+    curtailedExportKwh[m] += buf.curtailedExportKwh[idx];
+    // Tariff columns are zero-initialised when no tariff is configured
+    // — same negligible-overhead rationale as `_StepAccumulator`.
+    importCostEur[m] += buf.importCostEur[idx];
+    exportRevenueEur[m] += buf.exportRevenueEur[idx];
+  }
+
+  List<MonthlyBucket> toBuckets() => [
+        for (var m = 1; m <= 12; m++)
+          MonthlyBucket(
+            month: m,
+            pvAcKwh: pvAcKwh[m - 1],
+            loadKwh: loadKwh[m - 1],
+            selfConsumptionKwh: selfConsumptionKwh[m - 1],
+            batteryChargeKwh: batteryChargeKwh[m - 1],
+            batteryDischargeKwh: batteryDischargeKwh[m - 1],
+            gridImportKwh: gridImportKwh[m - 1],
+            gridExportKwh: gridExportKwh[m - 1],
+            curtailedDcKwh: curtailedDcKwh[m - 1],
+            curtailedAcKwh: curtailedAcKwh[m - 1],
+            curtailedExportKwh: curtailedExportKwh[m - 1],
+            importCostEur: importCostEur[m - 1],
+            exportRevenueEur: exportRevenueEur[m - 1],
+          ),
+      ];
+}
+
 /// Columnar storage for one simulation's reported steps. Scalars live in
 /// parallel `Float64List`s / `Int32List`s; per-battery, per-bank and
 /// per-array breakdowns live in row-major 2D `Float64List`s (one strip
@@ -1701,12 +1758,13 @@ class PvSimulator {
         longitudeDeg: config.longitudeDeg,
         weatherSource: config.weatherSource,
         temperatureModel: config.temperatureModel,
-        // Need the per-year step buffer to compute the year's monthly
-        // aggregate (`perYearMonthly[y]`). The buffer is freed before
-        // the next iteration starts, so peak memory is one year ×
-        // ~9 MiB (quarter-hourly) — unchanged from pre-Phase-10 where
-        // the final year alone always allocated it.
-        keepSteps: true,
+        // Only the final year's step buffer survives into
+        // `result.steps` (the original Phase-9 optimisation). Earlier
+        // years stream their monthly buckets through the per-year
+        // `_MonthlyAccumulator` below, so a caller passing
+        // `keepSteps: false` continues to pay only the 1-slot scratch
+        // buffer per year — no full-year buffer regression.
+        keepSteps: config.keepSteps && y == years - 1,
         simulationYears: 1,
         tariff: config.tariff,
       );
@@ -1727,13 +1785,20 @@ class PvSimulator {
                 totalYears: years,
               ));
             };
-      final res = const PvSimulator()
-          .run(yearConfig, onProgress: yearProgress);
+      // Call `_runLinear` directly (bypassing `PvSimulator.run`) so
+      // we can thread a per-year `_MonthlyAccumulator` through. Safe
+      // because cyclic + multi-year is rejected at `validate()`, so
+      // this never needs to route through `_runCyclic`.
+      final yearMonthlyAcc = _MonthlyAccumulator();
+      final res = _runLinear(
+        yearConfig,
+        preRunDays: yearPreRunDays,
+        onProgress: yearProgress,
+        monthlyAcc: yearMonthlyAcc,
+      );
       perYear.add(res.summary);
       perYearMonthly.add(
-        List<MonthlyBucket>.unmodifiable(
-          SummaryAggregator.monthly(res.steps),
-        ),
+        List<MonthlyBucket>.unmodifiable(yearMonthlyAcc.toBuckets()),
       );
       carriedSocs = res.summary.finalBatterySocsKwh.toList();
       last = res;
@@ -1748,12 +1813,11 @@ class PvSimulator {
       startSocsUsedKwh: perYear.first.startSocsUsedKwh,
       finalSocsKwh: last!.summary.finalBatterySocsKwh,
     );
-    // Honour the user's original `keepSteps` opt-out: even though every
-    // year was simulated with `keepSteps: true` (to feed monthly), the
-    // user-facing `result.steps` only exposes the final year when they
-    // asked for steps.
+    // `last.steps` is already empty when `keepSteps: false` was passed
+    // down to the final year's `_runLinear` (see `keepSteps` gate
+    // above), so no extra masking is needed here.
     return SimulationResult(
-      steps: config.keepSteps ? last.steps : const [],
+      steps: last.steps,
       summary: aggregated,
     );
   }
@@ -1857,7 +1921,10 @@ class PvSimulator {
   /// [PreRunMode.singleWarmUp]. Steps with `dayIndex < 0` mutate SOC
   /// but are dropped from the reported series — see Architektur §6
   /// "Der Pre-Run wird nicht in Jahres-KPIs eingerechnet".
-  SimulationResult _runLinear(SimulationConfig config, {required int preRunDays, ProgressCallback? onProgress}) {
+  SimulationResult _runLinear(SimulationConfig config,
+      {required int preRunDays,
+      ProgressCallback? onProgress,
+      _MonthlyAccumulator? monthlyAcc}) {
     final accumulator = _StepAccumulator();
     final socs = [for (final b in config.batteries) b.effectiveInitialSocKwh];
     final startSocs = List<double>.unmodifiable(socs);
@@ -1900,6 +1967,11 @@ class PvSimulator {
           _simulateStep(config, socs, dayIndex, dayOfYear, stepOfDay, hourOfDay,
               buf, slot, arrayDcScratch, arrayAcScratch);
           accumulator.addFromBuffer(buf, slot);
+          // Multi-year passes a `_MonthlyAccumulator` so per-year
+          // monthly buckets are aggregated inline. Public callers
+          // pass `null` and pay no per-step cost beyond the predict-
+          // friendly null check.
+          monthlyAcc?.addFromBuffer(buf, slot, dayOfYear);
           if (config.keepSteps) writeIdx++;
         } else {
           // Pre-run: advance SOC only; no buffer write, no allocation.
