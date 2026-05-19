@@ -677,54 +677,55 @@ class AppLocalizationsFr extends AppLocalizations {
       'Onduleur réseau standard sans plafond AC strict.';
 
   @override
-  String get chargeControllersTitle => 'Laderegler (MPPT)';
+  String get chargeControllersTitle => 'Régulateurs de charge (MPPT)';
 
   @override
-  String get chargeControllersEmpty => 'Noch keine Laderegler konfiguriert.';
+  String get chargeControllersEmpty =>
+      'Aucun régulateur de charge configuré pour le moment.';
 
   @override
   String chargeControllersDefaultLabel(int n) {
-    return 'Laderegler $n';
+    return 'Régulateur de charge $n';
   }
 
   @override
   String chargeControllersHeading(int n) {
-    return 'Laderegler $n';
+    return 'Régulateur de charge $n';
   }
 
   @override
-  String get chargeControllersFieldDcBusId => 'DC-Bus';
+  String get chargeControllersFieldDcBusId => 'Bus CC';
 
   @override
   String get chargeControllersFieldDcBusIdHelp =>
-      'ID des DC-Busses, an dem dieser Laderegler die Batterie speist. Im Legacy-Modus (ohne Topologie-Editor) sind die Busse automatisch nach dem Wechselrichter benannt, z. B. `dc-main`.';
+      'ID du bus CC alimenté par ce régulateur. En mode hérité (sans éditeur de topologie), les bus sont nommés automatiquement d\'après l\'onduleur, p. ex. `dc-main`.';
 
   @override
-  String get chargeControllersFieldEfficiency => 'Wirkungsgrad';
+  String get chargeControllersFieldEfficiency => 'Rendement';
 
   @override
-  String get chargeControllersFieldMaxInputKw => 'Max. PV-Eingang';
+  String get chargeControllersFieldMaxInputKw => 'Entrée PV max.';
 
   @override
   String get chargeControllersFieldMaxInputKwHelp =>
-      'Optionale Begrenzung der PV-Eingangsleistung. Überschuss wird vor dem DC-Bus geclippt und als DC-Abregelung erfasst.';
+      'Plafond optionnel sur la puissance d\'entrée côté PV. L\'excédent est écrêté avant d\'atteindre le bus CC et comptabilisé comme écrêtage côté CC.';
 
   @override
-  String get dcBusModeLabel => 'Modus';
+  String get dcBusModeLabel => 'Mode';
 
   @override
-  String get dcBusModeHybrid => 'Hybrid';
+  String get dcBusModeHybrid => 'Hybride';
 
   @override
-  String get dcBusModeBatteryFed => 'Nur über Batterie';
+  String get dcBusModeBatteryFed => 'Batterie uniquement';
 
   @override
   String get dcBusModeHybridHelp =>
-      'PV darf bei vollem Speicher direkt über den DC-Bus den Wechselrichter speisen (PV → DC-Bus → Inverter → AC).';
+      'Quand la batterie est pleine, la PV peut transiter directement par le bus CC vers l\'onduleur (PV → bus CC → onduleur → AC).';
 
   @override
   String get dcBusModeBatteryFedHelp =>
-      'PV erreicht das AC-Netz ausschließlich über die Batterie. PV-Überschuss bei vollem Speicher wird abgeregelt.';
+      'La PV atteint le bus AC uniquement via la décharge de la batterie. L\'excédent PV avec la batterie pleine est écrêté.';
 
   @override
   String get batteriesTitle => 'Stockage batterie';
