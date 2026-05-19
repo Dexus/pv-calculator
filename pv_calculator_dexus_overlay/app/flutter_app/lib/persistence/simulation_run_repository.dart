@@ -139,6 +139,16 @@ Map<String, dynamic> summaryToJson(SimulationSummary s) {
   if (s.perYearSummaries.length >= 2) {
     json['perYearSummaries'] =
         s.perYearSummaries.map(summaryToJson).toList(growable: false);
+    // Phase-10 per-year monthly buckets — same gate as
+    // `perYearSummaries`. Mirrors the engine-side JSON shape so a row
+    // written by the engine's own `SimulationSummary.toJson` (e.g. a
+    // future export envelope) would still load cleanly through
+    // `summaryFromJson`.
+    if (s.perYearMonthly.isNotEmpty) {
+      json['perYearMonthly'] = s.perYearMonthly
+          .map((year) => year.map((b) => b.toJson()).toList(growable: false))
+          .toList(growable: false);
+    }
   }
   // Phase-10 cashflow KPIs — present only when a tariff was configured
   // on the run. Stored as plain doubles so the comparison cache and
@@ -169,6 +179,15 @@ SimulationSummary summaryFromJson(Map<String, dynamic> json) {
           .map((e) => summaryFromJson((e as Map).cast<String, dynamic>()))
           .toList(growable: false)
       : const <SimulationSummary>[];
+  final rawPerYearMonthly = json['perYearMonthly'];
+  final perYearMonthly = rawPerYearMonthly is List
+      ? rawPerYearMonthly
+          .map((year) => (year as List)
+              .map((b) =>
+                  MonthlyBucket.fromJson((b as Map).cast<String, dynamic>()))
+              .toList(growable: false))
+          .toList(growable: false)
+      : const <List<MonthlyBucket>>[];
   return SimulationSummary(
     pvDcKwh: toD(json['pvDcKwh']),
     pvAcKwh: toD(json['pvAcKwh']),
@@ -194,6 +213,7 @@ SimulationSummary summaryFromJson(Map<String, dynamic> json) {
     convergenceIterations: (json['convergenceIterations'] as num?)?.toInt() ?? 0,
     converged: json['converged'] as bool? ?? true,
     perYearSummaries: perYear,
+    perYearMonthly: perYearMonthly,
     importCostEur: json['importCostEur'] == null ? null : toD(json['importCostEur']),
     exportRevenueEur:
         json['exportRevenueEur'] == null ? null : toD(json['exportRevenueEur']),

@@ -12,6 +12,125 @@ The two artefacts versioned here are:
 The About dialog in the app surfaces `appVersion (engine kEngineVersion)`
 so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
+## [Unreleased] — engine 0.17.0 / app 0.9.2
+
+Phase 10 follow-up — per-year monthly buckets persisted for multi-year
+runs. Closes the ROADMAP "Persistierte Per-Jahr-Zeitreihen für
+Multi-Year" deferred item. Before this change a multi-year scenario
+showed only the *final* year's monthly table on the Auswertung tab
+(because `SummaryAggregator.monthly(result.steps)` only sees the kept
+year's step buffer), and the persisted run cache carried scalar
+per-year summaries but no monthly detail. Now every year's 12 buckets
+are aggregated in-loop, plumbed through `SimulationSummary.toJson()`
+and surfaced behind a year picker. Full per-step time series remain
+deferred (Phase 7 entry) — 30-year × 8760-step persistence is still
+too large for the on-disk blob.
+
+### Added — Engine
+
+- **`MonthlyBucket.toJson() / fromJson()`** in
+  `lib/src/summary_aggregator.dart` — 13 named keys (`month` + 12
+  scalar fields), positional-independent so a truncated or reordered
+  record stays decodable.
+- **`SimulationSummary.perYearMonthly: List<List<MonthlyBucket>>`**
+  in `lib/pv_engine.dart` (default `const []`). Aligned 1:1 with
+  `perYearSummaries`. Emitted in `toJson()` under the same
+  `perYearSummaries.length >= 2 && perYearMonthly.isNotEmpty` gate;
+  loaded by `fromJson()` with a default-empty fallback for legacy
+  rows.
+- **`perYearMonthlyCsv(perYearMonthly)`** in
+  `lib/src/csv_export.dart` — header `year;month;...` with one row
+  per `(year, month)` in year-major order.
+
+### Changed — Engine
+
+- **`PvSimulator._runMultiYear`** now sets `keepSteps: true` for every
+  inner-year run, aggregates the year's buffer to a `MonthlyBucket`
+  list before the buffer goes out of scope, then drops it. Peak
+  memory is unchanged (one year × ~9 MiB quarter-hourly buffer that
+  the final year already allocated). The user-facing `result.steps`
+  still honours `config.keepSteps == false` — the per-year buffer is
+  internal-only.
+- **`_aggregateYears` signature** gains a `perYearMonthly` parameter
+  and threads it onto the top-level `SimulationSummary`. The buckets
+  themselves are not summed across years (callers wanting the rolled-
+  up monthly table use `SummaryAggregator.monthly(result.steps)` on
+  the final year, or sum element-wise across `perYearMonthly`).
+- **`MonthlyBucket.importCostEur` doc** drops the stale "for single-
+  year runs only" caveat — multi-year callers now have a precise
+  per-year breakdown via `summary.perYearMonthly[y]`.
+- `kEngineVersion` bumps `0.16.0 → 0.17.0` (new public field on
+  `SimulationSummary`, semver minor).
+
+### Added — App
+
+- **Auswertung tab "Monatswerte pro Jahr" card**
+  (`PerYearMonthlySection` in
+  `lib/widgets/results/per_year_monthly_section.dart`) rendered only
+  when `summary.perYearMonthly.isNotEmpty`. A `DropdownButton<int>`
+  with `Key('per-year-monthly-year-picker')` selects which year
+  (1..N) feeds the existing `MonthlyTable`. The dropdown clamps the
+  selection if a new run shortens the list.
+- **CSV button "Monatswerte pro Jahr (CSV)"** with
+  `Key('export-per-year-monthly-csv')` next to the existing monthly
+  CSV button. Reuses `_exportCsv` and the engine's
+  `perYearMonthlyCsv()` helper.
+- **ARB strings** in `app_{de,en,es,fr}.arb`:
+  `resultsCsvPerYearMonthly`, `perYearMonthlyTitle`,
+  `perYearMonthlyYearPickerLabel`, `perYearMonthlyYearLabel` (with
+  `{n}` placeholder).
+- App version `0.9.1 → 0.9.2` (`pubspec.yaml`, `app_info.dart`).
+
+### Changed — Persistence
+
+- **Schema bump v4 → v5** in `lib/persistence/schema.dart`.
+  `migrationV4ToV5 = const <String>[]` is intentionally empty —
+  `simulation_runs.summary_json` is opaque TEXT, so no DDL is needed.
+  The bump exists as a forward-compatibility fence: an older v4 build
+  refuses to open a v5 store instead of silently dropping the new
+  `perYearMonthly` field on read-back.
+- `database.dart` `_upgrade` ladder gains a `_migrateV4ToV5` step
+  (no-op body that iterates the empty `migrationV4ToV5` list, mirrors
+  the V1→V2 / V2→V3 shape).
+- `simulation_run_repository.dart` `summaryToJson` / `summaryFromJson`
+  emit and parse `perYearMonthly` recursively, gated on the same
+  `>= 2 perYearSummaries` threshold as the existing per-year scalars.
+
+### Added — Tests
+
+- `packages/pv_engine/test/per_year_monthly_test.dart` — eight cases:
+  single-year leaves `perYearMonthly` empty; per-year bucket sums
+  equal per-year scalars (1e-9); cross-year bucket sums equal the
+  aggregated top-level summary (1e-9); `toJson` round-trip preserves
+  shape + values (1e-12); single-year `toJson` omits the key; multi-
+  year `toJson` shape; `keepSteps:false` multi-year still produces
+  per-year monthly.
+- `packages/pv_engine/test/multi_year_test.dart` — per-year count
+  assertion extended to `perYearMonthly.length == years` (each year
+  has 12 buckets).
+- `packages/pv_engine/test/csv_export_test.dart` — four cases for
+  `perYearMonthlyCsv`: empty input emits header only; year-major row
+  ordering; comma delimiter; end-to-end row count = `years × 12`.
+- `app/flutter_app/test/persistence/database_test.dart` — legacy
+  cache rows (no `perYearMonthly` key) reload as `const []`;
+  synthetic 3-year summary round-trips byte-stable through the
+  repository codec.
+- `app/flutter_app/test/widgets/per_year_monthly_section_test.dart`
+  — three widget tests: default year-1 render + dropdown lists every
+  year; selecting year 2 swaps the rendered `MonthlyTable`;
+  selection clamps when the list shrinks under the widget.
+- `app/flutter_app/test/catalog/schema_migration_test.dart` updated
+  expected `currentSchemaVersion` to `5`.
+
+### Compatibility
+
+- AC-only / single-year scenarios produce byte-identical
+  `summary.toJson()` output: both `perYearSummaries` and
+  `perYearMonthly` keys are dropped when the run was single-year.
+- The v4 → v5 schema bump is a no-op DDL-wise; existing rows survive
+  unchanged and the `summary_json` blob is read with the same parser
+  that gracefully defaults missing fields.
+
 ## [Unreleased] — engine 0.16.0
 
 Phase 4c — DC-Bus-Solver-Konsolidierung. 30+ Codex review findings

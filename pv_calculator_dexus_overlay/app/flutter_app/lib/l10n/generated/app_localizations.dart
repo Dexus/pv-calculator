@@ -1627,6 +1627,30 @@ abstract class AppLocalizations {
   /// **'CSV-Export Monat'**
   String get resultsCsvMonthly;
 
+  /// No description provided for @resultsCsvPerYearMonthly.
+  ///
+  /// In de, this message translates to:
+  /// **'CSV-Export Monat pro Jahr'**
+  String get resultsCsvPerYearMonthly;
+
+  /// No description provided for @perYearMonthlyTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Monatswerte pro Jahr'**
+  String get perYearMonthlyTitle;
+
+  /// No description provided for @perYearMonthlyYearPickerLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Jahr auswählen'**
+  String get perYearMonthlyYearPickerLabel;
+
+  /// No description provided for @perYearMonthlyYearLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Jahr {n}'**
+  String perYearMonthlyYearLabel(int n);
+
   /// No description provided for @resultsCsvPending.
   ///
   /// In de, this message translates to:

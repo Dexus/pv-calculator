@@ -137,6 +137,11 @@ class AppDatabase {
         v = 4;
         continue;
       }
+      if (v == 4) {
+        _migrateV4ToV5();
+        v = 5;
+        continue;
+      }
       throw StateError('No migration path from schema v$v to v${v + 1}.');
     }
   }
@@ -167,6 +172,16 @@ class AppDatabase {
     } catch (_) {
       _db.execute('ROLLBACK');
       rethrow;
+    }
+  }
+
+  /// Engine 0.17.0 adds `SimulationSummary.perYearMonthly` nested inside
+  /// `simulation_runs.summary_json` (opaque TEXT). No DDL is needed —
+  /// the bump fences forward compatibility so an older v4 build refuses
+  /// to open a v5 store instead of silently dropping the new field.
+  void _migrateV4ToV5() {
+    for (final stmt in migrationV4ToV5) {
+      _db.execute(stmt);
     }
   }
 }

@@ -883,6 +883,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resultsCsvMonthly => 'CSV export monthly';
 
   @override
+  String get resultsCsvPerYearMonthly => 'CSV export monthly by year';
+
+  @override
+  String get perYearMonthlyTitle => 'Monthly breakdown by year';
+
+  @override
+  String get perYearMonthlyYearPickerLabel => 'Select year';
+
+  @override
+  String perYearMonthlyYearLabel(int n) {
+    return 'Year $n';
+  }
+
+  @override
   String resultsCsvPending(int size) {
     return 'CSV ready ($size characters). Export follows in the persistence layer.';
   }
