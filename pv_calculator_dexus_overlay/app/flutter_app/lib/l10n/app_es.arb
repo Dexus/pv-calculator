@@ -666,5 +666,11 @@
   "optimizerColInvestment": "Inversión (€)",
   "optimizerColAutarky": "Autarquía",
   "optimizerColLifetimeCost": "Coste ciclo de vida (€)",
-  "optimizerColPvAcKwh": "FV AC (kWh/año)"
+  "optimizerColPvAcKwh": "FV AC (kWh/año)",
+  "optimizerParetoTitle": "Frontera de Pareto (coste × autoconsumo)",
+  "optimizerParetoHint": "Los puntos resaltados no están dominados: ninguna otra combinación evaluada es a la vez más barata y más autosuficiente. Requiere una tarifa activa para definir el coste del ciclo de vida.",
+  "optimizerParetoAxisCost": "Coste neto de ciclo de vida (€)",
+  "optimizerParetoAxisAutarky": "Autoconsumo (%)",
+  "optimizerParetoLegendCloud": "Todos los candidatos",
+  "optimizerParetoLegendFrontier": "Pareto-óptimo"
 }

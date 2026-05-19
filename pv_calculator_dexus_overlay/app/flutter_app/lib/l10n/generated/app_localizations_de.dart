@@ -1995,4 +1995,23 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get optimizerColPvAcKwh => 'PV AC (kWh/Jahr)';
+
+  @override
+  String get optimizerParetoTitle => 'Pareto-Front (Kosten × Autarkie)';
+
+  @override
+  String get optimizerParetoHint =>
+      'Hervorgehobene Punkte sind nicht dominiert: keine andere ausgewertete Kombination ist gleichzeitig günstiger und autarker. Benötigt einen aktiven Tarif, damit Lebenszykluskosten definiert sind.';
+
+  @override
+  String get optimizerParetoAxisCost => 'Lebenszyklus-Netto-Kosten (€)';
+
+  @override
+  String get optimizerParetoAxisAutarky => 'Autarkie (%)';
+
+  @override
+  String get optimizerParetoLegendCloud => 'Alle Kandidaten';
+
+  @override
+  String get optimizerParetoLegendFrontier => 'Pareto-optimal';
 }

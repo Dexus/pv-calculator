@@ -2000,4 +2000,24 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get optimizerColPvAcKwh => 'PV AC (kWh/an)';
+
+  @override
+  String get optimizerParetoTitle =>
+      'Frontière de Pareto (coût × autoconsommation)';
+
+  @override
+  String get optimizerParetoHint =>
+      'Les points en évidence sont non dominés : aucune autre combinaison évaluée n\'est à la fois moins chère et plus autoconsommatrice. Nécessite un tarif actif pour que le coût sur la durée de vie soit défini.';
+
+  @override
+  String get optimizerParetoAxisCost => 'Coût net sur la durée de vie (€)';
+
+  @override
+  String get optimizerParetoAxisAutarky => 'Autoconsommation (%)';
+
+  @override
+  String get optimizerParetoLegendCloud => 'Tous les candidats';
+
+  @override
+  String get optimizerParetoLegendFrontier => 'Pareto-optimal';
 }

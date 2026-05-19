@@ -6,6 +6,8 @@ import 'package:pv_calculator_app/services/optimizer_runner.dart';
 import 'package:pv_calculator_app/state/config_draft.dart';
 import 'package:pv_calculator_app/state/optimizer_controller.dart';
 import 'package:pv_calculator_app/state/project_controller.dart';
+import 'package:pv_calculator_app/widgets/results/optimizer_pareto_chart.dart';
+import 'package:pv_calculator_app/widgets/results/optimizer_pareto_table.dart';
 import 'package:pv_calculator_app/widgets/results/optimizer_results_table.dart';
 
 import '_test_localization.dart';
@@ -156,6 +158,49 @@ void main() {
     expect(optimizer.lastResult, isNotNull);
     // 3 × 3 × 4 = 36 combos × 2 subsets (east on/off) = 72.
     expect(optimizer.lastResult!.evaluated, equals(72));
+  });
+
+  testWidgets('Pareto card hidden when no tariff is configured',
+      (tester) async {
+    final project = ProjectController(draft: _smallDraft());
+    final optimizer = _inProcessOptimizer();
+    await tester.pumpWidget(_host(project, optimizer));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('optimizer-run')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('optimizer-run')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(optimizer.lastResult, isNotNull);
+    expect(optimizer.lastResult!.paretoFrontier, isEmpty);
+    expect(find.byKey(const Key('optimizer-pareto-card')), findsNothing);
+    expect(find.byType(OptimizerParetoChart), findsNothing);
+    expect(find.byType(OptimizerParetoTable), findsNothing);
+  });
+
+  testWidgets('Pareto card renders when tariff is active', (tester) async {
+    final draft = _smallDraft();
+    draft.tariff.enabled = true;
+    draft.tariff.importPricePerKwh = 0.30;
+    draft.tariff.exportPricePerKwh = 0.08;
+    final project = ProjectController(draft: draft);
+    final optimizer = _inProcessOptimizer();
+    await tester.pumpWidget(_host(project, optimizer));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('optimizer-run')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('optimizer-run')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(optimizer.lastResult, isNotNull);
+    expect(optimizer.lastResult!.paretoFrontier, isNotEmpty);
+    expect(find.byKey(const Key('optimizer-pareto-card')), findsOneWidget);
+    expect(find.byType(OptimizerParetoChart), findsOneWidget);
+    expect(find.byType(OptimizerParetoTable), findsOneWidget);
   });
 
   testWidgets('post-completion state clears progress and cancelled flag',

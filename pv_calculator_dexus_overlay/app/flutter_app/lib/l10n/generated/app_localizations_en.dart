@@ -1986,4 +1986,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get optimizerColPvAcKwh => 'PV AC (kWh/year)';
+
+  @override
+  String get optimizerParetoTitle =>
+      'Pareto frontier (cost × self-sufficiency)';
+
+  @override
+  String get optimizerParetoHint =>
+      'Highlighted points are non-dominated: no other evaluated combination is both cheaper and more self-sufficient. Requires an active tariff so lifetime cost is defined.';
+
+  @override
+  String get optimizerParetoAxisCost => 'Lifetime net cost (€)';
+
+  @override
+  String get optimizerParetoAxisAutarky => 'Self-sufficiency (%)';
+
+  @override
+  String get optimizerParetoLegendCloud => 'All candidates';
+
+  @override
+  String get optimizerParetoLegendFrontier => 'Pareto-optimal';
 }

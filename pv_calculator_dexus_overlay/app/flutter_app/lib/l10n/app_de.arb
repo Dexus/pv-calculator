@@ -713,5 +713,11 @@
   "optimizerColInvestment": "Investition (€)",
   "optimizerColAutarky": "Autarkie",
   "optimizerColLifetimeCost": "Lebenszykluskosten (€)",
-  "optimizerColPvAcKwh": "PV AC (kWh/Jahr)"
+  "optimizerColPvAcKwh": "PV AC (kWh/Jahr)",
+  "optimizerParetoTitle": "Pareto-Front (Kosten × Autarkie)",
+  "optimizerParetoHint": "Hervorgehobene Punkte sind nicht dominiert: keine andere ausgewertete Kombination ist gleichzeitig günstiger und autarker. Benötigt einen aktiven Tarif, damit Lebenszykluskosten definiert sind.",
+  "optimizerParetoAxisCost": "Lebenszyklus-Netto-Kosten (€)",
+  "optimizerParetoAxisAutarky": "Autarkie (%)",
+  "optimizerParetoLegendCloud": "Alle Kandidaten",
+  "optimizerParetoLegendFrontier": "Pareto-optimal"
 }

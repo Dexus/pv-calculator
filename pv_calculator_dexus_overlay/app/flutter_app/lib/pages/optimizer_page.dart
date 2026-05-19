@@ -7,6 +7,8 @@ import '../state/config_draft.dart';
 import '../state/optimizer_controller.dart';
 import '../state/project_controller.dart';
 import '../widgets/forms/_field.dart';
+import '../widgets/results/optimizer_pareto_chart.dart';
+import '../widgets/results/optimizer_pareto_table.dart';
 import '../widgets/results/optimizer_results_table.dart';
 
 /// Phase-10 Optimizer page. Lets a user sweep over battery capacity,
@@ -448,8 +450,37 @@ class _OptimizerPageState extends State<OptimizerPage> {
                 l.optimizerNoCandidates,
                 key: const Key('optimizer-no-candidates'),
               )
-            else
+            else ...[
               OptimizerResultsTable(candidates: result.candidates),
+              if (result.paretoFrontier.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Card(
+                  key: const Key('optimizer-pareto-card'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l.optimizerParetoTitle,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l.optimizerParetoHint,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 12),
+                        OptimizerParetoChart(result: result),
+                        const SizedBox(height: 12),
+                        OptimizerParetoTable(
+                            candidates: result.paretoFrontier),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ],
         ),
       ),

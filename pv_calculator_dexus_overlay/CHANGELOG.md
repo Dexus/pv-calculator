@@ -14,6 +14,68 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-05-19 (app) / [0.14.0] — 2026-05-19 (engine)
+
+Phase 10 follow-up — Pareto frontier (cost × autarky). Closes the
+ROADMAP "Pareto-Frontier für Optimierer (Kosten × Autarkie)" deferred
+item. Additive: every Optimizer run computes the frontier as a
+by-product of the existing sweep (no extra simulator calls). When no
+tariff is configured, the frontier is empty and the Optimizer page
+silently omits the Pareto card — single-objective behaviour is
+unchanged.
+
+### Added — Engine
+- **`OptimizerResult.paretoFrontier`** (default `const []`) — list of
+  non-dominated `OptimizerCandidate`s over (`lifetimeNetCostEur` ×
+  `autarkyRate`), sorted by lifetime cost ascending. On the kept points
+  autarky is strictly increasing.
+- `Optimizer._computePareto` — O(n log n) helper: drops candidates
+  with `lifetimeNetCostEur == null`, sorts by (cost asc, autarky desc),
+  then a single forward scan keeping points whose autarky exceeds the
+  running max. Dedups exact (cost, autarky) ties.
+- **Computed from the pre-truncation set**: the frontier is built
+  before `OptimizerSpec.topN` slicing, so it is identical regardless of
+  `topN`. A non-dominated combo cannot be silently dropped just because
+  a different objective put it outside the top slice.
+- Engine version bumped `0.13.0 → 0.14.0`.
+
+### Added — App
+- Optimizer page (`pages/optimizer_page.dart`): new "Pareto frontier"
+  card under the existing results table, hidden when
+  `paretoFrontier.isEmpty` (i.e. no tariff). Card key
+  `Key('optimizer-pareto-card')`.
+- New widget `widgets/results/optimizer_pareto_chart.dart` — `fl_chart`
+  `ScatterChart` with a `LineChart` overlay tracing the frontier
+  through the cloud of all candidates. Frontier dots are larger and
+  primary-blue; cloud dots are small and blue-grey. Legend renders
+  inline above the chart.
+- New widget `widgets/results/optimizer_pareto_table.dart` — compact
+  5-column table (battery kWh, inverter kW, PV scale, lifetime cost €,
+  autarky %) listing only the Pareto-optimal candidates in
+  cost-ascending order. Row keys `Key('optimizer-pareto-row-N')`.
+- ARB strings added in `en/de/es/fr`: `optimizerParetoTitle`,
+  `optimizerParetoHint`, `optimizerParetoAxisCost`,
+  `optimizerParetoAxisAutarky`, `optimizerParetoLegendCloud`,
+  `optimizerParetoLegendFrontier`.
+- App version bumped `0.8.2 → 0.9.0`.
+
+### Added — Tests
+- `packages/pv_engine/test/optimizer_test.dart` — six new cases under
+  a `group('Pareto frontier', ...)`:
+  - `empty when no candidate has a tariff-derived cost`
+  - `frontier is sorted by cost ascending with strictly increasing autarky`
+  - `frontier excludes a dominated candidate` (pairwise check over
+    every Pareto vs. every candidate)
+  - `a clearly dominated combo is not in the frontier` (smallest
+    combo is dropped when a strictly better point exists)
+  - `frontier is independent of topN` (top 1 vs top 50 produce
+    identical frontier identities)
+  - `frontier endpoints match the per-objective extrema` (first =
+    cheapest, last = highest autarky)
+- `app/flutter_app/test/optimizer_page_test.dart` — two new widget
+  tests: Pareto card hidden without tariff, Pareto card rendered
+  with tariff active.
+
 ## [0.8.2] — 2026-05-19 (app) / [0.13.0] — 2026-05-19 (engine)
 
 Phase 10 follow-up — Optimizer NPV / discount rate. Closes the ROADMAP

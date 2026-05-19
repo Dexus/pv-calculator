@@ -3568,6 +3568,42 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'PV AC (kWh/Jahr)'**
   String get optimizerColPvAcKwh;
+
+  /// No description provided for @optimizerParetoTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Pareto-Front (Kosten × Autarkie)'**
+  String get optimizerParetoTitle;
+
+  /// No description provided for @optimizerParetoHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Hervorgehobene Punkte sind nicht dominiert: keine andere ausgewertete Kombination ist gleichzeitig günstiger und autarker. Benötigt einen aktiven Tarif, damit Lebenszykluskosten definiert sind.'**
+  String get optimizerParetoHint;
+
+  /// No description provided for @optimizerParetoAxisCost.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebenszyklus-Netto-Kosten (€)'**
+  String get optimizerParetoAxisCost;
+
+  /// No description provided for @optimizerParetoAxisAutarky.
+  ///
+  /// In de, this message translates to:
+  /// **'Autarkie (%)'**
+  String get optimizerParetoAxisAutarky;
+
+  /// No description provided for @optimizerParetoLegendCloud.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Kandidaten'**
+  String get optimizerParetoLegendCloud;
+
+  /// No description provided for @optimizerParetoLegendFrontier.
+  ///
+  /// In de, this message translates to:
+  /// **'Pareto-optimal'**
+  String get optimizerParetoLegendFrontier;
 }
 
 class _AppLocalizationsDelegate
