@@ -908,6 +908,8 @@ class SimulationStep {
     this.acKwhByArray = const [],
     this.importCostEur = 0.0,
     this.exportRevenueEur = 0.0,
+    this.dcDirectChargeKwh = 0.0,
+    this.dcCurtailedKwh = 0.0,
   });
 
   final int dayIndex;
@@ -986,6 +988,22 @@ class SimulationStep {
   /// Grid-export revenue for this step in €. Same zero-when-no-tariff
   /// convention as [importCostEur].
   final double exportRevenueEur;
+
+  /// Energy delivered directly from PV to a DC-coupled battery via a
+  /// charge controller (Laderegler), in **DC kWh** measured on the DC
+  /// bus side. Already counted inside [batteryChargeKwh] / per-battery
+  /// `batteryChargesKwh`; surfaced separately so reports can split the
+  /// DC-side path from the AC-side path. `0.0` for AC-coupled
+  /// topologies.
+  final double dcDirectChargeKwh;
+
+  /// PV energy that arrived on a DC bus in `batteryFed` mode but could
+  /// not be absorbed by its battery (battery full or rate-limited), in
+  /// **DC kWh**. Has no AC bypass path so it is lost. `0.0` for hybrid
+  /// or AC-coupled topologies (where excess PV-DC reaches AC via the
+  /// inverter and falls under [curtailedAcKwh] / [curtailedExportKwh]
+  /// instead).
+  final double dcCurtailedKwh;
 }
 
 class SimulationSummary {
@@ -1015,6 +1033,8 @@ class SimulationSummary {
     this.importCostEur,
     this.exportRevenueEur,
     this.netCostEur,
+    this.dcDirectChargeKwh = 0.0,
+    this.dcCurtailedKwh = 0.0,
   });
 
   final double pvDcKwh;
@@ -1025,6 +1045,17 @@ class SimulationSummary {
   final double batteryDischargeKwh;
   final double gridImportKwh;
   final double gridExportKwh;
+
+  /// Aggregate energy delivered to DC-coupled batteries via charge
+  /// controllers over the reporting horizon, in **DC kWh**. Already
+  /// included in [batteryChargeKwh]. `0.0` for AC-coupled-only
+  /// scenarios.
+  final double dcDirectChargeKwh;
+
+  /// PV energy that could not be absorbed on a `batteryFed` DC bus
+  /// (battery full / rate-limited and no AC bypass path), in **DC
+  /// kWh**. `0.0` for hybrid or AC-coupled scenarios.
+  final double dcCurtailedKwh;
 
   /// DC-side curtailment from MPPT clipping, in **DC kWh**.
   final double curtailedDcKwh;
@@ -1144,6 +1175,10 @@ class SimulationSummary {
     if (importCostEur != null) json['importCostEur'] = importCostEur;
     if (exportRevenueEur != null) json['exportRevenueEur'] = exportRevenueEur;
     if (netCostEur != null) json['netCostEur'] = netCostEur;
+    // Emit the DC-coupling fields only when non-default so summaries
+    // from AC-only runs round-trip byte-identically to pre-Phase-4b.
+    if (dcDirectChargeKwh != 0.0) json['dcDirectChargeKwh'] = dcDirectChargeKwh;
+    if (dcCurtailedKwh != 0.0) json['dcCurtailedKwh'] = dcCurtailedKwh;
     return json;
   }
 
@@ -1192,6 +1227,8 @@ class SimulationSummary {
       netCostEur: json['netCostEur'] == null
           ? null
           : _toDouble(json['netCostEur']),
+      dcDirectChargeKwh: _toDouble(json['dcDirectChargeKwh'] ?? 0.0),
+      dcCurtailedKwh: _toDouble(json['dcCurtailedKwh'] ?? 0.0),
     );
   }
 }
@@ -1264,6 +1301,8 @@ class _StepAccumulator {
   double unservedLoadKwh = 0;
   double importCostEur = 0;
   double exportRevenueEur = 0;
+  double dcDirectChargeKwh = 0;
+  double dcCurtailedKwh = 0;
 
   /// Reads scalar columns of `buf` at index `idx` and accumulates.
   /// This is the hot-path entry: avoids materialising a `SimulationStep`
@@ -1288,6 +1327,10 @@ class _StepAccumulator {
     // pays one extra add of 0.0 per step — negligible vs. dispatch.
     importCostEur += buf.importCostEur[idx];
     exportRevenueEur += buf.exportRevenueEur[idx];
+    // DC-coupling columns are zero-filled when no DC topology is
+    // configured; same negligible-overhead rationale as tariff.
+    dcDirectChargeKwh += buf.dcDirectChargeKwh[idx];
+    dcCurtailedKwh += buf.dcCurtailedKwh[idx];
   }
 }
 
@@ -1334,6 +1377,8 @@ class _StepBuffer {
         unservedLoadKwh = Float64List(capacity),
         importCostEur = Float64List(capacity),
         exportRevenueEur = Float64List(capacity),
+        dcDirectChargeKwh = Float64List(capacity),
+        dcCurtailedKwh = Float64List(capacity),
         batteryCharges = Float64List(capacity * batteryCount),
         batteryDischarges = Float64List(capacity * batteryCount),
         batterySocs = Float64List(capacity * batteryCount),
@@ -1378,6 +1423,16 @@ class _StepBuffer {
 
   /// Per-step grid-export revenue in €. Same zero-filling convention.
   final Float64List exportRevenueEur;
+
+  /// Per-step DC-side charging energy delivered to DC-coupled batteries
+  /// via charge controllers, summed across batteries on all DC buses.
+  /// In **DC kWh**. Zero-filled when no DC coupling is configured.
+  final Float64List dcDirectChargeKwh;
+
+  /// Per-step PV energy curtailed on `batteryFed` DC buses because the
+  /// battery could not absorb it and no AC bypass path exists. In **DC
+  /// kWh**. Zero-filled when no `batteryFed` bus is configured.
+  final Float64List dcCurtailedKwh;
 
   // Row-major 2D: index = `step * dim + slot`.
   final Float64List batteryCharges;
@@ -1436,6 +1491,8 @@ class _StepBuffer {
         acKwhByArray: _row(arrayAc, idx, arrayCount),
         importCostEur: importCostEur[idx],
         exportRevenueEur: exportRevenueEur[idx],
+        dcDirectChargeKwh: dcDirectChargeKwh[idx],
+        dcCurtailedKwh: dcCurtailedKwh[idx],
       );
 }
 
@@ -1628,7 +1685,9 @@ class PvSimulator {
         cex = 0.0,
         del = 0.0,
         sh = 0.0,
-        unserved = 0.0;
+        unserved = 0.0,
+        dcDirect = 0.0,
+        dcCurtail = 0.0;
     // Tariff KPIs only carry meaning when every year produced one; if
     // some did and some didn't, the sum would mix € with null — treat
     // any null as "no economics".
@@ -1651,6 +1710,8 @@ class PvSimulator {
       del += s.microInverterDeliveredKwh;
       sh += s.microInverterShortfallKwh;
       unserved += s.unservedLoadKwh;
+      dcDirect += s.dcDirectChargeKwh;
+      dcCurtail += s.dcCurtailedKwh;
       if (s.importCostEur != null && s.exportRevenueEur != null) {
         importCost += s.importCostEur!;
         exportRev += s.exportRevenueEur!;
@@ -1689,6 +1750,8 @@ class PvSimulator {
       importCostEur: tariffActive ? importCost : null,
       exportRevenueEur: tariffActive ? exportRev : null,
       netCostEur: tariffActive ? importCost - exportRev : null,
+      dcDirectChargeKwh: dcDirect,
+      dcCurtailedKwh: dcCurtail,
     );
   }
 
@@ -1903,7 +1966,25 @@ class PvSimulator {
     final dcByInverter = <String, double>{};
     final source = config.effectiveWeatherSource;
     final tempModel = config.temperatureModel;
+    final topology = config.effectiveTopology;
     var pvDcKwh = 0.0;
+
+    // === Phase 4b: DC-coupling pre-routing ===
+    // Build cc lookup and the array→cc routing map from explicit edges.
+    // When no charge controllers exist (legacy), `hasDcPath` stays
+    // false and every downstream branch short-circuits — preserving
+    // byte-identical results for AC-only scenarios.
+    final ccById = {for (final c in topology.chargeControllers) c.id: c};
+    final arrayToCc = <String, String>{};
+    if (ccById.isNotEmpty) {
+      for (final e in topology.edges) {
+        if (ccById.containsKey(e.toId)) {
+          arrayToCc[e.fromId] = e.toId;
+        }
+      }
+    }
+    final hasDcPath = arrayToCc.isNotEmpty;
+    final dcByController = hasDcPath ? <String, double>{} : null;
 
     for (var i = 0; i < config.arrays.length; i++) {
       final array = config.arrays[i];
@@ -1918,12 +1999,22 @@ class PvSimulator {
       final dcKwh = _dcPowerKwFromWeather(array, weather, tempModel) * stepHours;
       pvDcKwh += dcKwh;
       arrayDcScratch[i] = dcKwh;
-      dcByInverter.update(array.inverterId, (value) => value + dcKwh, ifAbsent: () => dcKwh);
+      // Partition: arrays wired into a charge controller via an edge
+      // `array.id → cc.id` flow on the DC bus path; everyone else
+      // stays on the legacy inverter path.
+      final ccId = hasDcPath ? arrayToCc[array.id] : null;
+      if (ccId != null) {
+        dcByController!.update(ccId, (v) => v + dcKwh, ifAbsent: () => dcKwh);
+      } else {
+        dcByInverter.update(array.inverterId, (v) => v + dcKwh, ifAbsent: () => dcKwh);
+      }
     }
 
     var pvAcKwh = 0.0;
     var curtailedDcKwh = 0.0;
     var curtailedAcKwh = 0.0;
+    var dcDirectChargeKwhTotal = 0.0;
+    var dcCurtailedKwhTotal = 0.0;
     // For per-array AC distribution: remember each inverter's
     // (limitedAc, dcAfterCap) pair so the array breakdown can scale
     // each array's DC share by the same loss ratio its inverter saw.
@@ -1954,9 +2045,147 @@ class PvSimulator {
           entry.value > 0 ? limitedAc / entry.value : 0.0;
     }
 
+    // === DC-path: charge-controller clip + efficiency → DC bus ===
+    // pvDcByBus[B] is the bus-side energy available to (a) charge a
+    // DC-coupled battery on B, and (b) flow through a hybrid inverter
+    // to AC. Bookkeeping for per-array AC distribution is captured in
+    // `ccCapRatio` (post-cap / pre-cap per controller) and
+    // `acBypassRatioByBus` (AC kWh out of the bus per pre-charging DC
+    // kWh on the bus).
+    final pvDcByBus = <String, double>{};
+    final pvDcByBusBefore = <String, double>{};
+    final ccCapRatio = <String, double>{};
+    final acBypassRatioByBus = <String, double>{};
+    final dcDirectCharges = List<double>.filled(config.batteries.length, 0.0);
+    final dcCoupledIndices = <int>{};
+    if (hasDcPath || topology.batteryCouplings
+        .any((c) => c.coupling == BatteryCoupling.dc)) {
+      // Pre-cap clip + efficiency per controller.
+      if (hasDcPath) {
+        for (final entry in dcByController!.entries) {
+          final cc = ccById[entry.key]!;
+          final dcSumPre = entry.value;
+          var postCapDc = dcSumPre;
+          final cap = cc.maxInputKw;
+          if (cap != null) {
+            final capKwh = cap * stepHours;
+            if (postCapDc > capKwh) {
+              curtailedDcKwh += postCapDc - capKwh;
+              postCapDc = capKwh;
+            }
+          }
+          ccCapRatio[cc.id] = dcSumPre > 0 ? postCapDc / dcSumPre : 0.0;
+          final busSide = postCapDc * cc.efficiency;
+          pvDcByBus.update(cc.dcBusId, (v) => v + busSide,
+              ifAbsent: () => busSide);
+        }
+        pvDcByBusBefore.addAll(pvDcByBus);
+      }
+
+      // Identify DC-coupled batteries grouped by bus.
+      final dcBatteriesByBus = <String, List<int>>{};
+      for (var i = 0; i < config.batteries.length; i++) {
+        final coupling = topology.couplingFor(config.batteries[i].id);
+        if (coupling.coupling == BatteryCoupling.dc &&
+            coupling.dcBusId != null) {
+          dcCoupledIndices.add(i);
+          dcBatteriesByBus
+              .putIfAbsent(coupling.dcBusId!, () => [])
+              .add(i);
+        }
+      }
+
+      // For each DC bus carrying PV-DC: charge DC-coupled batteries
+      // (step 1b), then route residual via hybrid inverter (1c) or
+      // curtail on batteryFed (1d).
+      for (final busId in pvDcByBus.keys.toList()) {
+        // 1b: charge DC-coupled batteries (unconditional — physics).
+        final batteries = dcBatteriesByBus[busId] ?? const <int>[];
+        for (final k in batteries) {
+          if ((pvDcByBus[busId] ?? 0) <= 0) break;
+          final battery = config.batteries[k];
+          final chargeEff = battery.chargeEfficiency;
+          if (chargeEff <= 0) continue;
+          final headroomStored =
+              math.max(0.0, battery.capacityKwh - socs[k]);
+          final headroomDc = headroomStored / chargeEff;
+          final rateCap = battery.maxChargeKw * stepHours;
+          final available = pvDcByBus[busId]!;
+          final deliverable =
+              math.min(available, math.min(rateCap, headroomDc));
+          if (deliverable <= 0) continue;
+          socs[k] += deliverable * chargeEff;
+          pvDcByBus[busId] = available - deliverable;
+          dcDirectCharges[k] += deliverable;
+          dcDirectChargeKwhTotal += deliverable;
+        }
+
+        final residual = pvDcByBus[busId] ?? 0;
+        if (residual <= 0) {
+          acBypassRatioByBus[busId] = 0.0;
+          continue;
+        }
+        final bus = topology.dcBusById(busId);
+        final mode = bus?.mode ?? BusMode.hybrid;
+        if (mode == BusMode.hybrid) {
+          // 1c: residual → hybrid inverter → AC. Find the first edge
+          // `busId → inverterId` in the topology.
+          Inverter? hybrid;
+          double hybridEta = 1.0;
+          for (final e in topology.edges) {
+            if (e.fromId == busId && inverterById.containsKey(e.toId)) {
+              hybrid = inverterById[e.toId];
+              hybridEta = e.efficiency;
+              break;
+            }
+          }
+          if (hybrid != null) {
+            // Inverter own efficiency is multiplicative with the edge
+            // efficiency (the edge already carries it in fromLegacy,
+            // but explicit topologies might split them — multiply both
+            // for safety).
+            final rawAc = residual * hybridEta * hybrid.efficiency;
+            final limitedAc =
+                math.min(rawAc, hybrid.effectiveMaxAcKw * stepHours);
+            pvAcKwh += limitedAc;
+            curtailedAcKwh += math.max(0.0, rawAc - limitedAc);
+            final preChargeBus = pvDcByBusBefore[busId] ?? 0.0;
+            acBypassRatioByBus[busId] =
+                preChargeBus > 0 ? limitedAc / preChargeBus : 0.0;
+          } else {
+            // Hybrid bus without a hybrid inverter wired up — residual
+            // has no AC path. Treat as DC curtailment so the energy
+            // balance stays honest. Validation should normally catch
+            // this misconfiguration (rule 4 in chunk 4).
+            dcCurtailedKwhTotal += residual;
+            acBypassRatioByBus[busId] = 0.0;
+          }
+        } else {
+          // 1d: batteryFed — residual is lost.
+          dcCurtailedKwhTotal += residual;
+          acBypassRatioByBus[busId] = 0.0;
+        }
+        pvDcByBus[busId] = 0;
+      }
+    }
+
     for (var i = 0; i < config.arrays.length; i++) {
-      arrayAcScratch[i] =
-          arrayDcScratch[i] * (acRatioByInverter[config.arrays[i].inverterId] ?? 0.0);
+      final array = config.arrays[i];
+      final ccId = hasDcPath ? arrayToCc[array.id] : null;
+      if (ccId == null) {
+        // Legacy AC path.
+        arrayAcScratch[i] = arrayDcScratch[i] *
+            (acRatioByInverter[array.inverterId] ?? 0.0);
+      } else {
+        // DC path: factor in cc input clip, cc efficiency, and the
+        // bus-side AC-bypass ratio. For batteryFed buses or buses
+        // where the battery absorbed everything, the ratio is 0.
+        final cc = ccById[ccId]!;
+        final clip = ccCapRatio[ccId] ?? 0.0;
+        final busRatio = acBypassRatioByBus[cc.dcBusId] ?? 0.0;
+        arrayAcScratch[i] =
+            arrayDcScratch[i] * clip * cc.efficiency * busRatio;
+      }
     }
 
     final loadKwh = config.loadProfile.energyKwhForStep(hourOfDay: hourOfDay, timeStep: config.timeStep);
@@ -1973,7 +2202,6 @@ class PvSimulator {
     final dischargeEta = [for (final b in config.batteries) b.dischargeEfficiency];
 
     final policy = config.effectiveDispatchPolicy;
-    final topology = config.effectiveTopology;
     final ctx = DispatchContext(
       hourOfDay: hourOfDay,
       dayOfYear: dayOfYear,
@@ -2035,6 +2263,7 @@ class PvSimulator {
       stepHours: stepHours,
       gridExportLimitKw: config.gridExportLimitKw,
       batteryAcCapKwh: acCapKwh,
+      skipChargeIndices: dcCoupledIndices,
     );
 
     // For pre-run steps `buf` is null — the SOC mutation from
@@ -2047,7 +2276,14 @@ class PvSimulator {
     var totalCharge = 0.0;
     var totalDischarge = 0.0;
     for (var i = 0; i < buf.batteryCount; i++) {
-      final c = flows.batteryChargesKwh[i];
+      // For DC-coupled batteries the AC router skipped charging, so
+      // `flows.batteryChargesKwh[i]` is 0 — the actual charge came in
+      // via the DC pre-step (`dcDirectCharges[i]`). For AC-coupled
+      // batteries `dcDirectCharges[i]` is 0. Summing both keeps the
+      // per-step "battery in" total honest regardless of coupling.
+      final ac = flows.batteryChargesKwh[i];
+      final dc = i < dcDirectCharges.length ? dcDirectCharges[i] : 0.0;
+      final c = ac + dc;
       final d = flows.batteryDischargesKwh[i];
       totalCharge += c;
       totalDischarge += d;
@@ -2096,6 +2332,8 @@ class PvSimulator {
     buf.microInverterDeliveredKwh[writeIdx] = totalDelivered;
     buf.microInverterShortfallKwh[writeIdx] = totalShortfall;
     buf.unservedLoadKwh[writeIdx] = flows.unservedLoadKwh;
+    buf.dcDirectChargeKwh[writeIdx] = dcDirectChargeKwhTotal;
+    buf.dcCurtailedKwh[writeIdx] = dcCurtailedKwhTotal;
 
     // Tariff accounting AFTER the dispatch finalises grid I/O — the
     // locked dispatch order (steps 1..6) is untouched. When no tariff
@@ -2156,6 +2394,8 @@ class PvSimulator {
       importCostEur: hasTariff ? acc.importCostEur : null,
       exportRevenueEur: hasTariff ? acc.exportRevenueEur : null,
       netCostEur: hasTariff ? acc.importCostEur - acc.exportRevenueEur : null,
+      dcDirectChargeKwh: acc.dcDirectChargeKwh,
+      dcCurtailedKwh: acc.dcCurtailedKwh,
     );
   }
 
