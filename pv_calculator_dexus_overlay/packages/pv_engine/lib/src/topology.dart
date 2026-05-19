@@ -542,6 +542,29 @@ class TopologyGraph {
       }
     }
 
+    // Phase-4b rule 11: each DC bus may have at most one outgoing
+    // `bus → inverter` edge. `_simulateStep` resolves the hybrid /
+    // discharge inverter by stopping at the first matching edge —
+    // multiple edges would silently shift production and discharge
+    // caps based on declaration order. For `batteryFed` buses the
+    // tighter rule 3 (exactly one) wins; for `hybrid` zero is fine
+    // (no AC path → battery discharge capped at zero in the
+    // simulator), but more than one is rejected here.
+    final invEdgeCountByBus = <String, int>{};
+    for (final e in edges) {
+      if (dcIds.contains(e.fromId) && inverterIds.contains(e.toId)) {
+        invEdgeCountByBus.update(e.fromId, (n) => n + 1, ifAbsent: () => 1);
+      }
+    }
+    for (final entry in invEdgeCountByBus.entries) {
+      if (entry.value > 1) {
+        throw ArgumentError(
+            'DcBus ${entry.key} has ${entry.value} outgoing inverter edges. '
+            'Pick exactly one bus-side inverter (`dcBus → inverter`) so the '
+            'hybrid-bypass and battery-discharge paths are unambiguous.');
+      }
+    }
+
     // Rules 3 + 4: every `BusMode.batteryFed` DC bus must have exactly
     // one DC-coupled battery and exactly one outgoing edge into an
     // inverter, and that inverter must not also have an array→MPPT
