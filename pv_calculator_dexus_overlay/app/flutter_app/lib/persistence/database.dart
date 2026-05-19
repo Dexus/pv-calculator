@@ -132,6 +132,11 @@ class AppDatabase {
         v = 3;
         continue;
       }
+      if (v == 3) {
+        _migrateV3ToV4();
+        v = 4;
+        continue;
+      }
       throw StateError('No migration path from schema v$v to v${v + 1}.');
     }
   }
@@ -145,6 +150,23 @@ class AppDatabase {
   void _migrateV2ToV3() {
     for (final stmt in migrationV2ToV3) {
       _db.execute(stmt);
+    }
+  }
+
+  /// Relax the `component_catalog.kind` CHECK to include
+  /// `'chargeController'`. Done as a single transaction so the rebuild-
+  /// and-rename either lands fully or not at all — a half-renamed table
+  /// would leave the database in an unbootable state.
+  void _migrateV3ToV4() {
+    _db.execute('BEGIN');
+    try {
+      for (final stmt in migrationV3ToV4) {
+        _db.execute(stmt);
+      }
+      _db.execute('COMMIT');
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
     }
   }
 }

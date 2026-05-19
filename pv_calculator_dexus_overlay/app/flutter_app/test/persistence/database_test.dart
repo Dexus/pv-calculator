@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pv_calculator_app/persistence/database.dart';
 import 'package:pv_calculator_app/persistence/project_repository.dart';
+import 'package:pv_calculator_app/persistence/schema.dart';
 import 'package:pv_calculator_app/persistence/scenario_repository.dart';
 import 'package:pv_calculator_app/persistence/simulation_run_repository.dart';
 import 'package:pv_calculator_app/state/config_draft.dart';
@@ -37,7 +38,7 @@ void main() {
     final version = db.db
         .select("SELECT value FROM app_meta WHERE key = 'schema_version'")
         .first['value'];
-    expect(version, equals('3'));
+    expect(version, equals(currentSchemaVersion.toString()));
   });
 
   test('ProjectRepository.createProject auto-creates a default site', () {

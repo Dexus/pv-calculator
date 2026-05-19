@@ -6,18 +6,20 @@ import 'dart:convert';
 
 /// Coarse classification of a catalog entry. Used for filtering and for
 /// the JSON discriminator.
-enum ComponentKind { module, inverter, battery }
+enum ComponentKind { module, inverter, battery, chargeController }
 
 String _kindName(ComponentKind k) => switch (k) {
       ComponentKind.module => 'module',
       ComponentKind.inverter => 'inverter',
       ComponentKind.battery => 'battery',
+      ComponentKind.chargeController => 'chargeController',
     };
 
 ComponentKind _kindFromName(String s) => switch (s) {
       'module' => ComponentKind.module,
       'inverter' => ComponentKind.inverter,
       'battery' => ComponentKind.battery,
+      'chargeController' => ComponentKind.chargeController,
       _ => throw ArgumentError('Unknown ComponentKind: $s'),
     };
 
@@ -77,6 +79,8 @@ sealed class CatalogEntry {
         return InverterCatalogEntry.fromJson(json);
       case ComponentKind.battery:
         return BatteryCatalogEntry.fromJson(json);
+      case ComponentKind.chargeController:
+        return ChargeControllerCatalogEntry.fromJson(json);
     }
   }
 }
@@ -298,6 +302,108 @@ class BatteryCatalogEntry extends CatalogEntry {
   }
 }
 
+class ChargeControllerCatalogEntry extends CatalogEntry {
+  const ChargeControllerCatalogEntry({
+    required super.id,
+    required super.manufacturer,
+    required super.model,
+    this.efficiency = 0.97,
+    this.maxInputKw,
+    this.maxOutputKw,
+    this.standbyW = 0.0,
+    this.mpptCount,
+    super.sourceUrl,
+    super.notes,
+  });
+
+  /// DC→DC efficiency from PV side to the DC bus side.
+  final double efficiency;
+
+  /// Optional PV-side input power cap in kW. `null` means no cap is
+  /// declared by the catalog entry; the form layer is free to either
+  /// leave the engine field unset or supply a value derived from the
+  /// MPPT count × per-MPPT current.
+  final double? maxInputKw;
+
+  /// Optional informational DC-bus-side output power cap. Not yet used
+  /// by the engine (the bus-side path is currently limited by the
+  /// battery rate and the hybrid inverter's AC cap), but commonly
+  /// printed on real charge-controller datasheets and worth carrying
+  /// for catalog completeness.
+  final double? maxOutputKw;
+
+  /// Self-consumption / parasitic standby draw, in W. Optional;
+  /// currently ignored by the engine (zero in MVP), preserved for
+  /// future telemetry-style accuracy.
+  final double standbyW;
+
+  /// Number of independent MPPT trackers on the device. Informational
+  /// only — the engine models each `ChargeController` as a single MPPT
+  /// stage. Useful when the UI eventually offers "fan out arrays
+  /// across MPPTs" sizing helpers.
+  final int? mpptCount;
+
+  @override
+  ComponentKind get kind => ComponentKind.chargeController;
+
+  @override
+  void validate() {
+    if (id.isEmpty) {
+      throw ArgumentError('ChargeControllerCatalogEntry.id must be non-empty');
+    }
+    if (efficiency <= 0 || efficiency > 1) {
+      throw ArgumentError(
+          'ChargeControllerCatalogEntry.efficiency must be in (0, 1]');
+    }
+    if (maxInputKw != null && maxInputKw! <= 0) {
+      throw ArgumentError(
+          'ChargeControllerCatalogEntry.maxInputKw must be > 0');
+    }
+    if (maxOutputKw != null && maxOutputKw! <= 0) {
+      throw ArgumentError(
+          'ChargeControllerCatalogEntry.maxOutputKw must be > 0');
+    }
+    if (standbyW < 0) {
+      throw ArgumentError(
+          'ChargeControllerCatalogEntry.standbyW must not be negative');
+    }
+    if (mpptCount != null && mpptCount! <= 0) {
+      throw ArgumentError(
+          'ChargeControllerCatalogEntry.mpptCount must be > 0');
+    }
+  }
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'kind': _kindName(kind),
+        'id': id,
+        'manufacturer': manufacturer,
+        'model': model,
+        'efficiency': efficiency,
+        if (maxInputKw != null) 'maxInputKw': maxInputKw,
+        if (maxOutputKw != null) 'maxOutputKw': maxOutputKw,
+        if (standbyW != 0.0) 'standbyW': standbyW,
+        if (mpptCount != null) 'mpptCount': mpptCount,
+        if (sourceUrl != null) 'sourceUrl': sourceUrl,
+        if (notes != null) 'notes': notes,
+      };
+
+  factory ChargeControllerCatalogEntry.fromJson(Map<String, dynamic> json) {
+    return ChargeControllerCatalogEntry(
+      id: json['id'] as String,
+      manufacturer: json['manufacturer'] as String,
+      model: json['model'] as String,
+      efficiency: (json['efficiency'] as num?)?.toDouble() ?? 0.97,
+      maxInputKw: (json['maxInputKw'] as num?)?.toDouble(),
+      maxOutputKw: (json['maxOutputKw'] as num?)?.toDouble(),
+      standbyW: (json['standbyW'] as num?)?.toDouble() ?? 0.0,
+      mpptCount: (json['mpptCount'] as num?)?.toInt(),
+      sourceUrl: json['sourceUrl'] as String?,
+      notes: json['notes'] as String?,
+    );
+  }
+}
+
 /// Abstract source of catalog entries. Read-only sources (the bundled
 /// seed, future remote APIs) leave `isWritable` at false and inherit
 /// `upsert`/`delete` from the base which throws `UnsupportedError`.
@@ -423,6 +529,7 @@ List<CatalogEntry> parseSeedCatalog(String jsonText) {
     (ComponentKind.module, 'modules'),
     (ComponentKind.inverter, 'inverters'),
     (ComponentKind.battery, 'batteries'),
+    (ComponentKind.chargeController, 'chargeControllers'),
   ]) {
     final list = raw[section.$2];
     if (list == null) continue;

@@ -74,6 +74,8 @@ class _PickerSheetState<T extends CatalogEntry>
         all = await widget.repository.inverters();
       case ComponentKind.battery:
         all = await widget.repository.batteries();
+      case ComponentKind.chargeController:
+        all = await widget.repository.chargeControllers();
     }
     var typed = all.whereType<T>().toList();
     final f = widget.filter;

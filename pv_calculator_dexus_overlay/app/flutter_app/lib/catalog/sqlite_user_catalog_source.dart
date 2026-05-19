@@ -59,5 +59,6 @@ class SqliteUserCatalogSource extends CatalogSource {
         ComponentKind.module => 'module',
         ComponentKind.inverter => 'inverter',
         ComponentKind.battery => 'battery',
+        ComponentKind.chargeController => 'chargeController',
       };
 }
