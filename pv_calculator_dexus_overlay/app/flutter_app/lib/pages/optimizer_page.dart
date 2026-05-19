@@ -41,6 +41,8 @@ class _OptimizerPageState extends State<OptimizerPage> {
   double _priceBattery = 600;
   double? _budget;
   int _horizonYears = 10;
+  double _discountRatePct = 0;
+  double _priceEscalationPctPerYear = 0;
 
   OptimizerObjective _objective = OptimizerObjective.maxAutarky;
 
@@ -282,8 +284,34 @@ class _OptimizerPageState extends State<OptimizerPage> {
                     onChanged: (v) => setState(() => _horizonYears = v),
                   ),
                 ),
+                SizedBox(
+                  width: 220,
+                  child: NumberField(
+                    key: const Key('optimizer-discount-rate'),
+                    label: l.optimizerDiscountRate,
+                    initialValue: _discountRatePct,
+                    min: -99.0,
+                    onChanged: (v) => setState(
+                        () => _discountRatePct = v ?? _discountRatePct),
+                  ),
+                ),
+                SizedBox(
+                  width: 220,
+                  child: NumberField(
+                    key: const Key('optimizer-price-escalation'),
+                    label: l.optimizerPriceEscalation,
+                    initialValue: _priceEscalationPctPerYear,
+                    min: -99.0,
+                    onChanged: (v) => setState(() =>
+                        _priceEscalationPctPerYear =
+                            v ?? _priceEscalationPctPerYear),
+                  ),
+                ),
               ],
             ),
+            const SizedBox(height: 4),
+            Text(l.optimizerDiscountHint,
+                style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
       ),
@@ -458,6 +486,8 @@ class _OptimizerPageState extends State<OptimizerPage> {
       optionalArrayIds: optionalIds,
       budgetEur: _budget,
       horizonYears: _horizonYears,
+      discountRatePct: _discountRatePct,
+      priceEscalationPctPerYear: _priceEscalationPctPerYear,
     );
     controller.runFromDraft(draft, spec);
   }

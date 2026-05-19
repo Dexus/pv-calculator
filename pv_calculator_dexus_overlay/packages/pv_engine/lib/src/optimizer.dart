@@ -72,6 +72,8 @@ class OptimizerSpec {
     this.optionalArrayIds = const [],
     this.budgetEur,
     this.horizonYears = 10,
+    this.discountRatePct = 0.0,
+    this.priceEscalationPctPerYear = 0.0,
     this.topN = 20,
   });
 
@@ -105,10 +107,29 @@ class OptimizerSpec {
   /// simulator. `null` = no cap.
   final double? budgetEur;
 
-  /// Years over which `lifetimeNetCostEur = investmentEur + horizonYears
-  /// × summary.netCostEur` is computed. Undiscounted — adding a discount
-  /// rate / NPV is deferred (ROADMAP Phase 10).
+  /// Years over which `lifetimeNetCostEur` is summed. The per-year
+  /// `netCostEur` is escalated by [priceEscalationPctPerYear] (compounded
+  /// from year 1 onwards) and discounted to present value by
+  /// [discountRatePct]. With both rates at 0 % the formula reduces to
+  /// `investmentEur + horizonYears × netCostEur` (the pre-NPV behaviour).
   final int horizonYears;
+
+  /// Annual discount rate in percent applied to future yearly costs so
+  /// `lifetimeNetCostEur` is reported as a present-value sum. `0` keeps
+  /// the historical undiscounted behaviour. Must be > -100.
+  ///
+  /// Discount factor for year y (1-indexed) is `1 / (1 + r)^y` where
+  /// `r = discountRatePct / 100`.
+  final double discountRatePct;
+
+  /// Annual electricity-price escalation in percent applied to the
+  /// recurring `netCostEur` term. `0` keeps the historical behaviour.
+  /// Must be > -100.
+  ///
+  /// Escalation factor for year y (1-indexed) is `(1 + e)^(y - 1)` where
+  /// `e = priceEscalationPctPerYear / 100`. Year 1 uses today's price
+  /// (factor 1), year 2 the once-escalated price, etc.
+  final double priceEscalationPctPerYear;
 
   /// Returned candidates are sorted best-first and truncated to this
   /// length.
@@ -122,6 +143,15 @@ class OptimizerSpec {
     prices.validate();
     if (horizonYears < 1 || horizonYears > 100) {
       throw ArgumentError('OptimizerSpec.horizonYears must be in [1, 100].');
+    }
+    if (!discountRatePct.isFinite || discountRatePct <= -100) {
+      throw ArgumentError(
+          'OptimizerSpec.discountRatePct must be finite and > -100.');
+    }
+    if (!priceEscalationPctPerYear.isFinite ||
+        priceEscalationPctPerYear <= -100) {
+      throw ArgumentError(
+          'OptimizerSpec.priceEscalationPctPerYear must be finite and > -100.');
     }
     if (topN < 1) {
       throw ArgumentError('OptimizerSpec.topN must be >= 1.');
@@ -181,9 +211,12 @@ class OptimizerSpec {
 ///
 /// `lifetimeNetCostEur` is `null` when the baseline has no tariff (only
 /// the `maxAutarky` objective is reachable in that case). When set it
-/// equals `investmentEur + horizonYears × summary.netCostEur` and is
-/// strictly the optimizer's ranking metric — it is *not* a financial
-/// forecast (no discount rate, no inflation, no tariff escalation).
+/// equals `investmentEur + Σ_{y=1..horizonYears} netCostEur ·
+/// (1 + e)^(y-1) / (1 + r)^y` where `e = priceEscalationPctPerYear / 100`
+/// and `r = discountRatePct / 100`. With both rates at zero this reduces
+/// to `investmentEur + horizonYears × netCostEur` (the pre-NPV
+/// behaviour). The figure is still the optimizer's ranking metric, not
+/// a full financial forecast — payback time and IRR are not derived.
 class OptimizerCandidate {
   const OptimizerCandidate({
     required this.batteryKwh,
@@ -251,8 +284,12 @@ class OptimizerResult {
 ///   6. Runs `PvSimulator().run(patched)`. Configs that fail engine
 ///      `validate()` increment `failedValidation` and the sweep
 ///      continues.
-///   7. Computes `lifetimeNetCostEur` (when the tariff is set) and
-///      emplaces the candidate.
+///   7. Computes `lifetimeNetCostEur` (when the tariff is set) by
+///      summing the discounted, escalated per-year `netCostEur` over
+///      `horizonYears` and adding `investmentEur` (see
+///      [OptimizerSpec.discountRatePct] /
+///      [OptimizerSpec.priceEscalationPctPerYear]), then emplaces the
+///      candidate.
 ///
 /// Candidates are sorted ascending by an internal score: `-autarkyRate`
 /// for `maxAutarky`, `lifetimeNetCostEur` for `minNetCost`. The top-N
@@ -360,7 +397,13 @@ class Optimizer {
             final netCost = result.summary.netCostEur;
             final lifetimeNetCost = netCost == null
                 ? null
-                : investment + spec.horizonYears * netCost;
+                : _discountedLifetimeCost(
+                    investment: investment,
+                    annualNetCost: netCost,
+                    horizonYears: spec.horizonYears,
+                    discountRatePct: spec.discountRatePct,
+                    priceEscalationPctPerYear: spec.priceEscalationPctPerYear,
+                  );
             candidates.add(OptimizerCandidate(
               batteryKwh: batteryKwh,
               inverterKw: inverterKw,
@@ -408,6 +451,33 @@ class Optimizer {
       out.add(s);
     }
     return out;
+  }
+
+  /// Sums the discounted, escalated yearly cost over [horizonYears] and
+  /// adds the upfront [investment]. With both rates at zero this returns
+  /// `investment + horizonYears × annualNetCost`, matching the pre-NPV
+  /// behaviour. With non-zero rates the per-year term is
+  /// `annualNetCost × (1 + e)^(y - 1) / (1 + r)^y` (1-indexed y).
+  ///
+  /// Kept as a top-level helper rather than a `OptimizerSpec` method so
+  /// the formula has a single auditable source and the sweep loop avoids
+  /// touching the [OptimizerSpec] more than once per candidate.
+  double _discountedLifetimeCost({
+    required double investment,
+    required double annualNetCost,
+    required int horizonYears,
+    required double discountRatePct,
+    required double priceEscalationPctPerYear,
+  }) {
+    final r = discountRatePct / 100.0;
+    final e = priceEscalationPctPerYear / 100.0;
+    var pv = investment;
+    for (var y = 1; y <= horizonYears; y++) {
+      final escalation = math.pow(1 + e, y - 1).toDouble();
+      final discount = math.pow(1 + r, y).toDouble();
+      pv += annualNetCost * escalation / discount;
+    }
+    return pv;
   }
 
   /// Computes the sort key (lower is better) for [candidate] under

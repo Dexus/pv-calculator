@@ -3437,6 +3437,24 @@ abstract class AppLocalizations {
   /// **'Horizont (Jahre)'**
   String get optimizerHorizon;
 
+  /// No description provided for @optimizerDiscountRate.
+  ///
+  /// In de, this message translates to:
+  /// **'Diskontierungssatz (%/Jahr)'**
+  String get optimizerDiscountRate;
+
+  /// No description provided for @optimizerPriceEscalation.
+  ///
+  /// In de, this message translates to:
+  /// **'Strompreis-Eskalation (%/Jahr)'**
+  String get optimizerPriceEscalation;
+
+  /// No description provided for @optimizerDiscountHint.
+  ///
+  /// In de, this message translates to:
+  /// **'0 % beide → Lebenszykluskosten = Investition + Horizont × Jahres-Netto (alte Formel). Sonst werden die Folgejahre eskaliert und auf heute abdiskontiert. Payback / IRR werden noch nicht berechnet.'**
+  String get optimizerDiscountHint;
+
   /// No description provided for @optimizerSectionOptionalArrays.
   ///
   /// In de, this message translates to:

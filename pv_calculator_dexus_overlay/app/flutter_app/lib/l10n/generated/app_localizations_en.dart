@@ -1913,6 +1913,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get optimizerHorizon => 'Horizon (years)';
 
   @override
+  String get optimizerDiscountRate => 'Discount rate (%/yr)';
+
+  @override
+  String get optimizerPriceEscalation => 'Electricity-price escalation (%/yr)';
+
+  @override
+  String get optimizerDiscountHint =>
+      'Both 0 % → lifetime cost = investment + horizon × annual net (legacy formula). Otherwise future years are escalated and discounted to present value. Payback / IRR are not computed.';
+
+  @override
   String get optimizerSectionOptionalArrays => 'Optional arrays';
 
   @override

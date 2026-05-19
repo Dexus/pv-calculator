@@ -1921,6 +1921,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get optimizerHorizon => 'Horizont (Jahre)';
 
   @override
+  String get optimizerDiscountRate => 'Diskontierungssatz (%/Jahr)';
+
+  @override
+  String get optimizerPriceEscalation => 'Strompreis-Eskalation (%/Jahr)';
+
+  @override
+  String get optimizerDiscountHint =>
+      '0 % beide → Lebenszykluskosten = Investition + Horizont × Jahres-Netto (alte Formel). Sonst werden die Folgejahre eskaliert und auf heute abdiskontiert. Payback / IRR werden noch nicht berechnet.';
+
+  @override
   String get optimizerSectionOptionalArrays => 'Optionale Arrays';
 
   @override
