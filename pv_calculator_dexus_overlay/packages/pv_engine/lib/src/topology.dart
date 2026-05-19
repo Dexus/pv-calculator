@@ -420,6 +420,36 @@ class TopologyGraph {
         throw ArgumentError(
             'Topology chargeController ${cc.id} references unknown dcBus ${cc.dcBusId}.');
       }
+      // A ChargeController id MUST be disjoint from every other node
+      // type. If it collides, edges become ambiguous — `_simulateStep`
+      // treats any edge whose `toId` is in `ccById` as a DC-path and
+      // would mis-route PV through the wrong node.
+      if (arrayIds.contains(cc.id) ||
+          inverterIds.contains(cc.id) ||
+          batteryIds.contains(cc.id) ||
+          bankIds.contains(cc.id) ||
+          dcIds.contains(cc.id) ||
+          acIds.contains(cc.id) ||
+          mpptIds.contains(cc.id)) {
+        throw ArgumentError(
+            'Topology chargeController id ${cc.id} collides with another '
+            'node (array, inverter, MPPT, battery, bank, dcBus or acBus). '
+            'Pick a unique id so edges are unambiguous.');
+      }
+      // Every charge controller must have at least one incoming
+      // `array → cc` edge — otherwise it's purely declarative and the
+      // simulator's DC pre-step never sees it (`arrayToCc` stays
+      // empty). This catches the common foot-gun of declaring
+      // controllers at top-level without a wiring topology.
+      final hasArrayEdge = edges.any((e) =>
+          e.toId == cc.id && arrayIds.contains(e.fromId));
+      if (!hasArrayEdge) {
+        throw ArgumentError(
+            'ChargeController ${cc.id} has no incoming `array → ${cc.id}` edge — '
+            'controllers with no PV arrays wired in are inert. Either remove '
+            'the controller or add an explicit topology that wires at least '
+            'one PV array into it.');
+      }
     }
 
     final knownIds = {

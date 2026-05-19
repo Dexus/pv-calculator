@@ -2002,6 +2002,11 @@ class PvSimulator {
     // receives PV-DC via a hybrid DC bus, so the inverter's DC stage
     // sees a single shared cap across both flows.
     final dcConsumedByInverter = <String, double>{};
+    // Per-inverter AC already emitted by the legacy AC path; the
+    // hybrid bypass subtracts this from `effectiveMaxAcKw * stepHours`
+    // before applying its own AC cap so the inverter's physical AC
+    // rating is shared between both flows.
+    final acEmittedByInverter = <String, double>{};
     for (final entry in dcByInverter.entries) {
       final inverter = inverterById[entry.key]!;
       var dcKwh = entry.value;
@@ -2022,6 +2027,7 @@ class PvSimulator {
       final limitedAc = math.min(rawAc, inverter.effectiveMaxAcKw * stepHours);
       pvAcKwh += limitedAc;
       curtailedAcKwh += math.max(0.0, rawAc - limitedAc);
+      acEmittedByInverter[entry.key] = limitedAc;
       // ratio = limitedAc / entry.value (original pre-cap DC sum) so
       // the per-array distribution captures both DC clipping and AC
       // clipping in one factor.
@@ -2042,8 +2048,11 @@ class PvSimulator {
     final acBypassRatioByBus = <String, double>{};
     final dcDirectCharges = List<double>.filled(config.batteries.length, 0.0);
     final dcCoupledIndices = <int>{};
-    if (hasDcPath || topology.batteryCouplings
-        .any((c) => c.coupling == BatteryCoupling.dc)) {
+    final dcBatteriesByBus = <String, List<int>>{};
+    final dcBusForBattery = <int, String>{};
+    final hasDcCoupling = topology.batteryCouplings
+        .any((c) => c.coupling == BatteryCoupling.dc);
+    if (hasDcPath || hasDcCoupling) {
       // Pre-cap clip + efficiency per controller.
       if (hasDcPath) {
         for (final entry in dcByController!.entries) {
@@ -2067,23 +2076,65 @@ class PvSimulator {
       }
 
       // Identify DC-coupled batteries grouped by bus.
-      final dcBatteriesByBus = <String, List<int>>{};
       for (var i = 0; i < config.batteries.length; i++) {
         final coupling = topology.couplingFor(config.batteries[i].id);
         if (coupling.coupling == BatteryCoupling.dc &&
             coupling.dcBusId != null) {
           dcCoupledIndices.add(i);
+          dcBusForBattery[i] = coupling.dcBusId!;
           dcBatteriesByBus
               .putIfAbsent(coupling.dcBusId!, () => [])
               .add(i);
         }
       }
+    }
 
+    final loadKwh = config.loadProfile.energyKwhForStep(
+        hourOfDay: hourOfDay, timeStep: config.timeStep);
+
+    // Dispatch-policy pipeline. The legacy battery dispatch + grid
+    // import/export logic lives in the router; the policy decides
+    // *what to request*, the router enforces hard limits. DC-coupled
+    // batteries see the policy request as the upper bound on DC
+    // charging below — without this, `SelfConsumptionFirstPolicy`
+    // would still cover load via grid import while PV is stored, and
+    // `BatteryReservePolicy` would sail past its reserve ceiling.
+    final batteryIds = [for (final b in config.batteries) b.id];
+    final capacities = [for (final b in config.batteries) b.capacityKwh];
+    final minSocs = [for (final b in config.batteries) b.minSocKwh];
+    final maxCharge = [for (final b in config.batteries) b.maxChargeKw];
+    final maxDischarge = [for (final b in config.batteries) b.maxDischargeKw];
+    final chargeEta = [for (final b in config.batteries) b.chargeEfficiency];
+    final dischargeEta = [for (final b in config.batteries) b.dischargeEfficiency];
+    final policy = config.effectiveDispatchPolicy;
+    final ctx = DispatchContext(
+      hourOfDay: hourOfDay,
+      dayOfYear: dayOfYear,
+      stepHours: stepHours,
+      pvAcKwh: pvAcKwh,
+      loadKwh: loadKwh,
+      batteryStates: List<double>.unmodifiable(socs),
+      batteryCapacitiesKwh: capacities,
+      batteryMinSocsKwh: minSocs,
+      batteryMaxChargeKw: maxCharge,
+      batteryMaxDischargeKw: maxDischarge,
+      batteryChargeEfficiency: chargeEta,
+      batteryDischargeEfficiency: dischargeEta,
+      batteryIds: batteryIds,
+      banks: config.microInverterBanks,
+      topology: topology,
+      gridExportLimitKw: config.gridExportLimitKw,
+      pvDcByBus: Map.unmodifiable(pvDcByBus),
+      dcBusForBattery: Map.unmodifiable(dcBusForBattery),
+    );
+    final plan = policy.plan(ctx);
+
+    if (hasDcPath || hasDcCoupling) {
       // For each DC bus carrying PV-DC: charge DC-coupled batteries
-      // (step 1b), then route residual via hybrid inverter (1c) or
-      // curtail on batteryFed (1d).
+      // (step 1b — bounded by the dispatch policy's request so reserve
+      // / load-first intent is honoured), then route residual via the
+      // hybrid inverter (1c) or curtail on batteryFed (1d).
       for (final busId in pvDcByBus.keys.toList()) {
-        // 1b: charge DC-coupled batteries (unconditional — physics).
         final batteries = dcBatteriesByBus[busId] ?? const <int>[];
         for (final k in batteries) {
           if ((pvDcByBus[busId] ?? 0) <= 0) break;
@@ -2094,9 +2145,18 @@ class PvSimulator {
               math.max(0.0, battery.capacityKwh - socs[k]);
           final headroomDc = headroomStored / chargeEff;
           final rateCap = battery.maxChargeKw * stepHours;
+          // Policy request expresses how much "in-going" energy the
+          // user wants stored this step (`SelfConsumptionFirst` deducts
+          // AC load to keep PV available for self-consumption first;
+          // `BatteryReserve` caps at the reserve ceiling). Use it as
+          // an upper bound on the DC charge so DC-coupled batteries
+          // can't run past policy intent.
+          final planRequest = k < plan.batteryChargeRequestsKwh.length
+              ? math.max(0.0, plan.batteryChargeRequestsKwh[k])
+              : double.infinity;
           final available = pvDcByBus[busId]!;
-          final deliverable =
-              math.min(available, math.min(rateCap, headroomDc));
+          final deliverable = math.min(
+              available, math.min(planRequest, math.min(rateCap, headroomDc)));
           if (deliverable <= 0) continue;
           socs[k] += deliverable * chargeEff;
           pvDcByBus[busId] = available - deliverable;
@@ -2147,12 +2207,18 @@ class PvSimulator {
             // Inverter own efficiency is multiplicative with the edge
             // efficiency (the edge already carries it in fromLegacy,
             // but explicit topologies might split them — multiply both
-            // for safety).
+            // for safety). Share the inverter's AC rating with any AC
+            // already emitted by the legacy AC path on the same
+            // inverter — otherwise the sum (legacy + bypass) could
+            // exceed the inverter's physical AC max.
             final rawAc = clippedResidual * hybridEta * hybrid.efficiency;
-            final limitedAc =
-                math.min(rawAc, hybrid.effectiveMaxAcKw * stepHours);
+            final acAlreadyEmitted = acEmittedByInverter[hybrid.id] ?? 0.0;
+            final remainingAc = math.max(
+                0.0, hybrid.effectiveMaxAcKw * stepHours - acAlreadyEmitted);
+            final limitedAc = math.min(rawAc, remainingAc);
             pvAcKwh += limitedAc;
             curtailedAcKwh += math.max(0.0, rawAc - limitedAc);
+            acEmittedByInverter[hybrid.id] = acAlreadyEmitted + limitedAc;
             final preChargeBus = pvDcByBusBefore[busId] ?? 0.0;
             acBypassRatioByBus[busId] =
                 preChargeBus > 0 ? limitedAc / preChargeBus : 0.0;
@@ -2191,41 +2257,6 @@ class PvSimulator {
             arrayDcScratch[i] * clip * cc.efficiency * busRatio;
       }
     }
-
-    final loadKwh = config.loadProfile.energyKwhForStep(hourOfDay: hourOfDay, timeStep: config.timeStep);
-
-    // Dispatch-policy pipeline. The legacy battery dispatch + grid
-    // import/export logic now lives in the router; the policy decides
-    // *what to request*, the router enforces hard limits.
-    final batteryIds = [for (final b in config.batteries) b.id];
-    final capacities = [for (final b in config.batteries) b.capacityKwh];
-    final minSocs = [for (final b in config.batteries) b.minSocKwh];
-    final maxCharge = [for (final b in config.batteries) b.maxChargeKw];
-    final maxDischarge = [for (final b in config.batteries) b.maxDischargeKw];
-    final chargeEta = [for (final b in config.batteries) b.chargeEfficiency];
-    final dischargeEta = [for (final b in config.batteries) b.dischargeEfficiency];
-
-    final policy = config.effectiveDispatchPolicy;
-    final ctx = DispatchContext(
-      hourOfDay: hourOfDay,
-      dayOfYear: dayOfYear,
-      stepHours: stepHours,
-      pvAcKwh: pvAcKwh,
-      loadKwh: loadKwh,
-      batteryStates: List<double>.unmodifiable(socs),
-      batteryCapacitiesKwh: capacities,
-      batteryMinSocsKwh: minSocs,
-      batteryMaxChargeKw: maxCharge,
-      batteryMaxDischargeKw: maxDischarge,
-      batteryChargeEfficiency: chargeEta,
-      batteryDischargeEfficiency: dischargeEta,
-      batteryIds: batteryIds,
-      banks: config.microInverterBanks,
-      topology: topology,
-      gridExportLimitKw: config.gridExportLimitKw,
-    );
-
-    final plan = policy.plan(ctx);
 
     // Per-battery AC envelope per Architektur §5.3:
     //   `allowedPowerW = min(targetPowerW, battery.maxDischargeW, inverterLimitW)`.

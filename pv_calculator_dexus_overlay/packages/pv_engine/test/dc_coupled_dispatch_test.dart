@@ -352,6 +352,80 @@ void main() {
       expect(sawPeak, isTrue);
     });
 
+    test('SelfConsumptionFirst covers AC load before charging DC battery', () {
+      // Reviewer (Codex) call-out: pre-Chunk-7 the DC pre-step charged
+      // the battery unconditionally, leaving load uncovered and
+      // triggering grid import while PV was still pooling on the bus.
+      // After threading the policy plan through the DC pre-step, load
+      // is satisfied first; only the surplus reaches the battery.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'Hybrid', maxAcKw: 10.0, efficiency: 1.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1000.0, maxChargeKw: 100.0,
+            maxDischargeKw: 100.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        // ~1 kWh/h average load (24 kWh/day with the default hourly
+        // shape) — well within PV at peak hours but non-trivial.
+        loadProfile: const LoadProfile(dailyKwh: 24.0),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.hybrid, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _FullSunWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // Grid import should be zero during the sunlit hours — any
+      // import there would prove load is still being uncovered while
+      // PV charges the battery. Acceptable during the night when PV
+      // is 0 and the battery may also be empty.
+      var sawSunStep = false;
+      for (final s in result.steps) {
+        if (s.pvDcKwh > 0.5 && s.loadKwh > 0.0) {
+          sawSunStep = true;
+          expect(s.gridImportKwh, closeTo(0.0, 1e-9),
+              reason: 'no grid import expected while PV-DC is available');
+        }
+      }
+      expect(sawSunStep, isTrue);
+    });
+
+    test('BatteryReservePolicy caps DC charging at the reserve ceiling', () {
+      // Reserve fraction 0.5 ⇒ charging stops at 50 % of capacity. PV
+      // arrives at full sun for the whole day; the battery starts at
+      // 80 % (above reserve) and should NOT be charged at all.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1.0, maxChargeKw: 10.0,
+            maxDischargeKw: 10.0, minSocKwh: 0, initialSocKwh: 0.8,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        dispatchPolicy: const BatteryReservePolicy(reserveSocFraction: 0.5),
+        topology: _topology(
+          mode: BusMode.hybrid, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _FullSunWeather(),
+        gridExportLimitKw: 100.0,
+      );
+      final result = const PvSimulator().run(cfg);
+      // The battery sits above the reserve at start; policy refuses to
+      // charge, so DC pre-step also refuses, and no DC direct-charge
+      // is recorded. PV flows entirely through the hybrid bypass.
+      expect(result.summary.dcDirectChargeKwh, closeTo(0.0, 1e-9));
+      expect(result.summary.pvAcKwh, greaterThan(0.0));
+      // Final SOC unchanged (no charging).
+      expect(result.summary.finalBatterySocKwh, closeTo(0.8, 1e-9));
+    });
+
     test('zero-PV step in DC topology produces no NaNs in per-array AC', () {
       // Dark hour, DC topology configured — array DC = 0, every ratio
       // computation must not divide by zero.
