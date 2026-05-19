@@ -218,6 +218,44 @@ AC-coupled scenarios stay byte-identical (regression-guarded by
   the three operator-facing failure modes (`502 upstream unreachable`,
   unexpected `X-Cache: MISS`, 4xx forwarded but not cached).
 
+## [Unreleased] — app 0.9.1
+
+Phase 10 follow-up — Pareto rank annotation in the main optimizer
+results table. Closes the second half of the
+"Pareto-Rang-Annotation in der Haupt-Tabelle" deferred item in
+`docs/ROADMAP.md` (the ≥3-objective Pareto front stays deferred).
+UI-only; engine untouched, no schema change.
+
+### Added — App
+- `OptimizerResultsTable` gains an optional `paretoFrontier` parameter
+  (default `const []`). When non-empty, a leading `Pareto` column is
+  rendered: rows whose `OptimizerCandidate` is identity-equal to a
+  frontier member show a primary-colored `Icons.star`; the rest show
+  `—`. Both variants carry a `Tooltip` with the on-/off-frontier
+  message so screen readers can distinguish them. Membership uses
+  `identityHashCode` because `OptimizerResult.paretoFrontier` reuses
+  the same Dart objects that appear in `candidates`.
+- `optimizer_page.dart` forwards `result.paretoFrontier` to the table.
+  When the user runs the sweep without a tariff, the frontier is empty
+  and the table renders exactly as before (no extra column, no extra
+  width).
+- ARB strings added in de/en/es/fr: `optimizerColPareto`,
+  `optimizerColParetoTooltipOn`, `optimizerColParetoTooltipOff`.
+- Stable per-row marker keys `Key('optimizer-pareto-marker-N')` let
+  tests scrape the column without depending on rendered text.
+- App version bumped `0.9.0 → 0.9.1` (and `app_info.dart` realigned
+  from a pre-existing stale 0.8.2).
+
+### Added — Tests
+- `app/flutter_app/test/optimizer_page_test.dart`:
+  - "Pareto card hidden when no tariff" — extended to assert that no
+    `optimizer-pareto-marker-N` keys exist (column collapsed).
+  - "Pareto card renders when tariff is active" — extended to walk
+    every displayed top-N row, check the per-row marker key, and
+    cross-reference identity against `result.paretoFrontier`. Asserts
+    that stars + dashes covers the entire top-N and that at least one
+    row is on the frontier (the cheapest combo, by construction).
+
 ## [0.9.0] — 2026-05-19 (app) / [0.14.0] — 2026-05-19 (engine)
 
 Phase 10 follow-up — Pareto frontier (cost × autarky). Closes the

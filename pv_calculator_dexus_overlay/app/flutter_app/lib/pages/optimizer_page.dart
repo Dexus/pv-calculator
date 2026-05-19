@@ -451,7 +451,10 @@ class _OptimizerPageState extends State<OptimizerPage> {
                 key: const Key('optimizer-no-candidates'),
               )
             else ...[
-              OptimizerResultsTable(candidates: result.candidates),
+              OptimizerResultsTable(
+                candidates: result.candidates,
+                paretoFrontier: result.paretoFrontier,
+              ),
               if (result.paretoFrontier.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Card(

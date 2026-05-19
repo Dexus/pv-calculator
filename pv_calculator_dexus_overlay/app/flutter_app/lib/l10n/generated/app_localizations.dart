@@ -3653,6 +3653,24 @@ abstract class AppLocalizations {
   /// **'PV AC (kWh/Jahr)'**
   String get optimizerColPvAcKwh;
 
+  /// No description provided for @optimizerColPareto.
+  ///
+  /// In de, this message translates to:
+  /// **'Pareto'**
+  String get optimizerColPareto;
+
+  /// No description provided for @optimizerColParetoTooltipOn.
+  ///
+  /// In de, this message translates to:
+  /// **'Pareto-optimal: keine andere ausgewertete Kombination ist gleichzeitig günstiger und autarker.'**
+  String get optimizerColParetoTooltipOn;
+
+  /// No description provided for @optimizerColParetoTooltipOff.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird von mindestens einer anderen Kombination dominiert (günstiger und autarker zugleich).'**
+  String get optimizerColParetoTooltipOff;
+
   /// No description provided for @optimizerParetoTitle.
   ///
   /// In de, this message translates to:
