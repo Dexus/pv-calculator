@@ -26,7 +26,7 @@ import 'package:test/test.dart';
 ///       stepHours (coarse — per-inverter caps are stricter but
 ///       this sum bounds the total AC delivered).
 ///
-/// 200 random configs × 24 hourly steps = 4800 step-invariant
+/// 200 random configs × up to 24 hourly steps ≈ 4800 step-invariant
 /// checks. Any future patch that breaks these invariants fails the
 /// test immediately with the failing config + step dumped so the
 /// fix can target the root cause instead of triggering yet another
@@ -354,7 +354,7 @@ void _checkStepInvariants({
 
 void main() {
   group('Phase 4c — DC dispatch invariants (property test)', () {
-    const sampleCount = 100;
+    const sampleCount = 200;
     test('$sampleCount random topologies satisfy step-level invariants', () {
       for (var seed = 0; seed < sampleCount; seed++) {
         SimulationConfig config;
