@@ -71,6 +71,9 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
   late final TextEditingController _roundtripCtrl;
   late final TextEditingController _minSocCtrl;
 
+  // Shared optional unit price across all kinds; empty input means "unknown".
+  late final TextEditingController _unitPriceCtrl;
+
   /// When true, the id field is overwritten from manufacturer/model on
   /// every keystroke. Flips to false on first manual edit of the id, or
   /// always-off when editing an existing entry.
@@ -121,6 +124,9 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
     _minSocCtrl =
         TextEditingController(text: b != null ? _fmt(b.minSocKwh) : '0');
 
+    _unitPriceCtrl = TextEditingController(
+        text: initial?.unitPriceEur != null ? _fmt(initial!.unitPriceEur!) : '');
+
     _idAutoFill = !_isEdit && _idCtrl.text.isEmpty;
     _manufacturerCtrl.addListener(_maybeAutoFillId);
     _modelCtrl.addListener(_maybeAutoFillId);
@@ -150,6 +156,7 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
       _chemistryCtrl,
       _roundtripCtrl,
       _minSocCtrl,
+      _unitPriceCtrl,
     ]) {
       c.dispose();
     }
@@ -293,6 +300,8 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
             max: 10,
             localizations: l,
           ),
+          const SizedBox(height: 12),
+          _unitPriceField(l, l.catalogEditorFieldUnitPriceHelpModule),
         ];
       case ComponentKind.inverter:
         return [
@@ -344,6 +353,8 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
               if (v != null) setState(() => _role = v);
             },
           ),
+          const SizedBox(height: 12),
+          _unitPriceField(l, l.catalogEditorFieldUnitPriceHelpInverter),
         ];
       case ComponentKind.battery:
         return [
@@ -395,6 +406,8 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
             min: 0,
             localizations: l,
           ),
+          const SizedBox(height: 12),
+          _unitPriceField(l, l.catalogEditorFieldUnitPriceHelpBattery),
         ];
       case ComponentKind.chargeController:
         // Dedicated charge-controller editor lands in Phase-4b chunk 6.
@@ -475,6 +488,36 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
     );
   }
 
+  Widget _unitPriceField(AppLocalizations l, String helperText) {
+    // The same shared field across module/inverter/battery; helper text
+    // disambiguates "per what" since the unit differs by kind. Optional
+    // — empty input round-trips to `unitPriceEur: null`.
+    return TextFormField(
+      key: const Key('catalog-editor-unit-price'),
+      controller: _unitPriceCtrl,
+      keyboardType: const TextInputType.numberWithOptions(
+          decimal: true, signed: false),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+      ],
+      decoration: InputDecoration(
+        labelText: l.catalogEditorFieldUnitPrice,
+        helperText: helperText,
+      ),
+      validator: (v) {
+        final text = (v ?? '').trim();
+        if (text.isEmpty) return null;
+        if (text.endsWith('.') || text.endsWith(',')) return null;
+        final parsed = double.tryParse(text.replaceAll(',', '.'));
+        if (parsed == null || !parsed.isFinite) {
+          return l.validationMustBeNumber;
+        }
+        if (parsed < 0) return l.validationAtLeast('0');
+        return null;
+      },
+    );
+  }
+
   Future<void> _onSave() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final l = AppLocalizations.of(context);
@@ -541,6 +584,7 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
     final model = _modelCtrl.text.trim();
     final sourceUrl = _emptyToNull(_sourceUrlCtrl.text);
     final notes = _emptyToNull(_notesCtrl.text);
+    final unitPriceEur = _parseOptional(_unitPriceCtrl.text);
     switch (widget.kind) {
       case ComponentKind.module:
         return ModuleCatalogEntry(
@@ -554,6 +598,7 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
           degradationPctPerYear: _parse(_degradationCtrl.text),
           sourceUrl: sourceUrl,
           notes: notes,
+          unitPriceEur: unitPriceEur,
         );
       case ComponentKind.inverter:
         return InverterCatalogEntry(
@@ -566,6 +611,7 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
           role: _role,
           sourceUrl: sourceUrl,
           notes: notes,
+          unitPriceEur: unitPriceEur,
         );
       case ComponentKind.battery:
         return BatteryCatalogEntry(
@@ -580,6 +626,7 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
           minSocKwh: _parse(_minSocCtrl.text),
           sourceUrl: sourceUrl,
           notes: notes,
+          unitPriceEur: unitPriceEur,
         );
       case ComponentKind.chargeController:
         // Save handler for chargeController lands in Phase-4b chunk 6

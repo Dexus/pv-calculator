@@ -1163,6 +1163,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catalogEditorFieldMinSoc => 'Min SOC (kWh)';
 
   @override
+  String get catalogEditorFieldUnitPrice => 'Unit price (€)';
+
+  @override
+  String get catalogEditorFieldUnitPriceHelpModule =>
+      'List price per module. Optional.';
+
+  @override
+  String get catalogEditorFieldUnitPriceHelpInverter =>
+      'List price per inverter unit. Optional.';
+
+  @override
+  String get catalogEditorFieldUnitPriceHelpBattery =>
+      'List price per battery unit. Optional.';
+
+  @override
+  String catalogSummaryUnitPriceModule(String price) {
+    return '$price €/module';
+  }
+
+  @override
+  String catalogSummaryUnitPriceInverter(String price) {
+    return '$price €/unit';
+  }
+
+  @override
+  String catalogSummaryUnitPriceBattery(String price) {
+    return '$price €/unit';
+  }
+
+  @override
   String catalogEditorValidationFailed(String error) {
     return 'Validation failed: $error';
   }

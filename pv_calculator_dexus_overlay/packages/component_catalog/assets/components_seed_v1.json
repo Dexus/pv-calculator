@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "modules": [
     {
       "id": "seed-module-400-mono",
@@ -10,6 +10,7 @@
       "temperatureCoefficientPctPerC": -0.35,
       "nominalOperatingCellTempC": 45.0,
       "degradationPctPerYear": 0.5,
+      "unitPriceEur": 80.0,
       "notes": "Typical mainstream mono-PERC 400 W panel."
     },
     {
@@ -21,6 +22,7 @@
       "temperatureCoefficientPctPerC": -0.30,
       "nominalOperatingCellTempC": 44.0,
       "degradationPctPerYear": 0.4,
+      "unitPriceEur": 110.0,
       "notes": "Higher-efficiency TOPCon 440 W panel."
     },
     {
@@ -32,6 +34,7 @@
       "temperatureCoefficientPctPerC": -0.26,
       "nominalOperatingCellTempC": 42.0,
       "degradationPctPerYear": 0.25,
+      "unitPriceEur": 150.0,
       "notes": "Premium heterojunction 500 W panel."
     },
     {
@@ -43,6 +46,7 @@
       "temperatureCoefficientPctPerC": -0.35,
       "nominalOperatingCellTempC": 45.0,
       "degradationPctPerYear": 0.5,
+      "unitPriceEur": 95.0,
       "notes": "Glass-glass 410 W typical for balcony/Balkonkraftwerk kits."
     }
   ],
@@ -55,6 +59,7 @@
       "maxDcInputKw": 7.5,
       "efficiency": 0.97,
       "role": "grid",
+      "unitPriceEur": 950.0,
       "notes": "Single-phase hybrid string inverter, ~1.5 DC/AC ratio."
     },
     {
@@ -65,6 +70,7 @@
       "maxDcInputKw": 15.0,
       "efficiency": 0.975,
       "role": "grid",
+      "unitPriceEur": 1500.0,
       "notes": "Three-phase string inverter."
     },
     {
@@ -75,6 +81,7 @@
       "maxDcInputKw": 12.0,
       "efficiency": 0.965,
       "role": "batteryCoupled",
+      "unitPriceEur": 1800.0,
       "notes": "Battery-coupled hybrid inverter, 8 kW AC."
     },
     {
@@ -85,6 +92,7 @@
       "maxDcInputKw": 1.2,
       "efficiency": 0.95,
       "role": "microInverter800W",
+      "unitPriceEur": 180.0,
       "notes": "Plug-and-play balcony micro-inverter capped at 800 W AC."
     }
   ],
@@ -99,6 +107,7 @@
       "chemistry": "LFP",
       "roundTripEfficiency": 0.92,
       "minSocKwh": 0.25,
+      "unitPriceEur": 2500.0,
       "notes": "Entry-level residential LFP battery."
     },
     {
@@ -111,6 +120,7 @@
       "chemistry": "LFP",
       "roundTripEfficiency": 0.92,
       "minSocKwh": 0.5,
+      "unitPriceEur": 4500.0,
       "notes": "Common 10 kWh residential LFP storage."
     },
     {
@@ -123,6 +133,7 @@
       "chemistry": "LFP",
       "roundTripEfficiency": 0.92,
       "minSocKwh": 0.75,
+      "unitPriceEur": 6500.0,
       "notes": "Larger residential LFP storage stack."
     }
   ],
@@ -135,6 +146,7 @@
       "maxInputKw": 2.9,
       "maxOutputKw": 2.4,
       "mpptCount": 1,
+      "unitPriceEur": 180.0,
       "notes": "Typical small residential MPPT controller (~50 A, 100 V input)."
     },
     {
@@ -145,6 +157,7 @@
       "maxInputKw": 5.8,
       "maxOutputKw": 4.8,
       "mpptCount": 1,
+      "unitPriceEur": 350.0,
       "notes": "Larger residential MPPT controller (~100 A, 150 V input)."
     },
     {
@@ -155,6 +168,7 @@
       "maxInputKw": 4.6,
       "maxOutputKw": 3.8,
       "mpptCount": 2,
+      "unitPriceEur": 280.0,
       "notes": "Dual-MPPT charge controller for split arrays."
     }
   ]

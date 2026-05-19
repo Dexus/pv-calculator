@@ -49,6 +49,7 @@ sealed class CatalogEntry {
     required this.model,
     this.sourceUrl,
     this.notes,
+    this.unitPriceEur,
   });
 
   final String id;
@@ -56,6 +57,14 @@ sealed class CatalogEntry {
   final String model;
   final String? sourceUrl;
   final String? notes;
+
+  /// Optional list price for one of these components, in EUR. The unit
+  /// it is "per" depends on the subclass: per module for
+  /// [ModuleCatalogEntry], per inverter unit for [InverterCatalogEntry],
+  /// per battery unit for [BatteryCatalogEntry], per controller for
+  /// [ChargeControllerCatalogEntry]. `null` means the price is unknown
+  /// (the seed catalog and legacy user entries omit it).
+  final double? unitPriceEur;
 
   ComponentKind get kind;
 
@@ -65,6 +74,14 @@ sealed class CatalogEntry {
 
   /// Throws `ArgumentError` if any invariant is violated.
   void validate();
+
+  static void _validateUnitPrice(String entryKind, double? value) {
+    if (value == null) return;
+    if (!value.isFinite || value < 0) {
+      throw ArgumentError(
+          '$entryKind.unitPriceEur must be a finite, non-negative number');
+    }
+  }
 
   /// Dispatch factory keyed on `kind`.
   static CatalogEntry fromJson(Map<String, dynamic> json) {
@@ -97,6 +114,7 @@ class ModuleCatalogEntry extends CatalogEntry {
     this.degradationPctPerYear = 0.0,
     super.sourceUrl,
     super.notes,
+    super.unitPriceEur,
   });
 
   /// Module-level peak power, in kWp. The form layer multiplies by the
@@ -120,6 +138,7 @@ class ModuleCatalogEntry extends CatalogEntry {
       throw ArgumentError(
           'ModuleCatalogEntry.degradationPctPerYear must be in [0, 10)');
     }
+    CatalogEntry._validateUnitPrice('ModuleCatalogEntry', unitPriceEur);
   }
 
   @override
@@ -136,6 +155,7 @@ class ModuleCatalogEntry extends CatalogEntry {
           'degradationPctPerYear': degradationPctPerYear,
         if (sourceUrl != null) 'sourceUrl': sourceUrl,
         if (notes != null) 'notes': notes,
+        if (unitPriceEur != null) 'unitPriceEur': unitPriceEur,
       };
 
   factory ModuleCatalogEntry.fromJson(Map<String, dynamic> json) {
@@ -153,6 +173,7 @@ class ModuleCatalogEntry extends CatalogEntry {
           (json['degradationPctPerYear'] as num?)?.toDouble() ?? 0.0,
       sourceUrl: json['sourceUrl'] as String?,
       notes: json['notes'] as String?,
+      unitPriceEur: (json['unitPriceEur'] as num?)?.toDouble(),
     );
   }
 }
@@ -168,6 +189,7 @@ class InverterCatalogEntry extends CatalogEntry {
     this.role = CatalogInverterRole.grid,
     super.sourceUrl,
     super.notes,
+    super.unitPriceEur,
   });
 
   final double maxAcKw;
@@ -190,6 +212,7 @@ class InverterCatalogEntry extends CatalogEntry {
     if (maxDcInputKw != null && maxDcInputKw! <= 0) {
       throw ArgumentError('InverterCatalogEntry.maxDcInputKw must be > 0');
     }
+    CatalogEntry._validateUnitPrice('InverterCatalogEntry', unitPriceEur);
   }
 
   @override
@@ -204,6 +227,7 @@ class InverterCatalogEntry extends CatalogEntry {
         'role': _roleName(role),
         if (sourceUrl != null) 'sourceUrl': sourceUrl,
         if (notes != null) 'notes': notes,
+        if (unitPriceEur != null) 'unitPriceEur': unitPriceEur,
       };
 
   factory InverterCatalogEntry.fromJson(Map<String, dynamic> json) {
@@ -219,6 +243,7 @@ class InverterCatalogEntry extends CatalogEntry {
           : CatalogInverterRole.grid,
       sourceUrl: json['sourceUrl'] as String?,
       notes: json['notes'] as String?,
+      unitPriceEur: (json['unitPriceEur'] as num?)?.toDouble(),
     );
   }
 }
@@ -236,6 +261,7 @@ class BatteryCatalogEntry extends CatalogEntry {
     this.minSocKwh = 0.0,
     super.sourceUrl,
     super.notes,
+    super.unitPriceEur,
   });
 
   final double capacityKwh;
@@ -266,6 +292,7 @@ class BatteryCatalogEntry extends CatalogEntry {
       throw ArgumentError(
           'BatteryCatalogEntry.minSocKwh must be in [0, capacityKwh)');
     }
+    CatalogEntry._validateUnitPrice('BatteryCatalogEntry', unitPriceEur);
   }
 
   @override
@@ -282,6 +309,7 @@ class BatteryCatalogEntry extends CatalogEntry {
         if (minSocKwh != 0.0) 'minSocKwh': minSocKwh,
         if (sourceUrl != null) 'sourceUrl': sourceUrl,
         if (notes != null) 'notes': notes,
+        if (unitPriceEur != null) 'unitPriceEur': unitPriceEur,
       };
 
   factory BatteryCatalogEntry.fromJson(Map<String, dynamic> json) {
@@ -298,6 +326,7 @@ class BatteryCatalogEntry extends CatalogEntry {
       minSocKwh: (json['minSocKwh'] as num?)?.toDouble() ?? 0.0,
       sourceUrl: json['sourceUrl'] as String?,
       notes: json['notes'] as String?,
+      unitPriceEur: (json['unitPriceEur'] as num?)?.toDouble(),
     );
   }
 }
@@ -314,6 +343,7 @@ class ChargeControllerCatalogEntry extends CatalogEntry {
     this.mpptCount,
     super.sourceUrl,
     super.notes,
+    super.unitPriceEur,
   });
 
   /// DC→DC efficiency from PV side to the DC bus side.
@@ -371,6 +401,8 @@ class ChargeControllerCatalogEntry extends CatalogEntry {
       throw ArgumentError(
           'ChargeControllerCatalogEntry.mpptCount must be > 0');
     }
+    CatalogEntry._validateUnitPrice(
+        'ChargeControllerCatalogEntry', unitPriceEur);
   }
 
   @override
@@ -386,6 +418,7 @@ class ChargeControllerCatalogEntry extends CatalogEntry {
         if (mpptCount != null) 'mpptCount': mpptCount,
         if (sourceUrl != null) 'sourceUrl': sourceUrl,
         if (notes != null) 'notes': notes,
+        if (unitPriceEur != null) 'unitPriceEur': unitPriceEur,
       };
 
   factory ChargeControllerCatalogEntry.fromJson(Map<String, dynamic> json) {
@@ -400,6 +433,7 @@ class ChargeControllerCatalogEntry extends CatalogEntry {
       mpptCount: (json['mpptCount'] as num?)?.toInt(),
       sourceUrl: json['sourceUrl'] as String?,
       notes: json['notes'] as String?,
+      unitPriceEur: (json['unitPriceEur'] as num?)?.toDouble(),
     );
   }
 }
@@ -507,7 +541,12 @@ class MergedCatalog {
 /// document shape changes incompatibly (e.g. renamed sections, removed
 /// required fields). Forward-compatible field additions on entries
 /// are absorbed silently by the per-entry `fromJson` factories.
-const Set<int> kSupportedSeedCatalogVersions = {1};
+///
+/// v1 → v2 added the optional `unitPriceEur` field on every entry kind.
+/// v1 documents (without prices) remain valid because the field is
+/// optional; we still accept the older version explicitly so existing
+/// bundled fixtures keep parsing.
+const Set<int> kSupportedSeedCatalogVersions = {1, 2};
 
 List<CatalogEntry> parseSeedCatalog(String jsonText) {
   final raw = jsonDecode(jsonText);
