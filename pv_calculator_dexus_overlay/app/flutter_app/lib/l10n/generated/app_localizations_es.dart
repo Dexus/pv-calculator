@@ -1000,6 +1000,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get catalogManagerTabBatteries => 'Baterías';
 
   @override
+  String get catalogManagerTabChargeControllers => 'Reguladores de carga';
+
+  @override
   String get catalogManagerUserSection => 'Entradas propias';
 
   @override
@@ -1038,6 +1041,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get catalogManagerAddBatteryFab => 'Añadir batería';
+
+  @override
+  String get catalogManagerAddChargeControllerFab =>
+      'Añadir regulador de carga';
 
   @override
   String get catalogManagerDeleteConfirmTitle => '¿Eliminar entrada?';
@@ -1094,6 +1101,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get catalogEditorTitleNewBattery => 'Nueva batería';
+
+  @override
+  String get catalogEditorTitleNewChargeController =>
+      'Nuevo regulador de carga';
 
   @override
   String catalogEditorTitleEdit(String name) {
@@ -1169,6 +1180,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get catalogEditorFieldMinSoc => 'SOC mín. (kWh)';
 
   @override
+  String get catalogEditorFieldCcEfficiency => 'Eficiencia';
+
+  @override
+  String get catalogEditorFieldCcMaxInputKw => 'Entrada PV máx. (kW)';
+
+  @override
+  String get catalogEditorFieldCcMaxOutputKw => 'Salida bus CC máx. (kW)';
+
+  @override
+  String get catalogEditorFieldCcStandbyW => 'Consumo en reposo (W)';
+
+  @override
+  String get catalogEditorFieldCcMpptCount => 'Trackers MPPT';
+
+  @override
   String get catalogEditorFieldUnitPrice => 'Precio unitario (€)';
 
   @override
@@ -1182,6 +1208,10 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get catalogEditorFieldUnitPriceHelpBattery =>
       'Precio de lista por batería. Opcional.';
+
+  @override
+  String get catalogEditorFieldUnitPriceHelpChargeController =>
+      'Precio de lista por regulador. Opcional.';
 
   @override
   String catalogSummaryUnitPriceModule(String price) {

@@ -1831,6 +1831,12 @@ abstract class AppLocalizations {
   /// **'Batterien'**
   String get catalogManagerTabBatteries;
 
+  /// No description provided for @catalogManagerTabChargeControllers.
+  ///
+  /// In de, this message translates to:
+  /// **'Laderegler'**
+  String get catalogManagerTabChargeControllers;
+
   /// No description provided for @catalogManagerUserSection.
   ///
   /// In de, this message translates to:
@@ -1908,6 +1914,12 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Batterie hinzufügen'**
   String get catalogManagerAddBatteryFab;
+
+  /// No description provided for @catalogManagerAddChargeControllerFab.
+  ///
+  /// In de, this message translates to:
+  /// **'Laderegler hinzufügen'**
+  String get catalogManagerAddChargeControllerFab;
 
   /// No description provided for @catalogManagerDeleteConfirmTitle.
   ///
@@ -1992,6 +2004,12 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Neue Batterie'**
   String get catalogEditorTitleNewBattery;
+
+  /// No description provided for @catalogEditorTitleNewChargeController.
+  ///
+  /// In de, this message translates to:
+  /// **'Neuer Laderegler'**
+  String get catalogEditorTitleNewChargeController;
 
   /// No description provided for @catalogEditorTitleEdit.
   ///
@@ -2131,6 +2149,36 @@ abstract class AppLocalizations {
   /// **'Min. SOC (kWh)'**
   String get catalogEditorFieldMinSoc;
 
+  /// No description provided for @catalogEditorFieldCcEfficiency.
+  ///
+  /// In de, this message translates to:
+  /// **'Wirkungsgrad'**
+  String get catalogEditorFieldCcEfficiency;
+
+  /// No description provided for @catalogEditorFieldCcMaxInputKw.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. PV-Eingang (kW)'**
+  String get catalogEditorFieldCcMaxInputKw;
+
+  /// No description provided for @catalogEditorFieldCcMaxOutputKw.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. DC-Bus-Ausgang (kW)'**
+  String get catalogEditorFieldCcMaxOutputKw;
+
+  /// No description provided for @catalogEditorFieldCcStandbyW.
+  ///
+  /// In de, this message translates to:
+  /// **'Standby-Verbrauch (W)'**
+  String get catalogEditorFieldCcStandbyW;
+
+  /// No description provided for @catalogEditorFieldCcMpptCount.
+  ///
+  /// In de, this message translates to:
+  /// **'MPPT-Tracker'**
+  String get catalogEditorFieldCcMpptCount;
+
   /// No description provided for @catalogEditorFieldUnitPrice.
   ///
   /// In de, this message translates to:
@@ -2154,6 +2202,12 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Listenpreis je Speichereinheit. Optional.'**
   String get catalogEditorFieldUnitPriceHelpBattery;
+
+  /// No description provided for @catalogEditorFieldUnitPriceHelpChargeController.
+  ///
+  /// In de, this message translates to:
+  /// **'Listenpreis je Laderegler. Optional.'**
+  String get catalogEditorFieldUnitPriceHelpChargeController;
 
   /// No description provided for @catalogSummaryUnitPriceModule.
   ///

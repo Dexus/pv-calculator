@@ -71,6 +71,13 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
   late final TextEditingController _roundtripCtrl;
   late final TextEditingController _minSocCtrl;
 
+  // Charge controller
+  late final TextEditingController _ccEfficiencyCtrl;
+  late final TextEditingController _ccMaxInputKwCtrl;
+  late final TextEditingController _ccMaxOutputKwCtrl;
+  late final TextEditingController _ccStandbyWCtrl;
+  late final TextEditingController _ccMpptCountCtrl;
+
   // Shared optional unit price across all kinds; empty input means "unknown".
   late final TextEditingController _unitPriceCtrl;
 
@@ -124,6 +131,18 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
     _minSocCtrl =
         TextEditingController(text: b != null ? _fmt(b.minSocKwh) : '0');
 
+    final c = initial is ChargeControllerCatalogEntry ? initial : null;
+    _ccEfficiencyCtrl = TextEditingController(
+        text: c != null ? _fmt(c.efficiency) : '0.97');
+    _ccMaxInputKwCtrl = TextEditingController(
+        text: c?.maxInputKw != null ? _fmt(c!.maxInputKw!) : '');
+    _ccMaxOutputKwCtrl = TextEditingController(
+        text: c?.maxOutputKw != null ? _fmt(c!.maxOutputKw!) : '');
+    _ccStandbyWCtrl = TextEditingController(
+        text: c != null ? _fmt(c.standbyW) : '0');
+    _ccMpptCountCtrl = TextEditingController(
+        text: c?.mpptCount != null ? c!.mpptCount!.toString() : '');
+
     _unitPriceCtrl = TextEditingController(
         text: initial?.unitPriceEur != null ? _fmt(initial!.unitPriceEur!) : '');
 
@@ -156,6 +175,11 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
       _chemistryCtrl,
       _roundtripCtrl,
       _minSocCtrl,
+      _ccEfficiencyCtrl,
+      _ccMaxInputKwCtrl,
+      _ccMaxOutputKwCtrl,
+      _ccStandbyWCtrl,
+      _ccMpptCountCtrl,
       _unitPriceCtrl,
     ]) {
       c.dispose();
@@ -179,11 +203,8 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
             ComponentKind.module => l.catalogEditorTitleNewModule,
             ComponentKind.inverter => l.catalogEditorTitleNewInverter,
             ComponentKind.battery => l.catalogEditorTitleNewBattery,
-            // Editor support for chargeController lands in Phase-4b
-            // chunk 6 alongside the dedicated form section. Until then
-            // the management UI's `_kinds` list does not include this
-            // kind, so the editor is never opened in this branch.
-            ComponentKind.chargeController => '',
+            ComponentKind.chargeController =>
+              l.catalogEditorTitleNewChargeController,
           };
     return Scaffold(
       appBar: AppBar(
@@ -410,10 +431,56 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
           _unitPriceField(l, l.catalogEditorFieldUnitPriceHelpBattery),
         ];
       case ComponentKind.chargeController:
-        // Dedicated charge-controller editor lands in Phase-4b chunk 6.
-        // `_kinds` in catalog_management_page.dart does not include this
-        // kind yet, so this branch is unreachable at runtime.
-        return const [];
+        return [
+          _numberField(
+            key: const Key('catalog-editor-cc-efficiency'),
+            controller: _ccEfficiencyCtrl,
+            label: l.catalogEditorFieldCcEfficiency,
+            required: true,
+            min: 1e-6,
+            max: 1,
+            localizations: l,
+          ),
+          const SizedBox(height: 12),
+          _numberField(
+            key: const Key('catalog-editor-cc-max-input-kw'),
+            controller: _ccMaxInputKwCtrl,
+            label: l.catalogEditorFieldCcMaxInputKw,
+            required: false,
+            min: 1e-6,
+            localizations: l,
+          ),
+          const SizedBox(height: 12),
+          _numberField(
+            key: const Key('catalog-editor-cc-max-output-kw'),
+            controller: _ccMaxOutputKwCtrl,
+            label: l.catalogEditorFieldCcMaxOutputKw,
+            required: false,
+            min: 1e-6,
+            localizations: l,
+          ),
+          const SizedBox(height: 12),
+          _numberField(
+            key: const Key('catalog-editor-cc-standby-w'),
+            controller: _ccStandbyWCtrl,
+            label: l.catalogEditorFieldCcStandbyW,
+            required: true,
+            min: 0,
+            localizations: l,
+          ),
+          const SizedBox(height: 12),
+          _numberField(
+            key: const Key('catalog-editor-cc-mppt-count'),
+            controller: _ccMpptCountCtrl,
+            label: l.catalogEditorFieldCcMpptCount,
+            required: false,
+            min: 1,
+            localizations: l,
+          ),
+          const SizedBox(height: 12),
+          _unitPriceField(
+              l, l.catalogEditorFieldUnitPriceHelpChargeController),
+        ];
     }
   }
 
@@ -629,13 +696,26 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
           unitPriceEur: unitPriceEur,
         );
       case ComponentKind.chargeController:
-        // Save handler for chargeController lands in Phase-4b chunk 6
-        // together with the dedicated form fields. `_kinds` does not
-        // expose this kind for editing yet, so this branch never runs.
-        throw UnsupportedError(
-            'ChargeController editor support lands in Phase-4b chunk 6.');
+        return ChargeControllerCatalogEntry(
+          id: id,
+          manufacturer: manufacturer,
+          model: model,
+          efficiency: _parse(_ccEfficiencyCtrl.text),
+          maxInputKw: _parseOptional(_ccMaxInputKwCtrl.text),
+          maxOutputKw: _parseOptional(_ccMaxOutputKwCtrl.text),
+          standbyW: _parse(_ccStandbyWCtrl.text),
+          mpptCount: _parseOptionalInt(_ccMpptCountCtrl.text),
+          sourceUrl: sourceUrl,
+          notes: notes,
+          unitPriceEur: unitPriceEur,
+        );
     }
   }
+}
+
+int? _parseOptionalInt(String text) {
+  final trimmed = text.trim();
+  return trimmed.isEmpty ? null : int.parse(trimmed);
 }
 
 String? _emptyToNull(String value) {

@@ -236,6 +236,33 @@ Engine and schemas unchanged.
   `catalogSummaryUnitPrice*`) added in `en` / `de` / `es` / `fr`
   to keep the locale parity.
 
+### Changed — Flutter app — Phase-4b chunk 6 catalog UI
+
+Closes the residual catalog-UI work that the previous code
+comments parked under "Phase-4b chunk 6":
+
+- **`CatalogEntryEditor`** gains a charge-controller form section
+  (efficiency, max PV input kW, max DC-bus output kW, standby W,
+  MPPT count) plus the shared optional unit-price field. The
+  `_kindFields` and `_buildEntry` switches no longer have a dead
+  charge-controller arm.
+- **`CatalogManagementPage._kinds`** now includes
+  `ComponentKind.chargeController`; the page exposes a fourth tab
+  with the same Add-FAB / edit / delete / duplicate flow as the
+  other kinds. New ARB keys
+  (`catalogManagerTabChargeControllers`,
+  `catalogManagerAddChargeControllerFab`,
+  `catalogEditorTitleNewChargeController`, the five
+  `catalogEditorFieldCc*` field labels, and
+  `catalogEditorFieldUnitPriceHelpChargeController`) added in
+  `en` / `de` / `es` / `fr`.
+- **`_seedAsUserCopy`** carries `unitPriceEur` across all four
+  kinds when the user duplicates a seed entry (was dropping the
+  price silently before).
+- Two new widget tests cover the new flows: add-new and
+  duplicate-seed for charge controllers, both verifying the
+  fields and the unit price round-trip.
+
 ### Deferred — Catalog prices
 
 - Optimizer integration of catalog prices stays open: the engine

@@ -27,6 +27,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
     ComponentKind.module,
     ComponentKind.inverter,
     ComponentKind.battery,
+    ComponentKind.chargeController,
   ];
 
   @override
@@ -67,6 +68,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
             Tab(text: l.catalogManagerTabModules),
             Tab(text: l.catalogManagerTabInverters),
             Tab(text: l.catalogManagerTabBatteries),
+            Tab(text: l.catalogManagerTabChargeControllers),
           ],
         ),
       ),
@@ -96,11 +98,8 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
             ComponentKind.module => l.catalogManagerAddModuleFab,
             ComponentKind.inverter => l.catalogManagerAddInverterFab,
             ComponentKind.battery => l.catalogManagerAddBatteryFab,
-            // Charge-controller catalog UI lands in Phase-4b chunk 6;
-            // until then `_kinds` doesn't include this kind, so this
-            // branch is unreachable at runtime — kept only to satisfy
-            // the exhaustiveness check.
-            ComponentKind.chargeController => '',
+            ComponentKind.chargeController =>
+              l.catalogManagerAddChargeControllerFab,
           };
           return FloatingActionButton.extended(
             key: Key('catalog-manager-add-${kind.name}'),
@@ -257,6 +256,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
           degradationPctPerYear: m.degradationPctPerYear,
           sourceUrl: m.sourceUrl,
           notes: m.notes,
+          unitPriceEur: m.unitPriceEur,
         ),
       InverterCatalogEntry i => InverterCatalogEntry(
           id: newId,
@@ -268,6 +268,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
           role: i.role,
           sourceUrl: i.sourceUrl,
           notes: i.notes,
+          unitPriceEur: i.unitPriceEur,
         ),
       BatteryCatalogEntry b => BatteryCatalogEntry(
           id: newId,
@@ -281,6 +282,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
           minSocKwh: b.minSocKwh,
           sourceUrl: b.sourceUrl,
           notes: b.notes,
+          unitPriceEur: b.unitPriceEur,
         ),
       ChargeControllerCatalogEntry c => ChargeControllerCatalogEntry(
           id: newId,
@@ -293,6 +295,7 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
           mpptCount: c.mpptCount,
           sourceUrl: c.sourceUrl,
           notes: c.notes,
+          unitPriceEur: c.unitPriceEur,
         ),
     };
   }

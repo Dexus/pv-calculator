@@ -310,4 +310,95 @@ void main() {
     expect(users, hasLength(1));
     expect((users.single as ModuleCatalogEntry).unitPriceEur, isNull);
   });
+
+  testWidgets('charge-controller FAB opens editor and saves new entry',
+      (tester) async {
+    final repo = CatalogRepository(
+      seedSource: InMemoryCatalogSource(const [], writable: false),
+      userSource: InMemoryCatalogSource(const []),
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+
+    // Switch to the charge-controller tab.
+    await tester.tap(find.text('Laderegler'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+        find.byKey(const Key('catalog-manager-add-chargeController')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-manufacturer')), 'Victron');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-model')), 'SmartSolar 150/100');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-cc-efficiency')), '0.98');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-cc-max-input-kw')), '5.8');
+    // Lower fields sit in a lazy ListView; drag the form up so they
+    // get built before we try to type into them. `warnIfMissed: false`
+    // because the drag's anchor field may scroll out of view mid-drag.
+    await tester.drag(
+        find.byKey(const Key('catalog-editor-cc-efficiency')),
+        const Offset(0, -500),
+        warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-cc-mppt-count')), '1');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-unit-price')), '350');
+
+    await tester.tap(find.byKey(const Key('catalog-editor-save')));
+    await tester.pumpAndSettle();
+
+    final users = await repo.userEntries();
+    expect(users, hasLength(1));
+    final saved = users.single as ChargeControllerCatalogEntry;
+    expect(saved.efficiency, closeTo(0.98, 1e-9));
+    expect(saved.maxInputKw, closeTo(5.8, 1e-9));
+    expect(saved.mpptCount, 1);
+    expect(saved.unitPriceEur, 350.0);
+  });
+
+  testWidgets('seed-duplicate for charge controller carries fields + price',
+      (tester) async {
+    const seed = ChargeControllerCatalogEntry(
+      id: 'seed-cc',
+      manufacturer: 'Acme',
+      model: 'MPPT 100/50',
+      efficiency: 0.97,
+      maxInputKw: 2.9,
+      mpptCount: 1,
+      unitPriceEur: 180.0,
+    );
+    final repo = CatalogRepository(
+      seedSource: InMemoryCatalogSource(const [seed], writable: false),
+      userSource: InMemoryCatalogSource(const []),
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Laderegler'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+        find.byKey(const Key('catalog-manager-seed-duplicate-seed-cc')));
+    await tester.pumpAndSettle();
+
+    // Just press save — the editor already holds the seed's prefilled
+    // numeric values, and an auto-prefixed "Eigene Kopie — Acme" makes
+    // the id unique vs. seed-cc.
+    await tester.tap(find.byKey(const Key('catalog-editor-save')));
+    await tester.pumpAndSettle();
+
+    final users = await repo.userEntries();
+    expect(users, hasLength(1));
+    final saved = users.single as ChargeControllerCatalogEntry;
+    expect(saved.efficiency, closeTo(0.97, 1e-9));
+    expect(saved.maxInputKw, closeTo(2.9, 1e-9));
+    expect(saved.mpptCount, 1);
+    expect(saved.unitPriceEur, 180.0,
+        reason: 'duplicate-seed must carry the price into the user copy');
+  });
 }
