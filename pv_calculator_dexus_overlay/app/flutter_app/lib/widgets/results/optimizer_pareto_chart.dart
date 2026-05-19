@@ -4,9 +4,9 @@ import 'package:pv_engine/pv_engine.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 
-/// Scatter view of the Optimizer sweep over (investment × autarky), with
-/// the Pareto frontier highlighted and connected by a line. Cloud dots
-/// are the full evaluated candidate set; highlight dots come from
+/// Scatter view of the Optimizer sweep over (lifetime net cost × autarky),
+/// with the Pareto frontier highlighted and connected by a line. Cloud
+/// dots are the full evaluated candidate set; highlight dots come from
 /// `OptimizerResult.paretoFrontier` (already sorted by cost ascending,
 /// strictly increasing autarky).
 ///
@@ -22,15 +22,23 @@ class OptimizerParetoChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final withCost = [
-      for (final c in result.candidates)
-        if (c.lifetimeNetCostEur != null) c,
-    ];
     final frontier = result.paretoFrontier;
+    if (frontier.isEmpty) return const SizedBox.shrink();
+    // `result.candidates` is truncated to `OptimizerSpec.topN`, but
+    // the frontier comes from the full pre-truncation set — so a
+    // frontier point may not appear in `candidates` and would be
+    // clipped from the bounds if we built `withCost` from candidates
+    // alone. Union both, deduped by identity.
+    final withCostSet = <OptimizerCandidate>{};
+    for (final c in result.candidates) {
+      if (c.lifetimeNetCostEur != null) withCostSet.add(c);
+    }
+    withCostSet.addAll(frontier);
+    final withCost = withCostSet.toList();
 
-    if (withCost.isEmpty || frontier.isEmpty) return const SizedBox.shrink();
+    if (withCost.isEmpty) return const SizedBox.shrink();
 
-    final bounds = _bounds(withCost, frontier);
+    final bounds = _bounds(withCost);
 
     final cloudSpots = <ScatterSpot>[
       for (final c in withCost)
@@ -70,8 +78,15 @@ class OptimizerParetoChart extends StatelessWidget {
         const SizedBox(height: 8),
         SizedBox(
           height: 260,
+          // Both the LineChart (frontier connector) and the
+          // ScatterChart (cloud + highlight dots) sit on top of each
+          // other in this Stack. They must reserve identical space
+          // for axis titles, otherwise their plot rectangles drift
+          // apart for the same min/max bounds and the connecting
+          // line no longer lines up with the dots. We render the
+          // axis titles only on the ScatterChart, but the LineChart
+          // uses the same reserved sizes with invisible content.
           child: Stack(children: [
-            // Connecting line drawn first so the dots sit on top.
             LineChart(
               LineChartData(
                 minX: bounds.minX,
@@ -80,7 +95,22 @@ class OptimizerParetoChart extends StatelessWidget {
                 maxY: bounds.maxY,
                 gridData: const FlGridData(show: false),
                 borderData: FlBorderData(show: false),
-                titlesData: const FlTitlesData(show: false),
+                titlesData: const FlTitlesData(
+                  rightTitles:
+                      AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles:
+                      AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    axisNameWidget: SizedBox.shrink(),
+                    axisNameSize: 18,
+                    sideTitles: SideTitles(showTitles: false, reservedSize: 28),
+                  ),
+                  leftTitles: AxisTitles(
+                    axisNameWidget: SizedBox.shrink(),
+                    axisNameSize: 18,
+                    sideTitles: SideTitles(showTitles: false, reservedSize: 40),
+                  ),
+                ),
                 lineTouchData: const LineTouchData(enabled: false),
                 lineBarsData: [
                   LineChartBarData(
@@ -146,10 +176,7 @@ class OptimizerParetoChart extends StatelessWidget {
     ]);
   }
 
-  _Bounds _bounds(
-    List<OptimizerCandidate> withCost,
-    List<OptimizerCandidate> frontier,
-  ) {
+  _Bounds _bounds(List<OptimizerCandidate> withCost) {
     var minCost = double.infinity;
     var maxCost = double.negativeInfinity;
     var minAut = double.infinity;

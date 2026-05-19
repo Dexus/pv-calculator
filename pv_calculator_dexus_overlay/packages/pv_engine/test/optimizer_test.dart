@@ -791,24 +791,19 @@ void main() {
     });
 
     test('a clearly dominated combo is not in the frontier', () {
-      // The cheapest combo (battery=3, inverter=4, pvScale=0.8) is
+      // The smallest combo (battery=3, inverter=4, pvScale=0.8) is
       // dominated by larger-battery / larger-pv combos that deliver
       // both higher autarky AND lower lifetime net cost over a
-      // 10-year horizon at 0.30 €/kWh import. Assert that at least
-      // one Pareto point exists that dominates it strictly.
+      // 10-year horizon at 0.30 €/kWh import. `buildSweep()` runs the
+      // full 3×2×3 = 18 cartesian product with `topN: 50`, so the
+      // smallest combo is guaranteed to be in `result.candidates`.
       final result = const Optimizer().run(buildSweep());
-      // Find the smallest combo's candidate in `result.candidates` —
-      // it might have been truncated by topN sorting, so search by
-      // value.
       final smallest = result.candidates.firstWhere(
         (c) =>
             c.batteryKwh == 3.0 &&
             c.inverterKw == 4.0 &&
             c.pvScale == 0.8,
-        orElse: () => result.candidates.first,
       );
-      // The smallest combo should not be on the frontier when the
-      // sweep contains a strictly better point.
       final dominators = result.candidates.where((c) =>
           !identical(c, smallest) &&
           c.lifetimeNetCostEur != null &&
@@ -816,9 +811,12 @@ void main() {
           c.summary.autarkyRate >= smallest.summary.autarkyRate &&
           (c.lifetimeNetCostEur! < smallest.lifetimeNetCostEur! ||
               c.summary.autarkyRate > smallest.summary.autarkyRate));
-      if (dominators.isNotEmpty) {
-        expect(result.paretoFrontier, isNot(contains(smallest)));
-      }
+      // The fixture is engineered so at least one strictly better
+      // combo exists; if this ever turns up empty the test should
+      // fail rather than silently passing.
+      expect(dominators, isNotEmpty,
+          reason: 'fixture invariant: smallest combo must have a dominator');
+      expect(result.paretoFrontier, isNot(contains(smallest)));
     });
 
     test('frontier is independent of topN', () {
