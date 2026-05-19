@@ -96,6 +96,32 @@ Ablöse-Hinweis: Mit Abschluss dieser Phase wird der „planned for future phase
 
 ---
 
+## Phase 4c – DC-Bus-Solver-Konsolidierung ✓
+
+Ziel: 30+ Codex-Befunde aus 7 Review-Runden auf Phase 4b haben gezeigt, dass die DC-Bus-Energiebilanz über drei Layer (`_simulateStep`, Dispatch-Policies, `EnergyRouter`) verstreut war. Jeder Patch fixte einen η-/Cap-/Einheiten-Mismatch in einem Layer und der nächste Reviewer fand denselben in einem anderen. Phase 4c konsolidiert die per-Bus-Bilanz in einen einzigen Solver.
+
+Begründung: Solange der Bus nicht von einer Stelle besessen wird, konvergieren Patches nicht — die Anzahl möglicher η/Cap-Pfade ist multiplikativ über die drei Layer.
+
+### Refactor
+
+- **Neuer `DcBusSolver`** in `packages/pv_engine/lib/src/dc_bus_solver.dart`: atomare Allokation pro Bus pro Schritt. Inputs (`pvDcInKwh`, `loadAcShareKwh`, `HybridInverterInfo`, `DcBusBattery[]`, `mode`) → Outputs (`batteryChargesDcKwh`, `batteryDischargesDcKwh`, `bypassAcKwh`, `loadCoveredAcKwh`, `dischargeAcKwh`, `curtailedDcKwh`, `inverterAcConsumedKwh`, `inverterDcConsumedKwh`). Fünf-Schritt-Allokation: Load → Charge → Bypass → Discharge → Curtail. Geteilte Inverter-AC/DC/Edge-Caps in einer Datenstruktur.
+- **`_simulateStep`**: ruft Solver pro DC-Bus genau einmal auf. Globale Lastreservierung greedy auf hybride Busse verteilt (deterministisch, Bus-Reihenfolge). `array → cc`-Edge-η + `maxPowerKw` werden vor dem Controller angewandt. `dcBus → inverter`-Edge-η + `maxPowerKw` fließen über `HybridInverterInfo` in den Solver.
+- **`DispatchContext`** verliert 5 Felder (`pvDcByBus`, `dcBusForBattery`, `dcBusesWithAcPath`, `estimatedBypassAcKwh`, `dcReservedForLoadByBus`) und gewinnt nur `dcCoupledIndices: Set<int>`. Policies emittieren Per-Batterie-CEILINGS (Rate-Cap + Headroom), Router/Solver kappen gegen tatsächliches Surplus/Last.
+- **`EnergyRouter.apply`** verliert 4 Parameter (`batteryDirectDischargeAcLossEff`, `batteryInverter`, `inverterAcRemainingKwh`, alter `skipChargeIndices`-Semantik) und gewinnt einen reinen `skipDirectDischargeIndices`. Direct-Discharge passiert für DC-Batterien jetzt im Solver, der Router sieht nur AC-gekoppelte Batterien + Banks + Grid.
+- **`dispatch_policies.dart`** verliert den `_dcChargeRequest`-Helfer und DC-Branches in allen drei Policies. Nettoeffekt: ~150 Zeilen Policy-Code entfallen.
+
+Netto: ~277 Zeilen Engine-Code weg (449 hinzu, 726 weg).
+
+### Property-Test als Backstop
+
+- `packages/pv_engine/test/dc_dispatch_invariants_test.dart`: 100 zufällige Topologien × 24 Schritte = 2400 Invariant-Checks pro Lauf. Sieben Invarianten (SOC-Bounds, Rate-Caps, kein NaN/negativ, Grid-Export-Limit, Energiebilanz mit SOC-Tracking, Inverter-AC-Cap-Summe). Ein Test schlägt fehl, sobald irgendein η/Cap-Pfad versehentlich gebrochen wird; das Failure dumpt Seed + Step für gezielte Diagnose.
+
+### Engine-Version
+
+- `kEngineVersion = '0.16.0'` (Bump wegen Refactor — bestehende AC-only-Szenarien rechnen byte-identisch weiter via Regressions-Test).
+
+---
+
 ## Phase 5 – SOC Pre-Run & Jahresgrenzen ✓
 
 Ziel: Realistische Startzustände; keine künstlich verzerrten Januarwerte (PRD FR-11; Architektur Kap. 6; `docs/PRD_PV_Calculator_Flutter_App.md` §6.2; `docs/Architekturkonzept_PV_Calculator_Flutter_App.md` §6).
