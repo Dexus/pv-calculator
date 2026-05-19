@@ -16,9 +16,11 @@ import 'optimizer_runner_web.dart'
 /// Per-candidate progress event emitted by `Optimizer.run` and surfaced
 /// to the UI by [OptimizerRunner].
 ///
-/// `done == total` when the sweep finishes; `total == 0` only in the
-/// degenerate case of an empty sweep (no candidates), in which case the
-/// runner emits a single `(0, 0)` event before completing.
+/// `done == total` when the sweep finishes. `total >= 1` always — the
+/// engine falls every empty sweep dimension back to a single baseline
+/// value, so the Cartesian product can't collapse to zero candidates.
+/// The `fraction` getter still guards `total <= 0` defensively so a
+/// future engine change can't divide by zero.
 @immutable
 class OptimizerProgress {
   const OptimizerProgress({required this.done, required this.total});
@@ -109,6 +111,18 @@ class OptimizerRunner {
     // Wrap the synchronous sweep in `Future.sync` so the caller gets a
     // future they can await; the engine's onProgress callback fires
     // between candidates and we forward it as `OptimizerProgress`.
+    //
+    // Deliberately NO `Future.delayed(Duration.zero)` here, even though
+    // the pre-runner controller had one: the same trade-off as
+    // `SimulationRunner._runInProcess` applies. Yielding a microtask
+    // before the sweep would deadlock `flutter_test`'s fake-time clock
+    // (the timer never fires until `pumpAndSettle`, which the call
+    // pattern only invokes after `await controller.runFromDraft`). The
+    // pre-sweep "running" repaint is a Web-only nicety; on native the
+    // isolate path applies. Mid-sweep progress paints are unreachable
+    // on Web regardless of yielding (the synchronous loop blocks the
+    // event loop). The lost paint is the same single "Optimierung läuft …"
+    // frame the pre-runner code rendered before its sweep started.
     final future = Future<OptimizerResult>.sync(
       () => const Optimizer().run(
         spec,

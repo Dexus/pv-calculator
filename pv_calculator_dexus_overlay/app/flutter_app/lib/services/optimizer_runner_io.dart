@@ -29,10 +29,18 @@ OptimizerRunHandle startOptimizerOnIsolate(
       return;
     }
     if (message is OptimizerResult) {
-      // If cancel() was called before the result arrived, the completer
-      // is already completed with [OptimizerCancelledException]; drop
-      // the late result.
-      if (!completer.isCompleted) completer.complete(message);
+      if (completer.isCompleted) return;
+      // If cancel() was called while the isolate was still finishing
+      // its last candidate, the result arrived AFTER the kill signal
+      // was sent (or before it could land). Drop the late result and
+      // surface the cancellation instead — the user explicitly asked
+      // for the sweep to be aborted, so returning the now-stale top-N
+      // would be surprising.
+      if (cancelled) {
+        completer.completeError(const OptimizerCancelledException());
+      } else {
+        completer.complete(message);
+      }
       return;
     }
     if (message is _IsolateError) {

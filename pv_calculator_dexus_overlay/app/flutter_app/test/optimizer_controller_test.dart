@@ -127,6 +127,74 @@ void main() {
     controller.clearResult();
     expect(controller.cancelled, isFalse);
   });
+
+  test('supersede drops a late-arriving result from an older generation',
+      () async {
+    final runner = _ManualRunner();
+    final controller = OptimizerController(optimizerRunner: runner);
+    final draft = tinyDraft();
+    final future = controller.runFromDraft(draft, dummySpec(draft.buildForRun()));
+    expect(controller.running, isTrue);
+
+    // User navigates away mid-sweep — page dispose calls supersede.
+    controller.supersede();
+    expect(controller.running, isFalse);
+    // The fake runner saw the cancel and reports cancellation.
+    expect(runner.cancelCalls, equals(1));
+
+    // Now the (formerly cancelled) handle reports a result. Because
+    // the generation has advanced, the result must NOT land on the
+    // controller — it would clobber the cleared state otherwise.
+    runner.deliverResult();
+    await future;
+    expect(controller.lastResult, isNull);
+    expect(controller.cancelled, isFalse);
+    expect(controller.running, isFalse);
+  });
+}
+
+/// Test double — gives the test direct control over when the run
+/// completes. The handle never resolves on its own; the test calls
+/// `deliverResult()` (success) or `deliverCancel()` (cancellation).
+class _ManualRunner implements OptimizerRunner {
+  Completer<OptimizerResult>? _completer;
+  int cancelCalls = 0;
+
+  @override
+  bool get canCancel => true;
+
+  @override
+  bool get runInProcess => false;
+
+  @override
+  OptimizerRunHandle start(
+    OptimizerSpec spec, {
+    void Function(OptimizerProgress)? onProgress,
+  }) {
+    final c = Completer<OptimizerResult>();
+    _completer = c;
+    return OptimizerRunHandle(
+      result: c.future,
+      onCancel: () {
+        cancelCalls++;
+        if (!c.isCompleted) {
+          c.completeError(const OptimizerCancelledException());
+        }
+      },
+      canCancel: true,
+    );
+  }
+
+  void deliverResult() {
+    final c = _completer;
+    if (c == null || c.isCompleted) return;
+    c.complete(const OptimizerResult(
+      candidates: [],
+      evaluated: 0,
+      skippedOverBudget: 0,
+      failedValidation: 0,
+    ));
+  }
 }
 
 /// Test double — pretends to be a cancellable native runner. On
