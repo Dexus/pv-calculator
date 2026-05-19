@@ -70,12 +70,24 @@ Net: ~277 lines of engine code removed (449 added, 726 deleted).
   inverter-side vs bus-side cap conversions, and a bus DC ledger
   invariant.
 - **`packages/pv_engine/test/dc_dispatch_invariants_test.dart`** —
-  property-based backstop. 100 random topologies × 24 hourly
-  steps = 2400 step-level invariant checks per run: SOC bounds,
-  rate caps, no NaN / negative, grid export limit, full energy
-  balance with SOC tracking, aggregate inverter AC cap. Any
-  future η / cap / unit-mismatch regression fails immediately
-  with the failing seed + step dumped.
+  property-based backstop. Originally 100 random topologies × 24
+  hourly steps; extended (this release) to 250 random topologies
+  with multi-bus shared-inverter shapes and a two-sided I6
+  invariant plus a new I8 DC-side ledger sanity check.
+  Approximately 6000 step-level invariant checks per run cover
+  SOC bounds, rate caps, no NaN / negative, grid export limit,
+  energy balance with `(1 − η_min⁴) × throughput` slack bound,
+  aggregate inverter AC cap, and `pvDcKwh ≥ Σ DC-coupled charges
+  + curtailedDcKwh`. The strengthened balance closes the gap
+  where Round-8 Finding #2 (`array → cc` edge clip silently
+  dropped clipped energy) slipped past the previous one-sided
+  `inputs ≥ outputs` check; the multi-bus shapes cover Findings
+  #1/#3/#4 which all needed a shared inverter between buses.
+  Generator and bound were validated by locally reverting
+  Finding #2 — the test fails with a clear seed+step+slack dump
+  in that scenario. Any future η / cap / unit-mismatch
+  regression fails immediately with the failing seed + step
+  dumped.
 
 ### Fixed — Engine (caught by the property test on first run)
 
