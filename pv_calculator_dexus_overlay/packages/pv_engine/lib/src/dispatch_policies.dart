@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'dispatch_policy.dart';
-import 'topology.dart';
 
 /// Compute the DC-side charge request for battery [i] on a DC-coupled
 /// bus, sharing a per-bus DC budget with any earlier DC-coupled
@@ -28,18 +27,16 @@ double _dcChargeRequest({
   // already requested so the load reservation isn't double-counted.
   final budget = dcBudgetByBus.putIfAbsent(dcBus, () {
     final pool = ctx.pvDcByBus[dcBus] ?? 0.0;
-    final bus = ctx.topology.dcBusById(dcBus);
-    final isHybrid = (bus?.mode ?? BusMode.hybrid) == BusMode.hybrid;
-    // Reserving DC for load only makes sense when the hybrid bus has
-    // an actual AC path (`dcBus → inverter` edge). A charge-only bus
-    // (intentionally without that edge) cannot serve load directly —
-    // reserving DC there would later get curtailed by the no-inverter
-    // branch in `_simulateStep` while the battery has headroom.
-    final hasAcPath = ctx.dcBusesWithAcPath.contains(dcBus);
-    final remainingLoad = (isHybrid && hasAcPath)
-        ? math.max(0.0, ctx.loadKwh - ctx.pvAcKwh)
-        : 0.0;
-    return math.max(0.0, pool - remainingLoad);
+    // The simulator precomputes how much bus-side DC must be reserved
+    // for the load that the hybrid inverter can actually serve this
+    // step (see `_simulateStep`'s `dcReservedForLoadByBus`). It is
+    // already:
+    //   - in DC kWh on the bus side (scaled by inverter η),
+    //   - capped at the inverter's remaining AC headroom,
+    //   - zero for charge-only hybrid buses and `batteryFed` buses.
+    // We just need to subtract it from the pool.
+    final reserved = ctx.dcReservedForLoadByBus[dcBus] ?? 0.0;
+    return math.max(0.0, pool - reserved);
   });
   if (budget <= 0) return 0.0;
   final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0

@@ -2209,6 +2209,31 @@ class PvSimulator {
       estimatedBypassAc += math.min(raw, remaining);
     }
 
+    // Per-bus DC reservation for AC load coverage on hybrid buses.
+    // Computed once here so the policy doesn't need to know about
+    // bus inverter η / remaining AC headroom (avoiding the unit-
+    // mismatch bug where AC `loadKwh` was subtracted from a DC
+    // `pool`). Limited by (a) what the inverter can actually serve
+    // this step (its remaining AC headroom) and (b) load not already
+    // covered by direct AC-path PV. Zero on charge-only hybrid buses
+    // and on `batteryFed` buses.
+    final dcReservedForLoadByBus = <String, double>{};
+    final remainingLoadAcGlobal = math.max(0.0, loadKwh - pvAcKwh);
+    if (remainingLoadAcGlobal > 0) {
+      for (final entry in pvDcByBus.entries) {
+        final busId = entry.key;
+        final bus = topology.dcBusById(busId);
+        if (bus != null && bus.mode == BusMode.batteryFed) continue;
+        final info = busHybridInverter[busId];
+        if (info == null || info.eta <= 0) continue;
+        final invRemainingAc = math.max(
+            0.0, info.maxAcKwh - (acEmittedByInverter[info.invId] ?? 0.0));
+        final coverableAc = math.min(remainingLoadAcGlobal, invRemainingAc);
+        if (coverableAc <= 0) continue;
+        dcReservedForLoadByBus[busId] = coverableAc / info.eta;
+      }
+    }
+
     // Dispatch-policy pipeline. The legacy battery dispatch + grid
     // import/export logic lives in the router; the policy decides
     // *what to request*, the router enforces hard limits. DC-coupled
@@ -2245,6 +2270,7 @@ class PvSimulator {
       dcBusForBattery: Map.unmodifiable(dcBusForBattery),
       dcBusesWithAcPath: Set.unmodifiable(dcBusesWithAcPath),
       estimatedBypassAcKwh: estimatedBypassAc,
+      dcReservedForLoadByBus: Map.unmodifiable(dcReservedForLoadByBus),
     );
     final plan = policy.plan(ctx);
 
@@ -2306,22 +2332,33 @@ class PvSimulator {
             // Hybrid inverters share their DC stage with any direct
             // AC-path PV: enforce `maxDcInputKw` on the SUM of legacy
             // AC-path DC and bus-side residual. Already-consumed
+            // Hybrid inverters share their DC stage with any direct
+            // AC-path PV: enforce `maxDcInputKw` on the SUM of legacy
+            // AC-path DC and bus-side residual. Already-consumed
             // headroom is subtracted from the cap; remainder is
             // available for the bypass, overflow accrues as DC
             // curtailment (same units as the legacy clip).
+            //
+            // `residual` is bus-side DC; the inverter sees it AFTER
+            // the bus→inverter edge eta. Convert the inverter input
+            // cap to bus-side units (divide by `hybridEta`) before
+            // comparing, otherwise a lossy edge would let a high
+            // bus-side residual fit a tight inverter input cap (or
+            // vice versa).
             var clippedResidual = residual;
             final dcLimit = hybrid.maxDcInputKw;
-            if (dcLimit != null) {
+            if (dcLimit != null && hybridEta > 0) {
               final consumed =
                   dcConsumedByInverter[hybrid.id] ?? 0.0;
-              final remainingDc =
+              final remainingInverterDc =
                   math.max(0.0, dcLimit * stepHours - consumed);
-              if (clippedResidual > remainingDc) {
-                curtailedDcKwh += clippedResidual - remainingDc;
-                clippedResidual = remainingDc;
+              final remainingBusDc = remainingInverterDc / hybridEta;
+              if (clippedResidual > remainingBusDc) {
+                curtailedDcKwh += clippedResidual - remainingBusDc;
+                clippedResidual = remainingBusDc;
               }
               dcConsumedByInverter[hybrid.id] =
-                  consumed + clippedResidual;
+                  consumed + clippedResidual * hybridEta;
             }
             // Inverter own efficiency is multiplicative with the edge
             // efficiency (the edge already carries it in fromLegacy,

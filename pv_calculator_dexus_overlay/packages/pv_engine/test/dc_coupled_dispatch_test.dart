@@ -1028,6 +1028,214 @@ void main() {
           closeTo(result.summary.pvDcKwh, 1e-9));
     });
 
+    test('DC battery rate cap is expressed in AC units (Codex P2 round 6)', () {
+      // 1 kW battery behind a 50% bus inverter discharging through
+      // direct path under heavy AC load. Pre-fix: the router allowed
+      // `1 kWh` of AC delivery and withdrew `1 / 0.5 = 2 kWh` from
+      // the battery in one step, exceeding `maxDischargeKw`. After
+      // fix: rate cap × η caps the AC delivery at 0.5 kWh and the
+      // SOC withdrawal at 1 kWh.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'BusInv', maxAcKw: 100.0, efficiency: 0.5),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 100.0, maxChargeKw: 100.0,
+            maxDischargeKw: 1.0, minSocKwh: 0, initialSocKwh: 50.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        // Lots of load to make sure the battery's rate cap is the
+        // binding constraint, not the load.
+        loadProfile: LoadProfile(
+          dailyKwh: 24.0 * 50.0,
+          hourlyShape: List<double>.filled(24, 1.0),
+        ),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.hybrid, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _DarkWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      for (final s in result.steps) {
+        if (s.batteryDischargeKwh > 0) {
+          // AC delivered per hour ≤ 1 kW × 1 h × 0.5 η = 0.5 kWh.
+          expect(s.batteryDischargeKwh, lessThanOrEqualTo(0.5 + 1e-9),
+              reason: 'AC delivery must respect battery rate × inv η');
+        }
+      }
+    });
+
+    test('hybrid load reservation scales by inverter η (Codex P2 round 6)', () {
+      // Pre-fix: with 50%-efficient bus inverter, reserving the raw
+      // `loadKwh` as DC reservation left too little DC for bypass to
+      // actually cover the load. After fix: reservation = loadAc / η,
+      // so the bus carries enough DC for AC to cover the load.
+      //
+      // Setup: 5 kWh PV-DC per hour, 1 kWh AC load, 50% inverter.
+      // To cover 1 kWh AC the bus needs 2 kWh DC. After reservation
+      // there should be 3 kWh DC left for the battery.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'BusInv', maxAcKw: 10.0, efficiency: 0.5),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1000.0, maxChargeKw: 100.0,
+            maxDischargeKw: 100.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: LoadProfile(
+          dailyKwh: 24.0 * 1.0,
+          hourlyShape: List<double>.filled(24, 1.0),
+        ),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.hybrid, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _FullSunWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // Load is fully covered (no grid import) — the reservation was
+      // sized correctly to give the inverter enough DC to produce
+      // 1 kWh AC.
+      var sawSun = false;
+      for (final s in result.steps) {
+        if (s.pvDcKwh > 2.5 && s.loadKwh > 0.5) {
+          sawSun = true;
+          expect(s.gridImportKwh, closeTo(0.0, 1e-9),
+              reason: 'inverter η scaling should leave enough DC for load');
+        }
+      }
+      expect(sawSun, isTrue);
+    });
+
+    test('load reservation is capped at inverter headroom (Codex P2 round 6)', () {
+      // 100 kWh of load, 5 kW/1h bus inverter. Pre-fix the policy
+      // reserved the full load and the battery got 0. After fix it's
+      // capped at the inverter's remaining AC headroom (5 kWh).
+      //
+      // With ~3 kWh PV-DC per sun hour and inv.eta=1, all 3 kWh would
+      // bypass to AC; load is too large to fully cover. Battery
+      // should still be allowed to absorb DC up to its rate cap once
+      // the inverter is fully busy serving the load.
+      final cfg = SimulationConfig(
+        arrays: const [
+          PvArray(
+              id: 'a1', label: 'A1', peakKw: 10.0, azimuthDeg: 180, tiltDeg: 35,
+              inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0),
+        ],
+        inverters: const [
+          Inverter(id: 'inv', label: 'BusInv', maxAcKw: 5.0, efficiency: 1.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1000.0, maxChargeKw: 100.0,
+            maxDischargeKw: 100.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: LoadProfile(
+          dailyKwh: 24.0 * 100.0,
+          hourlyShape: List<double>.filled(24, 1.0),
+        ),
+        days: 1,
+        topology: TopologyGraph(
+          dcBuses: const [DcBus(id: 'dc-1')],
+          acBuses: const [AcBus(id: 'ac-main')],
+          chargeControllers: const [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: const [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+            BusEdge(fromId: 'dc-1', toId: 'inv'),
+            BusEdge(fromId: 'inv', toId: 'ac-main', maxPowerKw: 5.0),
+          ],
+          batteryCouplings: const [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _FullSunWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // Some PV should have been stored — pre-fix this was 0 because
+      // load was unbounded and consumed the entire reservation.
+      expect(result.summary.dcDirectChargeKwh, greaterThan(0.0),
+          reason: 'battery should still absorb DC beyond the inverter cap');
+    });
+
+    test('hybrid bypass DC cap applies after edge η (Codex P2 round 6)', () {
+      // Bus edge with η=0.5, inverter maxDcInputKw=2 kW. PV-DC on bus
+      // = 5 kWh in 1 h. Inverter input after edge = 2.5 kWh; should
+      // hit the 2 kWh cap → 2 kWh through inverter, 0.5 kWh of
+      // inverter input curtailed. Bus-side equivalent of that
+      // curtailment is 1 kWh (= 0.5 / 0.5). PV bypass to AC at
+      // inverter η=1.0 → 2 kWh AC.
+      //
+      // Pre-fix the cap was applied to the bus-side 5 kWh directly,
+      // cutting it to 2 kWh bus-side, which then arrived at the
+      // inverter as 1 kWh after the edge loss — wrong.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(
+              id: 'inv',
+              label: 'BusInv',
+              maxAcKw: 100.0,
+              efficiency: 1.0,
+              maxDcInputKw: 2.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1.0, maxChargeKw: 10.0,
+            maxDischargeKw: 10.0, minSocKwh: 0, initialSocKwh: 1.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        topology: const TopologyGraph(
+          dcBuses: [DcBus(id: 'dc-1')],
+          acBuses: [AcBus(id: 'ac-main')],
+          chargeControllers: [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+            // 50% lossy bus→inverter edge.
+            BusEdge(fromId: 'dc-1', toId: 'inv', efficiency: 0.5),
+            BusEdge(fromId: 'inv', toId: 'ac-main', maxPowerKw: 100.0),
+          ],
+          batteryCouplings: [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _FullSunWeather(),
+        gridExportLimitKw: 100.0,
+      );
+      final result = const PvSimulator().run(cfg);
+      var sawPeak = false;
+      for (final s in result.steps) {
+        if (s.pvDcKwh >= 2.999) {
+          sawPeak = true;
+          // Battery is full; bus residual = 3 kWh bus-side.
+          // Inverter input cap = 2 kWh.
+          // remainingBus = 2 / 0.5 = 4 kWh → no clip needed (3 < 4).
+          // raw AC = 3 × 0.5 × 1.0 = 1.5 kWh.
+          // Pre-fix would have clipped bus to 2 kWh → AC = 1 kWh.
+          expect(s.pvAcKwh, closeTo(1.5, 1e-9),
+              reason: 'inverter DC cap must be measured at inverter input '
+                  '(after edge η), not on bus-side residual');
+        }
+      }
+      expect(sawPeak, isTrue);
+    });
+
     test('zero-PV step in DC topology produces no NaNs in per-array AC', () {
       // Dark hour, DC topology configured — array DC = 0, every ratio
       // computation must not divide by zero.
