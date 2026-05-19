@@ -53,6 +53,7 @@ void main() {
       expect(b.summary.pvAcKwh, closeTo(a.summary.pvAcKwh, 1e-9));
       expect(b.summary.gridImportKwh, closeTo(a.summary.gridImportKwh, 1e-9));
       expect(b.summary.perYearSummaries, isEmpty);
+      expect(b.summary.perYearMonthly, isEmpty);
       expect(b.steps.length, a.steps.length);
     });
 
@@ -60,6 +61,10 @@ void main() {
       final cfg = _baseConfig(years: 4);
       final result = const PvSimulator().run(cfg);
       expect(result.summary.perYearSummaries, hasLength(4));
+      expect(result.summary.perYearMonthly, hasLength(4));
+      for (final year in result.summary.perYearMonthly) {
+        expect(year, hasLength(12));
+      }
     });
 
     test('degradation linearity: year y pvAcKwh ≈ year 0 × (1-d)^y', () {

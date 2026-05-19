@@ -256,4 +256,110 @@ void main() {
       expect(anyNonZeroImport, isTrue);
     });
   });
+
+  group('perYearMonthlyCsv', () {
+    test('empty input emits header-only', () {
+      final csv = perYearMonthlyCsv(const []);
+      final lines = csv.split('\r\n');
+      // header + trailing empty line
+      expect(lines, hasLength(2));
+      final headers = lines.first.split(';');
+      expect(headers.first, 'year');
+      expect(headers[1], 'month');
+      expect(headers.last, 'netCostEur');
+    });
+
+    test('emits one row per (year, month) in year-major order', () {
+      // Build a 2 × 12 nested list with the year/month encoded in
+      // pvAcKwh so the row order is verifiable.
+      final perYear = <List<MonthlyBucket>>[
+        for (var y = 1; y <= 2; y++)
+          [
+            for (var m = 1; m <= 12; m++)
+              MonthlyBucket(
+                month: m,
+                pvAcKwh: y * 100.0 + m,
+                loadKwh: 0, selfConsumptionKwh: 0,
+                batteryChargeKwh: 0, batteryDischargeKwh: 0,
+                gridImportKwh: 0, gridExportKwh: 0,
+                curtailedDcKwh: 0, curtailedAcKwh: 0, curtailedExportKwh: 0,
+                importCostEur: 0, exportRevenueEur: 0,
+              ),
+          ],
+      ];
+      final csv = perYearMonthlyCsv(perYear);
+      final lines = csv.split('\r\n');
+      // 1 header + 24 data + 1 trailing empty
+      expect(lines, hasLength(26));
+      final headers = lines.first.split(';');
+      final yearIdx = headers.indexOf('year');
+      final monthIdx = headers.indexOf('month');
+      final pvAcIdx = headers.indexOf('pvAcKwh');
+      // Year 1, month 1 in row index 1.
+      var row = lines[1].split(';');
+      expect(row[yearIdx], '1');
+      expect(row[monthIdx], '1');
+      expect(double.parse(row[pvAcIdx]), closeTo(101.0, 1e-9));
+      // Year 1, month 12 in row index 12.
+      row = lines[12].split(';');
+      expect(row[yearIdx], '1');
+      expect(row[monthIdx], '12');
+      // Year 2, month 1 in row index 13.
+      row = lines[13].split(';');
+      expect(row[yearIdx], '2');
+      expect(row[monthIdx], '1');
+      expect(double.parse(row[pvAcIdx]), closeTo(201.0, 1e-9));
+      // Year 2, month 12 in row index 24.
+      row = lines[24].split(';');
+      expect(row[yearIdx], '2');
+      expect(row[monthIdx], '12');
+    });
+
+    test('comma delimiter is honoured', () {
+      final perYear = <List<MonthlyBucket>>[
+        [
+          for (var m = 1; m <= 12; m++)
+            MonthlyBucket(
+              month: m,
+              pvAcKwh: 0, loadKwh: 0, selfConsumptionKwh: 0,
+              batteryChargeKwh: 0, batteryDischargeKwh: 0,
+              gridImportKwh: 0, gridExportKwh: 0,
+              curtailedDcKwh: 0, curtailedAcKwh: 0, curtailedExportKwh: 0,
+              importCostEur: 0, exportRevenueEur: 0,
+            ),
+        ],
+      ];
+      final csv = perYearMonthlyCsv(perYear, delimiter: ',');
+      expect(csv.split('\r\n').first.startsWith('year,month,pvAcKwh,'), isTrue);
+    });
+
+    test('end-to-end with simulator: row count = years × 12', () {
+      final result = const PvSimulator().run(SimulationConfig(
+        arrays: const [
+          PvArray(
+            id: 'r',
+            label: 'R',
+            peakKw: 4.0,
+            azimuthDeg: 180,
+            tiltDeg: 35,
+            inverterId: 'i',
+            degradationPctPerYear: 0.5,
+          ),
+        ],
+        inverters: const [Inverter(id: 'i', label: 'I', maxAcKw: 5.0)],
+        loadProfile: const LoadProfile(dailyKwh: 8),
+        days: 365,
+        simulationYears: 3,
+        keepSteps: false,
+        latitudeDeg: 50.0,
+      ));
+      final csv = perYearMonthlyCsv(result.summary.perYearMonthly);
+      final dataLines = csv
+          .split('\r\n')
+          .where((l) => l.isNotEmpty)
+          .skip(1)
+          .toList();
+      expect(dataLines, hasLength(3 * 12));
+    });
+  });
 }

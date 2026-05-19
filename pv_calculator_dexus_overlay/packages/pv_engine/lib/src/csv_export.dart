@@ -83,6 +83,52 @@ String stepsCsv(
   return buffer.toString();
 }
 
+/// Per-year monthly CSV for multi-year results. One row per (year,
+/// month); years are 1-based. Header matches [monthlyCsv] with a
+/// leading `year` column so a single file captures the multi-year
+/// breakdown. Returns the header-only output when [perYearMonthly]
+/// is empty (single-year run).
+String perYearMonthlyCsv(
+  List<List<MonthlyBucket>> perYearMonthly, {
+  String delimiter = ';',
+}) {
+  const headers = [
+    'year', 'month', 'pvAcKwh', 'loadKwh', 'selfConsumptionKwh',
+    'batteryChargeKwh', 'batteryDischargeKwh',
+    'gridImportKwh', 'gridExportKwh',
+    'curtailedDcKwh', 'curtailedAcKwh', 'curtailedExportKwh',
+    'importCostEur', 'exportRevenueEur', 'netCostEur',
+  ];
+  final buffer = StringBuffer()
+    ..write(headers.map((h) => _quote(h, delimiter)).join(delimiter))
+    ..write(_lineEnding);
+  for (var y = 0; y < perYearMonthly.length; y++) {
+    for (final b in perYearMonthly[y]) {
+      final row = <String>[
+        (y + 1).toString(),
+        b.month.toString(),
+        _num(b.pvAcKwh),
+        _num(b.loadKwh),
+        _num(b.selfConsumptionKwh),
+        _num(b.batteryChargeKwh),
+        _num(b.batteryDischargeKwh),
+        _num(b.gridImportKwh),
+        _num(b.gridExportKwh),
+        _num(b.curtailedDcKwh),
+        _num(b.curtailedAcKwh),
+        _num(b.curtailedExportKwh),
+        _num(b.importCostEur),
+        _num(b.exportRevenueEur),
+        _num(b.netCostEur),
+      ];
+      buffer
+        ..write(row.map((v) => _quote(v, delimiter)).join(delimiter))
+        ..write(_lineEnding);
+    }
+  }
+  return buffer.toString();
+}
+
 String monthlyCsv(List<MonthlyBucket> buckets, {String delimiter = ';'}) {
   const headers = [
     'month', 'pvAcKwh', 'loadKwh', 'selfConsumptionKwh',
