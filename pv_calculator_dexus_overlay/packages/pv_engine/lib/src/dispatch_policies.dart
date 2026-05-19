@@ -3,6 +3,47 @@ import 'dart:math' as math;
 import 'dispatch_policy.dart';
 import 'topology.dart';
 
+/// Compute the DC-side charge request for battery [i] on a DC-coupled
+/// bus, sharing a per-bus DC budget with any earlier DC-coupled
+/// batteries on the same bus (mutates [dcBudgetByBus] in place). On
+/// `hybrid` buses, reserves the remaining household load (load not yet
+/// covered by `ctx.pvAcKwh`) so the bus's hybrid inverter still has
+/// energy to serve self-consumption first; on `batteryFed` buses there
+/// is no AC bypass, so the entire DC pool is available for charging.
+///
+/// [headroomStored] is the storage-side headroom in kWh (e.g. up to
+/// capacity, or up to a policy's reserve ceiling). Returns the charge
+/// request in `AC-equivalent kWh going into the battery path` (matching
+/// the convention `EnergyRouter.apply` expects).
+double _dcChargeRequest({
+  required DispatchContext ctx,
+  required int i,
+  required String dcBus,
+  required double headroomStored,
+  required Map<String, double> dcBudgetByBus,
+}) {
+  if (headroomStored <= 0) return 0.0;
+  // Initialise the per-bus budget on the first DC-coupled battery on
+  // this bus; subsequent batteries decrement what the earlier ones
+  // already requested so the load reservation isn't double-counted.
+  final budget = dcBudgetByBus.putIfAbsent(dcBus, () {
+    final pool = ctx.pvDcByBus[dcBus] ?? 0.0;
+    final bus = ctx.topology.dcBusById(dcBus);
+    final isHybrid = (bus?.mode ?? BusMode.hybrid) == BusMode.hybrid;
+    final remainingLoad =
+        isHybrid ? math.max(0.0, ctx.loadKwh - ctx.pvAcKwh) : 0.0;
+    return math.max(0.0, pool - remainingLoad);
+  });
+  if (budget <= 0) return 0.0;
+  final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0
+      ? 0.0
+      : headroomStored / ctx.batteryChargeEfficiency[i];
+  final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
+  final req = math.min(budget, math.min(rateCap, ackHeadroom));
+  dcBudgetByBus[dcBus] = budget - req;
+  return req;
+}
+
 /// Default policy: PV covers load first, surplus charges every battery
 /// in declared order up to full capacity, batteries discharge in
 /// declared order to cover unmet load, anything left exports to grid,
@@ -22,38 +63,20 @@ class SelfConsumptionFirstPolicy extends DispatchPolicy {
 
     var surplus = math.max(0.0, ctx.pvAcKwh - ctx.loadKwh);
     var unmet = math.max(0.0, ctx.loadKwh - ctx.pvAcKwh);
+    final dcBudgetByBus = <String, double>{};
 
     for (var i = 0; i < n; i++) {
       final dcBus = ctx.dcBusForBattery[i];
       if (dcBus != null) {
-        // DC-coupled battery: source charge from the bus's DC pool
-        // rather than the AC surplus.
-        //
-        // For a `hybrid` bus the bus's inverter covers any AC load not
-        // already met by AC-path PV before charging the battery —
-        // approximate by deducting `max(0, loadKwh − pvAcKwh)` from
-        // the DC pool so a DC battery doesn't get its charge target
-        // reduced by load that another array already covers on AC.
-        //
-        // For a `batteryFed` bus PV cannot bypass to AC at all, so
-        // the entire DC pool is available for charging — subtracting
-        // load would otherwise leave the battery uncharged while the
-        // unreservable surplus gets curtailed and the load imports
-        // from grid.
-        final dcPool = ctx.pvDcByBus[dcBus] ?? 0.0;
-        final bus = ctx.topology.dcBusById(dcBus);
-        final isHybrid = (bus?.mode ?? BusMode.hybrid) == BusMode.hybrid;
-        final remainingLoad = isHybrid
-            ? math.max(0.0, ctx.loadKwh - ctx.pvAcKwh)
-            : 0.0;
-        final dcAvailable = math.max(0.0, dcPool - remainingLoad);
-        final headroom = math.max(0.0,
+        final headroomStored = math.max(0.0,
             ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
-        final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0
-            ? 0.0
-            : headroom / ctx.batteryChargeEfficiency[i];
-        final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
-        charge[i] = math.min(dcAvailable, math.min(rateCap, ackHeadroom));
+        charge[i] = _dcChargeRequest(
+          ctx: ctx,
+          i: i,
+          dcBus: dcBus,
+          headroomStored: headroomStored,
+          dcBudgetByBus: dcBudgetByBus,
+        );
         continue;
       }
       if (surplus <= 0) continue;
@@ -121,6 +144,7 @@ class BatteryReservePolicy extends DispatchPolicy {
 
     var surplus = math.max(0.0, ctx.pvAcKwh - ctx.loadKwh);
     var unmet = math.max(0.0, ctx.loadKwh - ctx.pvAcKwh);
+    final dcBudgetByBus = <String, double>{};
 
     for (var i = 0; i < n; i++) {
       final cap = ctx.batteryCapacitiesKwh[i];
@@ -134,20 +158,17 @@ class BatteryReservePolicy extends DispatchPolicy {
       final dcBus = ctx.dcBusForBattery[i];
       if (dcBus != null) {
         // DC-coupled battery: like SelfConsumptionFirst but capped at
-        // `reserveCeiling`. The DC pre-step honours this cap (the
-        // unconditional physics path would otherwise sail past it).
-        // Same load-reservation rules as SelfConsumptionFirst — only
-        // reserve the *remaining* load after AC-path PV, and skip
-        // reservation entirely on `batteryFed` buses where there is
-        // no hybrid bypass to AC.
-        final dcPool = ctx.pvDcByBus[dcBus] ?? 0.0;
-        final bus = ctx.topology.dcBusById(dcBus);
-        final isHybrid = (bus?.mode ?? BusMode.hybrid) == BusMode.hybrid;
-        final remainingLoad = isHybrid
-            ? math.max(0.0, ctx.loadKwh - ctx.pvAcKwh)
-            : 0.0;
-        final dcAvailable = math.max(0.0, dcPool - remainingLoad);
-        charge[i] = math.min(dcAvailable, math.min(rateCap, ackHeadroom));
+        // `reserveCeiling` (headroom is reserveCeiling-soc, not
+        // capacity-soc). The shared helper still uses a per-bus
+        // budget so multiple DC batteries on one hybrid bus don't
+        // each independently subtract the same load reservation.
+        charge[i] = _dcChargeRequest(
+          ctx: ctx,
+          i: i,
+          dcBus: dcBus,
+          headroomStored: headroom,
+          dcBudgetByBus: dcBudgetByBus,
+        );
         continue;
       }
       if (surplus <= 0) continue;
@@ -200,9 +221,28 @@ class ConstantFeed24hPolicy extends DispatchPolicy {
     final discharge = List<double>.filled(n, 0.0);
 
     var surplus = math.max(0.0, ctx.pvAcKwh - ctx.loadKwh);
+    final dcBudgetByBus = <String, double>{};
 
     for (var i = 0; i < n; i++) {
-      if (surplus <= 0) break;
+      final dcBus = ctx.dcBusForBattery[i];
+      if (dcBus != null) {
+        // DC-coupled battery: use the shared per-bus DC budget rather
+        // than the AC surplus, otherwise an `array → cc → batteryFed`
+        // setup would request 0 charge and the simulator's DC pre-step
+        // would curtail all PV — leaving the bank with an empty
+        // battery to draw from.
+        final headroomStored = math.max(0.0,
+            ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
+        charge[i] = _dcChargeRequest(
+          ctx: ctx,
+          i: i,
+          dcBus: dcBus,
+          headroomStored: headroomStored,
+          dcBudgetByBus: dcBudgetByBus,
+        );
+        continue;
+      }
+      if (surplus <= 0) continue;
       final headroom = math.max(0.0, ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
       final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
       final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0

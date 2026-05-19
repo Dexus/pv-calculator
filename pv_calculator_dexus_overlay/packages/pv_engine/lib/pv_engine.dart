@@ -1046,7 +1046,8 @@ class SimulationStep {
   /// **DC kWh**. Has no AC bypass path so it is lost. `0.0` for hybrid
   /// or AC-coupled topologies (where excess PV-DC reaches AC via the
   /// inverter and falls under [curtailedAcKwh] / [curtailedExportKwh]
-  /// instead).
+  /// instead). **Already included in [curtailedDcKwh]** — surfaced
+  /// separately as a breakdown so reports can attribute the loss.
   final double dcCurtailedKwh;
 }
 
@@ -1098,10 +1099,17 @@ class SimulationSummary {
 
   /// PV energy that could not be absorbed on a `batteryFed` DC bus
   /// (battery full / rate-limited and no AC bypass path), in **DC
-  /// kWh**. `0.0` for hybrid or AC-coupled scenarios.
+  /// kWh**. `0.0` for hybrid or AC-coupled scenarios. **Already
+  /// included in [curtailedDcKwh]** — this field is a sub-category
+  /// breakdown so callers that want to attribute curtailment can
+  /// distinguish "MPPT/cc input clip" from "batteryFed residual"
+  /// without double-counting.
   final double dcCurtailedKwh;
 
-  /// DC-side curtailment from MPPT clipping, in **DC kWh**.
+  /// DC-side curtailment from MPPT clipping (inverter `maxDcInputKw`,
+  /// `ChargeController.maxInputKw`) plus any residual PV-DC lost on
+  /// `batteryFed` buses, in **DC kWh**. See [dcCurtailedKwh] for the
+  /// batteryFed sub-total.
   final double curtailedDcKwh;
 
   /// AC-side curtailment from the inverter AC cap, in **AC kWh**.
@@ -2292,12 +2300,19 @@ class PvSimulator {
             // Hybrid bus without a hybrid inverter wired up — residual
             // has no AC path. Treat as DC curtailment so the energy
             // balance stays honest. Validation should normally catch
-            // this misconfiguration (rule 4 in chunk 4).
+            // this misconfiguration (rule 4 in chunk 4). Surface it in
+            // BOTH the generic `curtailedDcKwh` total (so the existing
+            // KPI/monthly aggregators count it) and the Phase-4b-
+            // specific `dcCurtailedKwh` breakdown.
+            curtailedDcKwh += residual;
             dcCurtailedKwhTotal += residual;
             acBypassRatioByBus[busId] = 0.0;
           }
         } else {
-          // 1d: batteryFed — residual is lost.
+          // 1d: batteryFed — residual is lost. Same dual-accounting as
+          // the no-hybrid-inverter case above so downstream consumers
+          // that read `curtailedDcKwh` don't underreport.
+          curtailedDcKwh += residual;
           dcCurtailedKwhTotal += residual;
           acBypassRatioByBus[busId] = 0.0;
         }
@@ -2326,25 +2341,48 @@ class PvSimulator {
 
     // Per-battery AC envelope per Architektur §5.3:
     //   `allowedPowerW = min(targetPowerW, battery.maxDischargeW, inverterLimitW)`.
-    // When a battery's topology coupling names an AC-side `inverterId`,
-    // take the **minimum** of the battery's own discharge rating and that
-    // inverter's effective AC cap (already 800-W-clamped for
-    // `InverterRole.microInverter800W`). Without an inverter — or for a
-    // DC-coupled battery, where `inverterId` describes a non-AC path —
-    // fall back to the legacy `maxDischargeKw` cap, preserving pre-Phase-4
-    // behaviour.
+    // - AC-coupled battery (legacy): when the coupling names an AC-side
+    //   `inverterId`, take the min of `maxDischargeKw` and that
+    //   inverter's effective AC cap (already 800-W-clamped for
+    //   `InverterRole.microInverter800W`).
+    // - DC-coupled battery (Phase 4b): discharge necessarily passes
+    //   through the bus's outgoing inverter — the topology guarantees
+    //   exactly one for `batteryFed` buses (rule 3) and validation
+    //   ensures it exists for hybrid buses too when batteries are
+    //   present. Apply that inverter's AC cap so a `1 kW` battery
+    //   inverter wired to a `5 kW` battery cannot deliver above the
+    //   inverter rating.
+    // - Anything else falls back to the legacy `maxDischargeKw`-only
+    //   cap, preserving pre-Phase-4 behaviour.
     final acCapKwh = <double>[
       for (var i = 0; i < config.batteries.length; i++)
         () {
           final batteryAcCap = maxDischarge[i] * stepHours;
           final coupling = topology.couplingFor(config.batteries[i].id);
-          if (coupling.coupling != BatteryCoupling.ac) return batteryAcCap;
-          final invId = coupling.inverterId;
-          if (invId == null) return batteryAcCap;
-          final inv = inverterById[invId];
-          if (inv == null) return batteryAcCap;
-          final inverterAcCap = inv.effectiveMaxAcKw * stepHours;
-          return inverterAcCap < batteryAcCap ? inverterAcCap : batteryAcCap;
+          if (coupling.coupling == BatteryCoupling.ac) {
+            final invId = coupling.inverterId;
+            if (invId == null) return batteryAcCap;
+            final inv = inverterById[invId];
+            if (inv == null) return batteryAcCap;
+            final inverterAcCap = inv.effectiveMaxAcKw * stepHours;
+            return inverterAcCap < batteryAcCap ? inverterAcCap : batteryAcCap;
+          }
+          if (coupling.coupling == BatteryCoupling.dc &&
+              coupling.dcBusId != null) {
+            // First `bus → inverter` edge identifies the discharge
+            // path's inverter on this DC bus.
+            for (final e in topology.edges) {
+              if (e.fromId == coupling.dcBusId &&
+                  inverterById.containsKey(e.toId)) {
+                final inv = inverterById[e.toId]!;
+                final inverterAcCap = inv.effectiveMaxAcKw * stepHours;
+                return inverterAcCap < batteryAcCap
+                    ? inverterAcCap
+                    : batteryAcCap;
+              }
+            }
+          }
+          return batteryAcCap;
         }(),
     ];
 
