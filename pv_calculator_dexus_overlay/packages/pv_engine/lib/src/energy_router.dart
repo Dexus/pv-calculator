@@ -39,7 +39,9 @@ class EnergyRouter {
   ///
   /// Order of operations:
   ///   1. Charge each battery from PV surplus (enforce rate +
-  ///      headroom).
+  ///      headroom). Batteries listed in [skipChargeIndices] are
+  ///      skipped here — they are DC-coupled and have already been
+  ///      charged from the DC bus by the simulator before this call.
   ///   2. Direct-discharge each battery towards remaining household
   ///      load (enforce rate + usable SOC).
   ///   3. Run each micro-inverter bank, draining its source battery
@@ -65,6 +67,7 @@ class EnergyRouter {
     required double stepHours,
     required double? gridExportLimitKw,
     List<double>? batteryAcCapKwh,
+    Set<int> skipChargeIndices = const {},
   }) {
     final n = batteryIds.length;
     final batteryById = {for (var i = 0; i < n; i++) batteryIds[i]: i};
@@ -80,6 +83,11 @@ class EnergyRouter {
     for (var i = 0; i < n; i++) {
       if (surplus <= 0) break;
       if (i >= plan.batteryChargeRequestsKwh.length) break;
+      // DC-coupled batteries were already charged from the DC bus by
+      // `_simulateStep` before this call — skip AC charging for them so
+      // the same energy is not double-counted on the input side and so
+      // the battery's own rate cap stays correct.
+      if (skipChargeIndices.contains(i)) continue;
       final requested = math.max(0.0, plan.batteryChargeRequestsKwh[i]);
       if (requested <= 0) continue;
       final headroomStored = math.max(0.0, capacitiesKwh[i] - socs[i]);
