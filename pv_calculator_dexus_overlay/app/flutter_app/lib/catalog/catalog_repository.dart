@@ -51,6 +51,9 @@ class CatalogRepository extends ChangeNotifier {
   Future<List<BatteryCatalogEntry>> batteries() =>
       _merged.byKind<BatteryCatalogEntry>(ComponentKind.battery);
 
+  Future<List<ChargeControllerCatalogEntry>> chargeControllers() => _merged
+      .byKind<ChargeControllerCatalogEntry>(ComponentKind.chargeController);
+
   /// User-source entries only (no seed). Used by the management UI to
   /// distinguish editable user rows from read-only seed rows.
   Future<List<CatalogEntry>> userEntries() => _user.fetch();
@@ -119,6 +122,7 @@ class CatalogRepository extends ChangeNotifier {
     final modules = <Map<String, dynamic>>[];
     final inverters = <Map<String, dynamic>>[];
     final batteries = <Map<String, dynamic>>[];
+    final chargeControllers = <Map<String, dynamic>>[];
     for (final entry in all) {
       // Strip the `kind` discriminator — the section name is authoritative
       // in the seed shape, and parseSeedCatalog re-adds it on read.
@@ -130,6 +134,8 @@ class CatalogRepository extends ChangeNotifier {
           inverters.add(json);
         case ComponentKind.battery:
           batteries.add(json);
+        case ComponentKind.chargeController:
+          chargeControllers.add(json);
       }
     }
     const encoder = JsonEncoder.withIndent('  ');
@@ -138,6 +144,7 @@ class CatalogRepository extends ChangeNotifier {
       'modules': modules,
       'inverters': inverters,
       'batteries': batteries,
+      if (chargeControllers.isNotEmpty) 'chargeControllers': chargeControllers,
     });
   }
 }

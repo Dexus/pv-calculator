@@ -172,6 +172,11 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
             ComponentKind.module => l.catalogEditorTitleNewModule,
             ComponentKind.inverter => l.catalogEditorTitleNewInverter,
             ComponentKind.battery => l.catalogEditorTitleNewBattery,
+            // Editor support for chargeController lands in Phase-4b
+            // chunk 6 alongside the dedicated form section. Until then
+            // the management UI's `_kinds` list does not include this
+            // kind, so the editor is never opened in this branch.
+            ComponentKind.chargeController => '',
           };
     return Scaffold(
       appBar: AppBar(
@@ -391,6 +396,11 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
             localizations: l,
           ),
         ];
+      case ComponentKind.chargeController:
+        // Dedicated charge-controller editor lands in Phase-4b chunk 6.
+        // `_kinds` in catalog_management_page.dart does not include this
+        // kind yet, so this branch is unreachable at runtime.
+        return const [];
     }
   }
 
@@ -571,6 +581,12 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
           sourceUrl: sourceUrl,
           notes: notes,
         );
+      case ComponentKind.chargeController:
+        // Save handler for chargeController lands in Phase-4b chunk 6
+        // together with the dedicated form fields. `_kinds` does not
+        // expose this kind for editing yet, so this branch never runs.
+        throw UnsupportedError(
+            'ChargeController editor support lands in Phase-4b chunk 6.');
     }
   }
 }

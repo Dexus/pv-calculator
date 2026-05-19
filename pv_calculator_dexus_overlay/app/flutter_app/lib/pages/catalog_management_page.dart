@@ -95,6 +95,11 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
             ComponentKind.module => l.catalogManagerAddModuleFab,
             ComponentKind.inverter => l.catalogManagerAddInverterFab,
             ComponentKind.battery => l.catalogManagerAddBatteryFab,
+            // Charge-controller catalog UI lands in Phase-4b chunk 6;
+            // until then `_kinds` doesn't include this kind, so this
+            // branch is unreachable at runtime — kept only to satisfy
+            // the exhaustiveness check.
+            ComponentKind.chargeController => '',
           };
           return FloatingActionButton.extended(
             key: Key('catalog-manager-add-${kind.name}'),
@@ -264,6 +269,18 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
           minSocKwh: b.minSocKwh,
           sourceUrl: b.sourceUrl,
           notes: b.notes,
+        ),
+      ChargeControllerCatalogEntry c => ChargeControllerCatalogEntry(
+          id: newId,
+          manufacturer: manufacturer,
+          model: c.model,
+          efficiency: c.efficiency,
+          maxInputKw: c.maxInputKw,
+          maxOutputKw: c.maxOutputKw,
+          standbyW: c.standbyW,
+          mpptCount: c.mpptCount,
+          sourceUrl: c.sourceUrl,
+          notes: c.notes,
         ),
     };
   }
