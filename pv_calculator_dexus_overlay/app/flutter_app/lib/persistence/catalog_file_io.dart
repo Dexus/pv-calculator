@@ -82,18 +82,23 @@ class CatalogFileIo {
     Rect? sharePositionOrigin,
   }) async {
     final content = await repo.exportUserCatalogJson();
-    final bytes = Uint8List.fromList(utf8.encode(content));
     if (share.kIsMobilePlatform) {
+      final bytes = Uint8List.fromList(utf8.encode(content));
       final outcome = await share.shareBytesViaSheet(
         suggestedName: suggestedName,
         bytes: bytes,
         mimeType: 'application/json',
         sharePositionOrigin: sharePositionOrigin,
       );
-      return outcome == share.ShareOutcome.success ? suggestedName : null;
+      // `unavailable` means the platform handed the file off but
+      // can't report which target the user picked — treat as success
+      // (Codex review on PR #43). Only `dismissed` is a true cancel.
+      return outcome == share.ShareOutcome.dismissed ? null : suggestedName;
     }
     final location = await getSaveLocation(suggestedName: suggestedName);
     if (location == null) return null;
+    // Encoding happens after the picker returns so cancel is cheap.
+    final bytes = Uint8List.fromList(utf8.encode(content));
     // On web `location.path` is the suggested name (browser-driven download);
     // on native it's a full filesystem path. Splitting on either separator
     // yields the user-visible filename in both cases without pulling in a
