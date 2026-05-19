@@ -486,11 +486,20 @@ class SimulationConfig {
     this.tariff,
     this.irradianceYear,
     this.irradianceRadDatabase,
+    this.chargeControllers = const [],
   });
 
   final List<PvArray> arrays;
   final List<Inverter> inverters;
   final List<BatteryConfig> batteries;
+
+  /// MPPT charge controllers (Laderegler) for DC-coupled topologies.
+  /// Each controller feeds one [DcBus] (`cc.dcBusId`). When [topology]
+  /// is `null` the simulator passes this list into
+  /// [TopologyGraph.fromLegacy] so the auto-built graph still carries
+  /// them; when [topology] is set explicitly this list must be empty
+  /// (single source of truth — enforced by [validate]).
+  final List<ChargeController> chargeControllers;
 
   /// Optional explicit topology. When `null` the simulator derives a
   /// default graph from `arrays`/`inverters`/`batteries`/`microInverterBanks`
@@ -597,6 +606,7 @@ class SimulationConfig {
         inverterMaxAc: inverters.map((i) => MapEntry(i.id, i.effectiveMaxAcKw)),
         inverterMaxDcInput: inverters.map((i) => MapEntry(i.id, i.maxDcInputKw)),
         inverterEfficiency: inverters.map((i) => MapEntry(i.id, i.efficiency)),
+        chargeControllers: chargeControllers.isEmpty ? null : chargeControllers,
       );
 
   /// Dispatch policy used by the simulator: explicit if given,
@@ -671,8 +681,13 @@ class SimulationConfig {
           'Micro-inverter bank ${bank.id} references missing battery ${bank.batteryId}.');
     }
     final explicitTopology = topology;
-    if (explicitTopology != null) {
-      explicitTopology.validate(
+    if (explicitTopology != null && chargeControllers.isNotEmpty) {
+      throw ArgumentError(
+          'SimulationConfig.chargeControllers must be empty when topology is set explicitly '
+          '(single source of truth — declare chargeControllers inside the topology instead).');
+    }
+    if (explicitTopology != null || chargeControllers.isNotEmpty) {
+      effectiveTopology.validate(
         arrayIds: arrayIds,
         inverterIds: inverterIds,
         batteryIds: batteryIds,
@@ -685,8 +700,10 @@ class SimulationConfig {
   Map<String, dynamic> toJson() {
     // Bump to schema v2 only when one of the new Phase-4 fields is
     // actually set, v3 only when a Phase-5 field differs from its
-    // default, and v4 only when a Phase-10 multi-year/degradation knob
-    // is non-default. Legacy projects continue to round-trip as v1.
+    // default, v4 only when a Phase-10 multi-year/degradation knob is
+    // non-default, v5 when a tariff is configured, and v6 when one of
+    // the Phase-4b DC-coupling fields is non-default. Legacy projects
+    // continue to round-trip as v1.
     final hasPhase4 = topology != null ||
         dispatchPolicy != null ||
         microInverterBanks.isNotEmpty;
@@ -696,13 +713,22 @@ class SimulationConfig {
     final hasPhase10 = simulationYears != 1 ||
         arrays.any((a) => a.degradationPctPerYear != 0.0);
     final hasTariff = tariff != null;
-    final version = hasTariff
-        ? 5
-        : hasPhase10
-            ? 4
-            : hasPhase5
-                ? 3
-                : (hasPhase4 ? 2 : 1);
+    // Trigger v6 only on the truly new fields. `BatteryCoupling.dc` was
+    // representable inside `topology` since v2 — bumping legacy v2
+    // projects with a DC coupling already in their topology JSON would
+    // break their byte-stable round-trip.
+    final hasDcCoupling = chargeControllers.isNotEmpty ||
+        (topology?.chargeControllers.isNotEmpty ?? false) ||
+        (topology?.dcBuses.any((b) => b.mode != BusMode.hybrid) ?? false);
+    final version = hasDcCoupling
+        ? 6
+        : hasTariff
+            ? 5
+            : hasPhase10
+                ? 4
+                : hasPhase5
+                    ? 3
+                    : (hasPhase4 ? 2 : 1);
     final json = <String, dynamic>{
       'schemaVersion': version,
       'arrays': arrays.map((a) => a.toJson()).toList(),
@@ -751,12 +777,16 @@ class SimulationConfig {
     if (irradianceRadDatabase != null) {
       json['irradianceRadDatabase'] = irradianceRadDatabase;
     }
+    if (chargeControllers.isNotEmpty) {
+      json['chargeControllers'] =
+          chargeControllers.map((c) => c.toJson()).toList();
+    }
     return json;
   }
 
   static SimulationConfig fromJson(Map<String, dynamic> json) {
     final version = json['schemaVersion'] as int? ?? 1;
-    if (version < 1 || version > 5) {
+    if (version < 1 || version > 6) {
       throw ArgumentError('Unknown SimulationConfig schemaVersion: $version');
     }
     final batteries = <BatteryConfig>[];
@@ -827,6 +857,13 @@ class SimulationConfig {
           : null,
       irradianceYear: (json['irradianceYear'] as num?)?.toInt(),
       irradianceRadDatabase: json['irradianceRadDatabase'] as String?,
+      chargeControllers: () {
+        final raw = json['chargeControllers'];
+        if (raw is! List) return const <ChargeController>[];
+        return raw
+            .map((e) => ChargeController.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(growable: false);
+      }(),
     );
   }
 }

@@ -300,6 +300,118 @@ void main() {
       expect(decoded.perYearSummaries[0].pvAcKwh, 950);
       expect(decoded.perYearSummaries[1].gridImportKwh, 305);
     });
+
+    test('chargeControllers at top level round-trip as schema v6', () {
+      final base = _config();
+      final dcConfig = SimulationConfig(
+        arrays: base.arrays,
+        inverters: base.inverters,
+        batteries: base.batteries,
+        loadProfile: base.loadProfile,
+        days: base.days,
+        chargeControllers: const [
+          ChargeController(id: 'cc-1', dcBusId: 'dc-main', efficiency: 0.97, maxInputKw: 5.0),
+        ],
+      );
+      final json = dcConfig.toJson();
+      expect(json['schemaVersion'], 6);
+      expect((json['chargeControllers'] as List).single['id'], 'cc-1');
+      final decoded = SimulationConfig.fromJson(jsonDecode(jsonEncode(json)));
+      expect(decoded.chargeControllers.single.id, 'cc-1');
+      expect(decoded.chargeControllers.single.dcBusId, 'dc-main');
+      expect(decoded.chargeControllers.single.efficiency, closeTo(0.97, 1e-9));
+      expect(decoded.chargeControllers.single.maxInputKw, closeTo(5.0, 1e-9));
+    });
+
+    test('DcBus.batteryFed mode inside topology triggers schema v6', () {
+      final base = _config();
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-main', mode: BusMode.batteryFed)],
+        chargeControllers: [
+          ChargeController(id: 'cc-1', dcBusId: 'dc-main', efficiency: 0.97),
+        ],
+        acBuses: [AcBus(id: 'ac-main')],
+      );
+      final cfg = SimulationConfig(
+        arrays: base.arrays,
+        inverters: base.inverters,
+        batteries: base.batteries,
+        loadProfile: base.loadProfile,
+        days: base.days,
+        topology: topo,
+      );
+      final json = cfg.toJson();
+      expect(json['schemaVersion'], 6);
+      final decoded = SimulationConfig.fromJson(jsonDecode(jsonEncode(json)));
+      expect(decoded.topology!.dcBuses.single.mode, BusMode.batteryFed);
+      expect(decoded.topology!.chargeControllers.single.id, 'cc-1');
+    });
+
+    test('topology with no DC-coupling fields still round-trips on its old schema', () {
+      // Sanity: setting only legacy Phase-4 topology must NOT bump to v6.
+      final base = _config();
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-main')],
+        acBuses: [AcBus(id: 'ac-main')],
+      );
+      final cfg = SimulationConfig(
+        arrays: base.arrays,
+        inverters: base.inverters,
+        batteries: base.batteries,
+        loadProfile: base.loadProfile,
+        days: base.days,
+        topology: topo,
+      );
+      expect(cfg.toJson()['schemaVersion'], 2);
+    });
+
+    test('topology + top-level chargeControllers is rejected (single source of truth)', () {
+      final base = _config();
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-main')],
+        acBuses: [AcBus(id: 'ac-main')],
+      );
+      final cfg = SimulationConfig(
+        arrays: base.arrays,
+        inverters: base.inverters,
+        batteries: base.batteries,
+        loadProfile: base.loadProfile,
+        days: base.days,
+        topology: topo,
+        chargeControllers: const [
+          ChargeController(id: 'cc-1', dcBusId: 'dc-main'),
+        ],
+      );
+      expect(cfg.validate, throwsArgumentError);
+    });
+
+    test('top-level chargeControllers validate against legacy auto-generated dc bus ids', () {
+      final base = _config();
+      // Inverter id is 'main' ⇒ legacy fromLegacy produces dc bus 'dc-main'.
+      final ok = SimulationConfig(
+        arrays: base.arrays,
+        inverters: base.inverters,
+        batteries: base.batteries,
+        loadProfile: base.loadProfile,
+        days: base.days,
+        chargeControllers: const [
+          ChargeController(id: 'cc-1', dcBusId: 'dc-main'),
+        ],
+      );
+      expect(ok.validate, returnsNormally);
+      // A mistyped dc bus id must fail.
+      final broken = SimulationConfig(
+        arrays: base.arrays,
+        inverters: base.inverters,
+        batteries: base.batteries,
+        loadProfile: base.loadProfile,
+        days: base.days,
+        chargeControllers: const [
+          ChargeController(id: 'cc-1', dcBusId: 'dc-phantom'),
+        ],
+      );
+      expect(broken.validate, throwsArgumentError);
+    });
   });
 }
 
