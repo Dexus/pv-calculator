@@ -19,18 +19,29 @@ import 'package:test/test.dart';
 ///       ≤ DC rate because every η ≤ 1).
 ///   I4: every reported per-step kWh field is finite and ≥ 0.
 ///   I5: grid export ≤ gridExportLimitKw × stepHours when set.
-///   I6: pvDcKwh + gridImport + Σ discharge ≥ load + gridExport +
-///       Σ charge (the "≥" is the slack absorbing conversion losses
-///       and curtailment).
+///   I6: two-sided energy balance — `inputs - outputs - curtailment`
+///       is the conversion-loss slack, which must be ≥ 0 and ≤ an
+///       η-derived upper bound. The Phase 4b/4c review rounds found
+///       cases where η or clip energy disappeared silently into the
+///       slack; bounding it forces every kWh into either a delivery
+///       bucket, a curtailment bucket, or a known conversion loss.
 ///   I7: pvAcKwh + Σ discharge ≤ Σ_inverter effectiveMaxAcKw ×
 ///       stepHours (coarse — per-inverter caps are stricter but
 ///       this sum bounds the total AC delivered).
+///   I8: DC-side ledger — `pvDcKwh ≥ Σ DC-coupled charges +
+///       curtailedDcKwh`. The remainder is PV that left the DC bus
+///       as AC via the bus inverter. Catches any future regression
+///       that books DC throughput on the AC ledger by mistake.
 ///
-/// 200 random configs × up to 24 hourly steps ≈ 4800 step-invariant
-/// checks. Any future patch that breaks these invariants fails the
-/// test immediately with the failing config + step dumped so the
-/// fix can target the root cause instead of triggering yet another
-/// review round.
+/// 250 random configs × up to 24 hourly steps ≈ 6000 step-invariant
+/// checks. The generator emits both single-bus and multi-bus shapes
+/// (two DC buses sharing one inverter, optionally with one hybrid +
+/// one batteryFed) so the three Round-8 findings that needed a
+/// shared resource between buses (inverter DC-cap, shared AC load
+/// pool) are now in the search space. Any future patch that breaks
+/// these invariants fails the test immediately with the failing
+/// config + step dumped so the fix can target the root cause
+/// instead of triggering yet another review round.
 
 class _ConfigBuilder {
   _ConfigBuilder(this.rng);
@@ -45,6 +56,11 @@ class _ConfigBuilder {
   final edges = <BusEdge>[];
   final couplings = <BatteryCouplingSpec>[];
   final chargeControllers = <ChargeController>[];
+  // Inverters that must NOT get a default `mppt-<id>` node in
+  // `_buildTopology`. Used for shared bus-inverters that feed at least
+  // one batteryFed bus — topology rule 3 forbids `array → mppt` on
+  // such inverters.
+  final mpptlessInverters = <String>{};
   int _nextId = 0;
 
   String _id(String prefix) => '$prefix-${_nextId++}';
@@ -110,13 +126,20 @@ TopologyGraph _buildTopology(_ConfigBuilder b) {
   final ac = const AcBus(id: 'ac-main');
   b.acBuses.add(ac);
   for (final inv in b.inverters) {
-    b.mppts.add(MpptNode(id: 'mppt-${inv.id}', inverterId: inv.id));
-    b.edges.add(BusEdge(
-      fromId: 'mppt-${inv.id}',
-      toId: inv.id,
-      efficiency: inv.efficiency,
-      maxPowerKw: inv.maxDcInputKw,
-    ));
+    // Inverters in `mpptlessInverters` are shared bus-inverters that
+    // feed at least one batteryFed DC bus. Rule 3 in
+    // `topology.dart:583-614` requires those to have no `array → mppt`
+    // path, so skip the MPPT node + edges entirely. PV arrays for
+    // these inverters reach the bus via a charge controller instead.
+    if (!b.mpptlessInverters.contains(inv.id)) {
+      b.mppts.add(MpptNode(id: 'mppt-${inv.id}', inverterId: inv.id));
+      b.edges.add(BusEdge(
+        fromId: 'mppt-${inv.id}',
+        toId: inv.id,
+        efficiency: inv.efficiency,
+        maxPowerKw: inv.maxDcInputKw,
+      ));
+    }
     b.edges.add(BusEdge(
       fromId: inv.id,
       toId: ac.id,
@@ -128,6 +151,11 @@ TopologyGraph _buildTopology(_ConfigBuilder b) {
     // generator below), an `array → cc` edge already exists; skip the
     // MPPT edge.
     if (b.edges.any((e) => e.fromId == a.id)) continue;
+    // An array routed to an mpptless inverter has no MPPT to point at;
+    // the generator should have wired it through a charge controller.
+    // Skip silently — `validate()` in the test loop catches any
+    // generator slip-up.
+    if (b.mpptlessInverters.contains(a.inverterId)) continue;
     b.edges.add(BusEdge(fromId: a.id, toId: 'mppt-${a.inverterId}'));
   }
   return TopologyGraph(
@@ -138,6 +166,85 @@ TopologyGraph _buildTopology(_ConfigBuilder b) {
     batteryCouplings: b.couplings,
     chargeControllers: b.chargeControllers,
   );
+}
+
+/// Adds one DC bus + charge controller + array + DC-coupled battery
+/// (or two batteries for hybrid) to [b], wiring everything to the
+/// caller-supplied [busInv]. [busIndex] disambiguates ids so a config
+/// can carry multiple buses without collisions.
+void _addDcBus(
+  _ConfigBuilder b,
+  math.Random rng,
+  Inverter busInv,
+  int busIndex,
+  BusMode mode,
+) {
+  final bus = DcBus(id: 'dc-$busIndex', mode: mode);
+  b.dcBuses.add(bus);
+  final edgeEta = 0.9 + rng.nextDouble() * 0.09;
+  final edgeCap = rng.nextBool() ? null : 3.0 + rng.nextDouble() * 5.0;
+  b.edges.add(BusEdge(
+    fromId: bus.id,
+    toId: busInv.id,
+    efficiency: edgeEta,
+    maxPowerKw: edgeCap,
+  ));
+  final cc = ChargeController(
+    id: 'cc-$busIndex',
+    dcBusId: bus.id,
+    efficiency: 0.92 + rng.nextDouble() * 0.07,
+    maxInputKw: rng.nextBool() ? null : 2.0 + rng.nextDouble() * 4.0,
+  );
+  b.chargeControllers.add(cc);
+  final dcArray = b.addArray(
+    inverterId: busInv.id,
+    peakKw: 1.5 + rng.nextDouble() * 3.0,
+  );
+  final ccEdgeEta = 0.9 + rng.nextDouble() * 0.1;
+  // Three regimes so the property test exercises both the binding
+  // and non-binding paths:
+  //   30% — no cap
+  //   30% — generous cap (2-6 kW, never binding on a ≤4.5 kWp array)
+  //   40% — deliberately undersized (0.3-1.5 kW) so the edge clip
+  //         fires on most PV-bearing steps. Round-8 Finding #2 was
+  //         exactly this case: silently dropped clip energy. The
+  //         strengthened I6 catches it because the lost kWh lands
+  //         outside every output bucket.
+  double? ccEdgeCap;
+  final capRoll = rng.nextDouble();
+  if (capRoll < 0.3) {
+    ccEdgeCap = null;
+  } else if (capRoll < 0.6) {
+    ccEdgeCap = 2.0 + rng.nextDouble() * 4.0;
+  } else {
+    ccEdgeCap = 0.3 + rng.nextDouble() * 1.2;
+  }
+  b.edges.add(BusEdge(
+    fromId: dcArray.id,
+    toId: cc.id,
+    efficiency: ccEdgeEta,
+    maxPowerKw: ccEdgeCap,
+  ));
+  if (mode == BusMode.batteryFed) {
+    // Rule 3: exactly one DC battery on a batteryFed bus.
+    final batt = b.addBattery();
+    b.couplings.add(BatteryCouplingSpec(
+      batteryId: batt.id,
+      coupling: BatteryCoupling.dc,
+      dcBusId: bus.id,
+    ));
+  } else {
+    // Hybrid: 1 or 2 DC batteries.
+    final nDc = 1 + rng.nextInt(2);
+    for (var i = 0; i < nDc; i++) {
+      final batt = b.addBattery();
+      b.couplings.add(BatteryCouplingSpec(
+        batteryId: batt.id,
+        coupling: BatteryCoupling.dc,
+        dcBusId: bus.id,
+      ));
+    }
+  }
 }
 
 SimulationConfig _randomConfig(int seed) {
@@ -157,68 +264,50 @@ SimulationConfig _randomConfig(int seed) {
   }
 
   // === Optional DC bus + charge controllers + DC batteries ===
-  final addDc = rng.nextBool();
+  // Four shapes (probabilities chosen so ~70 % of seeds stay on the
+  // legacy single-bus/no-bus paths and ~60 of 250 explore the new
+  // multi-bus shapes that catch Round-8 findings #1/#3/#4):
+  //   roll < 0.40 → no DC bus
+  //   roll < 0.70 → one DC bus + dedicated inverter (legacy "true" branch)
+  //   roll < 0.85 → two DC buses sharing one inverter, both hybrid
+  //   roll < 1.00 → two DC buses sharing one inverter, hybrid + batteryFed
   final acCoupledBatteries = <BatteryConfig>[];
-  if (addDc) {
-    // Bus inverter (may share with an AC inverter sometimes — but
-    // keep it simple here: a separate inverter dedicated to the bus).
+  final dcRoll = rng.nextDouble();
+  if (dcRoll < 0.40) {
+    // no DC bus — fall through
+  } else if (dcRoll < 0.70) {
+    // Single dedicated bus inverter (current behaviour).
     final busInv = b.addInverter(
       maxAcKw: 3.0 + rng.nextDouble() * 5.0,
       eta: 0.9 + rng.nextDouble() * 0.08,
       maxDcKw: rng.nextBool() ? null : 4.0 + rng.nextDouble() * 5.0,
     );
     final mode = rng.nextDouble() < 0.4 ? BusMode.batteryFed : BusMode.hybrid;
-    final bus = DcBus(id: 'dc-1', mode: mode);
-    b.dcBuses.add(bus);
-    final edgeEta = 0.9 + rng.nextDouble() * 0.09;
-    final edgeCap = rng.nextBool() ? null : 3.0 + rng.nextDouble() * 5.0;
-    b.edges.add(BusEdge(
-      fromId: bus.id,
-      toId: busInv.id,
-      efficiency: edgeEta,
-      maxPowerKw: edgeCap,
-    ));
-    // Charge controller + array wired to it. Use a peakKw small
-    // enough that PV stays within usual sizing.
-    final cc = ChargeController(
-      id: 'cc-1',
-      dcBusId: bus.id,
-      efficiency: 0.92 + rng.nextDouble() * 0.07,
-      maxInputKw: rng.nextBool() ? null : 2.0 + rng.nextDouble() * 4.0,
-    );
-    b.chargeControllers.add(cc);
-    final dcArray = b.addArray(
-      inverterId: busInv.id, // satisfies validation (inverterId must exist)
-      peakKw: 1.5 + rng.nextDouble() * 3.0,
-    );
-    final ccEdgeEta = 0.9 + rng.nextDouble() * 0.1;
-    final ccEdgeCap = rng.nextBool() ? null : 2.0 + rng.nextDouble() * 4.0;
-    b.edges.add(BusEdge(
-      fromId: dcArray.id,
-      toId: cc.id,
-      efficiency: ccEdgeEta,
-      maxPowerKw: ccEdgeCap,
-    ));
-    // For batteryFed mode rules: exactly 1 DC battery, no extra MPPT
-    // arrays on the bus inverter.
     if (mode == BusMode.batteryFed) {
-      final batt = b.addBattery();
-      b.couplings.add(BatteryCouplingSpec(
-        batteryId: batt.id,
-        coupling: BatteryCoupling.dc,
-        dcBusId: bus.id,
-      ));
-    } else {
-      // Hybrid: 1 or 2 DC batteries.
-      final nDc = 1 + rng.nextInt(2);
-      for (var i = 0; i < nDc; i++) {
-        final batt = b.addBattery();
-        b.couplings.add(BatteryCouplingSpec(
-          batteryId: batt.id,
-          coupling: BatteryCoupling.dc,
-          dcBusId: bus.id,
-        ));
-      }
+      // Rule 4: the inverter on a batteryFed bus must not also carry
+      // an MPPT array. Mark the dedicated inverter mpptless so
+      // `_buildTopology` skips the `mppt-<inv>` node and edges.
+      b.mpptlessInverters.add(busInv.id);
+    }
+    _addDcBus(b, rng, busInv, 0, mode);
+  } else {
+    // Two DC buses sharing one bus-inverter.
+    final shareInv = b.addInverter(
+      maxAcKw: 4.0 + rng.nextDouble() * 6.0,
+      eta: 0.9 + rng.nextDouble() * 0.08,
+      maxDcKw: rng.nextBool() ? null : 6.0 + rng.nextDouble() * 6.0,
+    );
+    final modes = dcRoll < 0.85
+        ? <BusMode>[BusMode.hybrid, BusMode.hybrid]
+        : <BusMode>[BusMode.hybrid, BusMode.batteryFed];
+    if (modes.contains(BusMode.batteryFed)) {
+      // Rule 4 again — drop the default MPPT node on the shared
+      // inverter so neither bus violates it. PV reaches the buses
+      // via charge controllers only.
+      b.mpptlessInverters.add(shareInv.id);
+    }
+    for (var i = 0; i < modes.length; i++) {
+      _addDcBus(b, rng, shareInv, i, modes[i]);
     }
   }
 
@@ -258,11 +347,55 @@ SimulationConfig _randomConfig(int seed) {
   );
 }
 
+/// Smallest single-stage efficiency in [config] across inverters,
+/// charge controllers, bus edges, and battery halves. Used to bound
+/// the conversion-loss slack in I6. With the generator's η ranges
+/// (inverter / edge / cc ≥ 0.9, battery sqrt(roundTrip) ≥ 0.92) the
+/// typical floor sits at 0.9.
+double _etaMinPath(SimulationConfig config) {
+  var minEta = 1.0;
+  for (final inv in config.inverters) {
+    if (inv.efficiency < minEta) minEta = inv.efficiency;
+  }
+  for (final batt in config.batteries) {
+    final half = math.sqrt(batt.roundTripEfficiency);
+    if (half < minEta) minEta = half;
+  }
+  final topo = config.topology;
+  if (topo != null) {
+    for (final cc in topo.chargeControllers) {
+      if (cc.efficiency < minEta) minEta = cc.efficiency;
+    }
+    for (final edge in topo.edges) {
+      final e = edge.efficiency;
+      if (e < minEta) minEta = e;
+    }
+  }
+  return minEta;
+}
+
+/// Indices into `config.batteries` that are DC-coupled.
+Set<int> _dcBatteryIndices(SimulationConfig config) {
+  final topo = config.topology;
+  if (topo == null) return const <int>{};
+  final dcIds = <String>{
+    for (final c in topo.batteryCouplings)
+      if (c.coupling == BatteryCoupling.dc) c.batteryId,
+  };
+  final out = <int>{};
+  for (var i = 0; i < config.batteries.length; i++) {
+    if (dcIds.contains(config.batteries[i].id)) out.add(i);
+  }
+  return out;
+}
+
 void _checkStepInvariants({
   required SimulationConfig config,
   required SimulationStep step,
   required int seed,
   required double prevAggregateSoc,
+  required double etaMinPath,
+  required Set<int> dcBatteryIndices,
 }) {
   const tol = 1e-7;
   final stepHours = config.timeStep.hours;
@@ -322,24 +455,92 @@ void _checkStepInvariants({
         reason: '${ctx()}: gridExport ${step.gridExportKwh} exceeds limit $cap');
   }
 
-  // I6: per-step energy balance with SOC tracking.
-  //   pvDcKwh + gridImport = selfConsumption + gridExport + ΔSOC
-  //                         + losses + curtailment.
+  // I6: two-sided energy balance with explicit curtailment.
+  //   pvDcKwh + gridImport
+  //     = loadServed + gridExport + ΔSOC
+  //       + curtailedDc + curtailedAc + curtailedExport
+  //       + conversion_losses
   //
-  // `losses + curtailment` ≥ 0, so the inequality
-  //   pvDcKwh + gridImport ≥ selfConsumption + gridExport + ΔSOC
-  // must hold (within fp tolerance). `selfConsumption` already covers
-  // every load-serving path — PV-to-load, battery discharge to load,
-  // bank delivery to load — so this is the physical "no energy out
-  // of nowhere" check.
+  // `loadServed = loadKwh - unservedLoadKwh` covers every path that
+  // delivered to load (PV, battery, banks, AND grid import). Using
+  // `selfConsumptionKwh` instead would omit the grid-serving-load
+  // portion, inflating the slack when batteries are empty and grid
+  // covers most of the load (seen in seed 2 step 18 during testing).
+  //
+  // The conversion-loss slack is bounded from above by an η-derived
+  // budget. Phase-4b/4c review rounds repeatedly turned up bugs that
+  // dumped real energy into the unbounded "losses" term (the
+  // `array → cc` edge clip silently dropped 2 kWh on a 3 kWh step
+  // pre-fix). Bounding the slack forces every kWh into a delivery
+  // bucket, a curtailment bucket, or a known conversion loss.
+  //
+  // The bound is `(1 - etaMinPath^4) × throughput`. See the inline
+  // comment on `lossFactor` below for the derivation. Legitimate
+  // long lossy chains (with all η at the minimum) stay inside it;
+  // a 1+ kWh phantom on a 3-4 kWh PV step trips it.
   final deltaSoc = step.batterySocKwh - prevAggregateSoc;
+  final loadServed = step.loadKwh - step.unservedLoadKwh;
   final inputs = step.pvDcKwh + step.gridImportKwh;
-  final outputs =
-      step.selfConsumptionKwh + step.gridExportKwh + deltaSoc;
-  expect(inputs + 1e-6, greaterThanOrEqualTo(outputs - 1e-6),
+  final outputs = loadServed +
+      step.gridExportKwh +
+      deltaSoc +
+      step.curtailedDcKwh +
+      step.curtailedAcKwh +
+      step.curtailedExportKwh;
+  final lossSlack = inputs - outputs;
+  expect(lossSlack, greaterThanOrEqualTo(-1e-6),
       reason: '${ctx()}: inputs $inputs < outputs $outputs '
-          '(selfCons=${step.selfConsumptionKwh}, '
-          'export=${step.gridExportKwh}, ΔSOC=$deltaSoc)');
+          '(loadServed=$loadServed, export=${step.gridExportKwh}, '
+          'ΔSOC=$deltaSoc, curtDc=${step.curtailedDcKwh}, '
+          'curtAc=${step.curtailedAcKwh}, curtExp=${step.curtailedExportKwh})');
+  var sumCharge = 0.0;
+  var sumDischarge = 0.0;
+  for (var i = 0; i < config.batteries.length; i++) {
+    sumCharge += step.batteryChargesKwh[i];
+    sumDischarge += step.batteryDischargesKwh[i];
+  }
+  final throughput = step.pvDcKwh + sumCharge + sumDischarge;
+  // Worst-case 4-stage chain at the smallest η in the config. Each
+  // kWh of throughput can lose up to `1 - etaMin^4` along the
+  // longest realistic single-direction conversion path (array →
+  // cc-edge → cc → bus-edge → inverter is 4 multiplicative stages
+  // for the DC chain; PV-only paths are shorter). Multiplied across
+  // `pvDc + Σchg + Σdis` this bounds the slack tight enough that a
+  // kWh-scale phantom on a 3-4 kWh PV step trips it, while
+  // legitimate long lossy chains (with all η at the minimum) still
+  // fit under the ceiling.
+  final lossFactor = 1.0 - math.pow(etaMinPath, 4).toDouble();
+  final slackUpper = throughput * lossFactor + 5e-6;
+  expect(lossSlack, lessThanOrEqualTo(slackUpper),
+      reason: '${ctx()}: conversion-loss slack $lossSlack > bound '
+          '$slackUpper (throughput=$throughput, etaMin=$etaMinPath). '
+          'Some real energy is being swallowed silently — check '
+          'the curtailment buckets and η accounting on each path.');
+
+  // I8: DC-side ledger sanity check.
+  //   pvDcKwh ≥ Σ DC-coupled batteryChargesKwh + curtailedDcKwh
+  //
+  // `batteryChargesKwh[i]` for a DC-coupled battery is bus-side DC kWh
+  // (already after cc + edge η + clip — see pv_engine.dart Z. 2324-2329
+  // where `dcDirectCharges[k]` is summed in). `curtailedDcKwh` is
+  // reported at the array-side reference (dc_coupled_dispatch_test.dart
+  // Z. 1322 documents `3 kWh PV - 1 kWh through → curtailedDcKwh = 2`).
+  // Bus-side DC charge can be at most as large as the array-side PV
+  // that fed it, so the bus-side sum + array-side curtailment is
+  // bounded by array-side `pvDcKwh`. The remainder is PV that left
+  // the DC bus as AC via the bus inverter.
+  if (dcBatteryIndices.isNotEmpty || step.curtailedDcKwh > 0) {
+    var dcChargeKwh = 0.0;
+    for (final i in dcBatteryIndices) {
+      dcChargeKwh += step.batteryChargesKwh[i];
+    }
+    final dcOutflow = dcChargeKwh + step.curtailedDcKwh;
+    expect(step.pvDcKwh + 1e-6, greaterThanOrEqualTo(dcOutflow - 1e-6),
+        reason: '${ctx()}: pvDcKwh ${step.pvDcKwh} < DC outflow '
+            '$dcOutflow (dcCharge=$dcChargeKwh, '
+            'curtailedDc=${step.curtailedDcKwh}). DC-side ledger '
+            'over-allocated.');
+  }
 
   // I7: AC delivery sum vs aggregate inverter cap.
   final invCapTotal = config.inverters
@@ -354,7 +555,7 @@ void _checkStepInvariants({
 
 void main() {
   group('Phase 4c — DC dispatch invariants (property test)', () {
-    const sampleCount = 200;
+    const sampleCount = 250;
     test('$sampleCount random topologies satisfy step-level invariants', () {
       for (var seed = 0; seed < sampleCount; seed++) {
         SimulationConfig config;
@@ -369,6 +570,8 @@ void main() {
           continue;
         }
         final result = const PvSimulator().run(config);
+        final etaMinPath = _etaMinPath(config);
+        final dcBatteryIndices = _dcBatteryIndices(config);
         var prevSoc = config.batteries
             .fold<double>(0.0, (s, b) => s + b.effectiveInitialSocKwh);
         for (final step in result.steps) {
@@ -377,6 +580,8 @@ void main() {
             step: step,
             seed: seed,
             prevAggregateSoc: prevSoc,
+            etaMinPath: etaMinPath,
+            dcBatteryIndices: dcBatteryIndices,
           );
           prevSoc = step.batterySocKwh;
         }
