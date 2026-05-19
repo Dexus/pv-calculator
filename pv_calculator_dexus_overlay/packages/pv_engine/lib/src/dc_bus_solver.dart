@@ -250,13 +250,26 @@ class DcBusSolver {
     final pool = math.max(0.0, input.pvDcInKwh);
     final loadShare = math.max(0.0, input.loadAcShareKwh);
     final busInv = input.busInverter;
-    final hybrid = input.mode == BusMode.hybrid && busInv != null;
+    // PV bypass / load cover via the inverter is allowed only on
+    // `hybrid` buses (per `BusMode`). Battery discharge to the
+    // inverter, however, is the WHOLE POINT of `batteryFed` and
+    // must remain allowed — those flow paths are gated separately
+    // (Codex P2 round 7 finding "batteryFed solver discharge").
+    final acFromPvAllowed =
+        input.mode == BusMode.hybrid && busInv != null;
+    final acFromBatteryAllowed = busInv != null;
 
-    // Live counters mutated step-by-step.
+    // Live counters mutated step-by-step. `invDcRemaining` and
+    // `edgeRemaining` are kept in their NATIVE units:
+    //   - `invDcRemaining`: inverter-input DC kWh.
+    //   - `edgeRemaining`: bus-side DC kWh (the edge sits on the bus
+    //     side of the inverter).
+    // The `route()` helper converts between the two via the edge η.
     var poolBusDc = pool;
     var invAcRemaining = busInv?.inverterAcCapRemainingKwh ?? 0.0;
     var invDcRemaining = busInv?.inverterDcCapRemainingKwh ?? double.infinity;
     var edgeRemaining = busInv?.edgeMaxPowerKwh ?? double.infinity;
+    final edgeEta = busInv?.edgeEfficiency ?? 1.0;
     final acPerBusDc = busInv?.acPerBusDc ?? 0.0;
 
     final charges = <int, double>{};
@@ -271,14 +284,26 @@ class DcBusSolver {
     /// clipping by the remaining AC, DC and edge headroom. Returns
     /// `(dcUsed, acDelivered)` — `dcUsed` may be < `dcAmount` if a
     /// cap binds.
-    ({double dcUsed, double acDelivered}) route(double dcAmount) {
-      if (!hybrid || dcAmount <= 0 || acPerBusDc <= 0) {
+    ///
+    /// All cap conversions are explicit:
+    ///   - `invDcRemaining` is at the inverter input. The bus-side
+    ///     equivalent is `invDcRemaining / edgeEta`.
+    ///   - `edgeRemaining` is already bus-side (the edge cap sits on
+    ///     the bus side of the inverter).
+    ///   - `invAcRemaining` is at the inverter output. The bus-side
+    ///     equivalent is `invAcRemaining / acPerBusDc`.
+    /// After routing, decrement each in its own unit
+    /// (`invDcRemaining -= dcUsed × edgeEta`).
+    ({double dcUsed, double acDelivered}) route(double dcAmount,
+        {required bool allowed}) {
+      if (!allowed || dcAmount <= 0 || acPerBusDc <= 0) {
         return (dcUsed: 0.0, acDelivered: 0.0);
       }
-      // Max DC the inverter can ingest this round:
-      var dcLimit = math.min(invDcRemaining, edgeRemaining);
-      // Max AC the inverter can emit; convert back to a bus-side DC
-      // limit so we can compare apples to apples.
+      var dcLimit = edgeRemaining;
+      if (invDcRemaining.isFinite && edgeEta > 0) {
+        final invLimitBusSide = invDcRemaining / edgeEta;
+        if (invLimitBusSide < dcLimit) dcLimit = invLimitBusSide;
+      }
       final acLimitAsBusDc =
           invAcRemaining <= 0 ? 0.0 : invAcRemaining / acPerBusDc;
       if (acLimitAsBusDc < dcLimit) dcLimit = acLimitAsBusDc;
@@ -286,7 +311,7 @@ class DcBusSolver {
       if (dcUsed <= 0) return (dcUsed: 0.0, acDelivered: 0.0);
       final acDelivered = dcUsed * acPerBusDc;
       invAcRemaining -= acDelivered;
-      if (invDcRemaining.isFinite) invDcRemaining -= dcUsed;
+      if (invDcRemaining.isFinite) invDcRemaining -= dcUsed * edgeEta;
       if (edgeRemaining.isFinite) edgeRemaining -= dcUsed;
       inverterAcConsumed += acDelivered;
       inverterDcConsumed += dcUsed;
@@ -294,9 +319,10 @@ class DcBusSolver {
     }
 
     // === 1. Cover assigned AC load via the bus inverter ===
-    if (hybrid && loadShare > 0 && poolBusDc > 0) {
+    if (acFromPvAllowed && loadShare > 0 && poolBusDc > 0) {
       final dcNeeded = acPerBusDc <= 0 ? 0.0 : loadShare / acPerBusDc;
-      final routed = route(math.min(dcNeeded, poolBusDc));
+      final routed = route(math.min(dcNeeded, poolBusDc),
+          allowed: acFromPvAllowed);
       poolBusDc -= routed.dcUsed;
       loadCoveredAc = routed.acDelivered;
     }
@@ -319,23 +345,21 @@ class DcBusSolver {
     }
 
     // === 3. Hybrid bypass: push remaining DC to AC for export ===
-    if (hybrid && poolBusDc > 0) {
-      final routed = route(poolBusDc);
+    if (acFromPvAllowed && poolBusDc > 0) {
+      final routed = route(poolBusDc, allowed: acFromPvAllowed);
       poolBusDc -= routed.dcUsed;
       bypassAc = routed.acDelivered;
     }
 
     // === 4. Battery discharge to cover any load not yet served ===
     //
-    // Discharge only on hybrid buses with the inverter still able to
-    // emit AC and load still on the table. The discharge target is
-    // expressed in bus-side DC kWh so the policy can cap it via
-    // `dischargeTargetKwh`. AC delivered = dcUsed × battery
-    // dischargeEff × bus eta — both losses are honoured in the SOC
-    // withdrawal because the caller divides AC back through the
-    // composite efficiency.
+    // Discharge through the bus inverter is allowed on BOTH hybrid
+    // and `batteryFed` buses — the bus-mode distinction is about
+    // whether PV can bypass the battery, not about whether the
+    // battery can reach AC at all. `batteryFed` is specifically the
+    // case where stored energy is the ONLY path to AC.
     var loadUnmetAc = math.max(0.0, loadShare - loadCoveredAc);
-    if (hybrid && loadUnmetAc > 0 && invAcRemaining > 0) {
+    if (acFromBatteryAllowed && loadUnmetAc > 0 && invAcRemaining > 0) {
       for (final b in input.batteries) {
         if (loadUnmetAc <= 0) break;
         if (invAcRemaining <= 0) break;
@@ -359,7 +383,7 @@ class DcBusSolver {
           invAsBusDc,
         ].reduce(math.min);
         if (cap <= 0) continue;
-        final routed = route(cap);
+        final routed = route(cap, allowed: acFromBatteryAllowed);
         if (routed.dcUsed <= 0) continue;
         discharges[b.batteryIndex] = routed.dcUsed;
         dischargeAc += routed.acDelivered;

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'src/dc_bus_solver.dart';
 import 'src/dispatch_policies.dart';
 import 'src/dispatch_policy.dart';
 import 'src/energy_router.dart';
@@ -2000,22 +2001,31 @@ class PvSimulator {
     final topology = config.effectiveTopology;
     var pvDcKwh = 0.0;
 
-    // === Phase 4b: DC-coupling pre-routing ===
-    // Build cc lookup and the array→cc routing map from explicit edges.
-    // When no charge controllers exist (legacy), `hasDcPath` stays
-    // false and every downstream branch short-circuits — preserving
-    // byte-identical results for AC-only scenarios.
+    // === DC-coupling pre-routing ===
+    // Build cc lookup and the `array → cc` routing map from explicit
+    // edges. Capture the edge so its `efficiency` and `maxPowerKw`
+    // can clip / scale the array's DC contribution before it reaches
+    // the charge controller (Phase 4c #1). When no charge controllers
+    // exist (legacy), the maps stay empty and every downstream branch
+    // short-circuits — AC-only scenarios stay byte-identical.
     final ccById = {for (final c in topology.chargeControllers) c.id: c};
-    final arrayToCc = <String, String>{};
+    final arrayToCcEdge = <String, BusEdge>{};
     if (ccById.isNotEmpty) {
       for (final e in topology.edges) {
         if (ccById.containsKey(e.toId)) {
-          arrayToCc[e.fromId] = e.toId;
+          arrayToCcEdge[e.fromId] = e;
         }
       }
     }
-    final hasDcPath = arrayToCc.isNotEmpty;
+    final hasDcPath = arrayToCcEdge.isNotEmpty;
+    // Track per-array DC actually reaching its charge controller's
+    // input (after edge η and edge maxPowerKw). Used for per-array AC
+    // distribution after the solver runs, and aggregated into
+    // `dcByController` for cc-side clipping + efficiency.
     final dcByController = hasDcPath ? <String, double>{} : null;
+    final arrayDcAtCcInput = hasDcPath
+        ? Float64List(config.arrays.length)
+        : null;
 
     for (var i = 0; i < config.arrays.length; i++) {
       final array = config.arrays[i];
@@ -2033,9 +2043,21 @@ class PvSimulator {
       // Partition: arrays wired into a charge controller via an edge
       // `array.id → cc.id` flow on the DC bus path; everyone else
       // stays on the legacy inverter path.
-      final ccId = hasDcPath ? arrayToCc[array.id] : null;
-      if (ccId != null) {
-        dcByController!.update(ccId, (v) => v + dcKwh, ifAbsent: () => dcKwh);
+      final edge = hasDcPath ? arrayToCcEdge[array.id] : null;
+      if (edge != null) {
+        // Apply the `array → cc` edge η and `maxPowerKw` before the
+        // controller sees the energy. Pre-fix this edge was ignored
+        // (Codex round 7 finding #1) — a lossy or capped edge would
+        // overstate bus-side DC.
+        var contrib = dcKwh * edge.efficiency;
+        final cap = edge.maxPowerKw;
+        if (cap != null) {
+          final capKwh = cap * stepHours;
+          if (contrib > capKwh) contrib = capKwh;
+        }
+        arrayDcAtCcInput![i] = contrib;
+        dcByController!.update(edge.toId, (v) => v + contrib,
+            ifAbsent: () => contrib);
       } else {
         dcByInverter.update(array.inverterId, (v) => v + dcKwh, ifAbsent: () => dcKwh);
       }
@@ -2046,27 +2068,22 @@ class PvSimulator {
     var curtailedAcKwh = 0.0;
     var dcDirectChargeKwhTotal = 0.0;
     var dcCurtailedKwhTotal = 0.0;
+    var dcLoadCoveredAcTotal = 0.0;
     // For per-array AC distribution: remember each inverter's
     // (limitedAc, dcAfterCap) pair so the array breakdown can scale
     // each array's DC share by the same loss ratio its inverter saw.
     final acRatioByInverter = <String, double>{};
-    // Per-inverter post-clip DC consumed by the AC path; subtracted
-    // from `maxDcInputKw * stepHours` when the same inverter also
-    // receives PV-DC via a hybrid DC bus, so the inverter's DC stage
-    // sees a single shared cap across both flows.
+    // Per-inverter post-clip DC consumed by the AC path; passed to
+    // the `DcBusSolver` when the same inverter also serves as a bus
+    // inverter so its DC input cap is shared across both flows.
     final dcConsumedByInverter = <String, double>{};
-    // Per-inverter AC already emitted by the legacy AC path; the
-    // hybrid bypass subtracts this from `effectiveMaxAcKw * stepHours`
-    // before applying its own AC cap so the inverter's physical AC
-    // rating is shared between both flows.
+    // Per-inverter AC already emitted this step. Decremented by the
+    // legacy AC path AND the solver's bus inverter consumption so
+    // both paths share one cap.
     final acEmittedByInverter = <String, double>{};
     for (final entry in dcByInverter.entries) {
       final inverter = inverterById[entry.key]!;
       var dcKwh = entry.value;
-      // DC-side clipping: oversized arrays driving the inverter past
-      // its MPPT/DC rating lose the surplus before AC conversion. The
-      // loss is reported in DC kWh — converting to "what AC would
-      // have been delivered" would hide the upstream geometry.
       final dcLimit = inverter.maxDcInputKw;
       if (dcLimit != null) {
         final dcCapKwh = dcLimit * stepHours;
@@ -2081,60 +2098,49 @@ class PvSimulator {
       pvAcKwh += limitedAc;
       curtailedAcKwh += math.max(0.0, rawAc - limitedAc);
       acEmittedByInverter[entry.key] = limitedAc;
-      // ratio = limitedAc / entry.value (original pre-cap DC sum) so
-      // the per-array distribution captures both DC clipping and AC
-      // clipping in one factor.
       acRatioByInverter[entry.key] =
           entry.value > 0 ? limitedAc / entry.value : 0.0;
     }
 
     // === DC-path: charge-controller clip + efficiency → DC bus ===
-    // pvDcByBus[B] is the bus-side energy available to (a) charge a
-    // DC-coupled battery on B, and (b) flow through a hybrid inverter
-    // to AC. Bookkeeping for per-array AC distribution is captured in
-    // `ccCapRatio` (post-cap / pre-cap per controller) and
-    // `acBypassRatioByBus` (AC kWh out of the bus per pre-charging DC
-    // kWh on the bus).
+    // PV is partitioned into `dcByController[ccId]` already (with
+    // `array → cc` edge η and cap applied above). Now apply the
+    // controller's own `maxInputKw` clip and `efficiency` to get the
+    // bus-side DC pool the solver will allocate per bus.
     final pvDcByBus = <String, double>{};
-    final pvDcByBusBefore = <String, double>{};
     final ccCapRatio = <String, double>{};
-    final acBypassRatioByBus = <String, double>{};
-    final dcDirectCharges = List<double>.filled(config.batteries.length, 0.0);
+    if (hasDcPath) {
+      for (final entry in dcByController!.entries) {
+        final cc = ccById[entry.key]!;
+        final dcSumPre = entry.value;
+        var postCapDc = dcSumPre;
+        final cap = cc.maxInputKw;
+        if (cap != null) {
+          final capKwh = cap * stepHours;
+          if (postCapDc > capKwh) {
+            curtailedDcKwh += postCapDc - capKwh;
+            postCapDc = capKwh;
+          }
+        }
+        ccCapRatio[cc.id] = dcSumPre > 0 ? postCapDc / dcSumPre : 0.0;
+        final busSide = postCapDc * cc.efficiency;
+        pvDcByBus.update(cc.dcBusId, (v) => v + busSide,
+            ifAbsent: () => busSide);
+      }
+    }
+    final pvDcByBusBefore = Map<String, double>.from(pvDcByBus);
+
+    // === Identify DC-coupled batteries grouped by bus ===
     final dcCoupledIndices = <int>{};
     final dcBatteriesByBus = <String, List<int>>{};
-    final dcBusForBattery = <int, String>{};
     final hasDcCoupling = topology.batteryCouplings
         .any((c) => c.coupling == BatteryCoupling.dc);
     if (hasDcPath || hasDcCoupling) {
-      // Pre-cap clip + efficiency per controller.
-      if (hasDcPath) {
-        for (final entry in dcByController!.entries) {
-          final cc = ccById[entry.key]!;
-          final dcSumPre = entry.value;
-          var postCapDc = dcSumPre;
-          final cap = cc.maxInputKw;
-          if (cap != null) {
-            final capKwh = cap * stepHours;
-            if (postCapDc > capKwh) {
-              curtailedDcKwh += postCapDc - capKwh;
-              postCapDc = capKwh;
-            }
-          }
-          ccCapRatio[cc.id] = dcSumPre > 0 ? postCapDc / dcSumPre : 0.0;
-          final busSide = postCapDc * cc.efficiency;
-          pvDcByBus.update(cc.dcBusId, (v) => v + busSide,
-              ifAbsent: () => busSide);
-        }
-        pvDcByBusBefore.addAll(pvDcByBus);
-      }
-
-      // Identify DC-coupled batteries grouped by bus.
       for (var i = 0; i < config.batteries.length; i++) {
         final coupling = topology.couplingFor(config.batteries[i].id);
         if (coupling.coupling == BatteryCoupling.dc &&
             coupling.dcBusId != null) {
           dcCoupledIndices.add(i);
-          dcBusForBattery[i] = coupling.dcBusId!;
           dcBatteriesByBus
               .putIfAbsent(coupling.dcBusId!, () => [])
               .add(i);
@@ -2142,84 +2148,26 @@ class PvSimulator {
       }
     }
 
-    final loadKwh = config.loadProfile.energyKwhForStep(
-        hourOfDay: hourOfDay, timeStep: config.timeStep);
-
-    // Cache hybrid-inverter info per DC bus once. The first
-    // `dcBus → inverter` edge identifies the bus's outgoing inverter
-    // (rule 11 forbids > 1). `eta` is the combined inverter own η
-    // and the bus-side edge η; `maxAcKwh` is `effectiveMaxAcKw *
-    // stepHours`. Used by:
-    //   - estimated bypass AC for the policy ctx (Finding 2)
-    //   - per-battery direct-discharge eff and inverter cap (Finding 1, 3)
-    //   - `dcBusesWithAcPath` for the policy's load-reservation choice
-    //     on charge-only hybrid buses (Finding 4).
-    final busHybridInverter =
-        <String, ({String invId, double eta, double maxAcKwh})>{};
-    final dcBusesWithAcPath = <String>{};
+    // === Cache `dcBus → inverter` edge info per bus ===
+    // The first matching edge identifies the bus's outgoing inverter
+    // (rule 11 forbids > 1). Carry the full edge so the solver can
+    // honor `edge.maxPowerKw` (Codex round 7 finding #2).
+    final busInverterEdge =
+        <String, ({Inverter inverter, BusEdge edge})>{};
     for (final bus in topology.dcBuses) {
       for (final e in topology.edges) {
         if (e.fromId == bus.id && inverterById.containsKey(e.toId)) {
-          final inv = inverterById[e.toId]!;
-          busHybridInverter[bus.id] = (
-            invId: inv.id,
-            eta: e.efficiency * inv.efficiency,
-            maxAcKwh: inv.effectiveMaxAcKw * stepHours,
-          );
-          dcBusesWithAcPath.add(bus.id);
+          busInverterEdge[bus.id] =
+              (inverter: inverterById[e.toId]!, edge: e);
           break;
         }
       }
     }
 
-    // Estimate the maximum AC that DC-bus PV can still deliver via
-    // hybrid bypass this step, capped by each inverter's already-
-    // emitted AC. Add this to the policy context's `pvAcKwh` so an
-    // AC-coupled battery in a mixed AC+DC topology sees the post-
-    // bypass surplus and requests charging accordingly — the router
-    // still enforces actual surplus after the DC pre-step runs.
-    var estimatedBypassAc = 0.0;
-    for (final entry in pvDcByBus.entries) {
-      final info = busHybridInverter[entry.key];
-      if (info == null) continue;
-      final emitted = acEmittedByInverter[info.invId] ?? 0.0;
-      final remaining = math.max(0.0, info.maxAcKwh - emitted);
-      final raw = entry.value * info.eta;
-      estimatedBypassAc += math.min(raw, remaining);
-    }
+    final loadKwh = config.loadProfile.energyKwhForStep(
+        hourOfDay: hourOfDay, timeStep: config.timeStep);
 
-    // Per-bus DC reservation for AC load coverage on hybrid buses.
-    // Computed once here so the policy doesn't need to know about
-    // bus inverter η / remaining AC headroom (avoiding the unit-
-    // mismatch bug where AC `loadKwh` was subtracted from a DC
-    // `pool`). Limited by (a) what the inverter can actually serve
-    // this step (its remaining AC headroom) and (b) load not already
-    // covered by direct AC-path PV. Zero on charge-only hybrid buses
-    // and on `batteryFed` buses.
-    final dcReservedForLoadByBus = <String, double>{};
-    final remainingLoadAcGlobal = math.max(0.0, loadKwh - pvAcKwh);
-    if (remainingLoadAcGlobal > 0) {
-      for (final entry in pvDcByBus.entries) {
-        final busId = entry.key;
-        final bus = topology.dcBusById(busId);
-        if (bus != null && bus.mode == BusMode.batteryFed) continue;
-        final info = busHybridInverter[busId];
-        if (info == null || info.eta <= 0) continue;
-        final invRemainingAc = math.max(
-            0.0, info.maxAcKwh - (acEmittedByInverter[info.invId] ?? 0.0));
-        final coverableAc = math.min(remainingLoadAcGlobal, invRemainingAc);
-        if (coverableAc <= 0) continue;
-        dcReservedForLoadByBus[busId] = coverableAc / info.eta;
-      }
-    }
-
-    // Dispatch-policy pipeline. The legacy battery dispatch + grid
-    // import/export logic lives in the router; the policy decides
-    // *what to request*, the router enforces hard limits. DC-coupled
-    // batteries see the policy request as the upper bound on DC
-    // charging below — without this, `SelfConsumptionFirstPolicy`
-    // would still cover load via grid import while PV is stored, and
-    // `BatteryReservePolicy` would sail past its reserve ceiling.
+    // === Build slim DispatchContext + run policy once ===
     final batteryIds = [for (final b in config.batteries) b.id];
     final capacities = [for (final b in config.batteries) b.capacityKwh];
     final minSocs = [for (final b in config.batteries) b.minSocKwh];
@@ -2245,261 +2193,199 @@ class PvSimulator {
       banks: config.microInverterBanks,
       topology: topology,
       gridExportLimitKw: config.gridExportLimitKw,
-      pvDcByBus: Map.unmodifiable(pvDcByBus),
-      dcBusForBattery: Map.unmodifiable(dcBusForBattery),
-      dcBusesWithAcPath: Set.unmodifiable(dcBusesWithAcPath),
-      estimatedBypassAcKwh: estimatedBypassAc,
-      dcReservedForLoadByBus: Map.unmodifiable(dcReservedForLoadByBus),
+      dcCoupledIndices: Set.unmodifiable(dcCoupledIndices),
     );
     final plan = policy.plan(ctx);
 
-    if (hasDcPath || hasDcCoupling) {
-      // For each DC bus carrying PV-DC: charge DC-coupled batteries
-      // (step 1b — bounded by the dispatch policy's request so reserve
-      // / load-first intent is honoured), then route residual via the
-      // hybrid inverter (1c) or curtail on batteryFed (1d).
-      for (final busId in pvDcByBus.keys.toList()) {
-        final batteries = dcBatteriesByBus[busId] ?? const <int>[];
-        for (final k in batteries) {
-          if ((pvDcByBus[busId] ?? 0) <= 0) break;
-          final battery = config.batteries[k];
-          final chargeEff = battery.chargeEfficiency;
-          if (chargeEff <= 0) continue;
-          final headroomStored =
-              math.max(0.0, battery.capacityKwh - socs[k]);
-          final headroomDc = headroomStored / chargeEff;
-          final rateCap = battery.maxChargeKw * stepHours;
-          // Policy request expresses how much "in-going" energy the
-          // user wants stored this step (`SelfConsumptionFirst` deducts
-          // AC load to keep PV available for self-consumption first;
-          // `BatteryReserve` caps at the reserve ceiling). Use it as
-          // an upper bound on the DC charge so DC-coupled batteries
-          // can't run past policy intent.
-          final planRequest = k < plan.batteryChargeRequestsKwh.length
-              ? math.max(0.0, plan.batteryChargeRequestsKwh[k])
-              : double.infinity;
-          final available = pvDcByBus[busId]!;
-          final deliverable = math.min(
-              available, math.min(planRequest, math.min(rateCap, headroomDc)));
-          if (deliverable <= 0) continue;
-          socs[k] += deliverable * chargeEff;
-          pvDcByBus[busId] = available - deliverable;
-          dcDirectCharges[k] += deliverable;
-          dcDirectChargeKwhTotal += deliverable;
-        }
-
-        final residual = pvDcByBus[busId] ?? 0;
-        if (residual <= 0) {
-          acBypassRatioByBus[busId] = 0.0;
-          continue;
-        }
-        final bus = topology.dcBusById(busId);
-        final mode = bus?.mode ?? BusMode.hybrid;
-        if (mode == BusMode.hybrid) {
-          // 1c: residual → hybrid inverter → AC. Find the first edge
-          // `busId → inverterId` in the topology.
-          Inverter? hybrid;
-          double hybridEta = 1.0;
-          for (final e in topology.edges) {
-            if (e.fromId == busId && inverterById.containsKey(e.toId)) {
-              hybrid = inverterById[e.toId];
-              hybridEta = e.efficiency;
-              break;
-            }
-          }
-          if (hybrid != null) {
-            // Hybrid inverters share their DC stage with any direct
-            // AC-path PV: enforce `maxDcInputKw` on the SUM of legacy
-            // AC-path DC and bus-side residual. Already-consumed
-            // Hybrid inverters share their DC stage with any direct
-            // AC-path PV: enforce `maxDcInputKw` on the SUM of legacy
-            // AC-path DC and bus-side residual. Already-consumed
-            // headroom is subtracted from the cap; remainder is
-            // available for the bypass, overflow accrues as DC
-            // curtailment (same units as the legacy clip).
-            //
-            // `residual` is bus-side DC; the inverter sees it AFTER
-            // the bus→inverter edge eta. Convert the inverter input
-            // cap to bus-side units (divide by `hybridEta`) before
-            // comparing, otherwise a lossy edge would let a high
-            // bus-side residual fit a tight inverter input cap (or
-            // vice versa).
-            var clippedResidual = residual;
-            final dcLimit = hybrid.maxDcInputKw;
-            if (dcLimit != null && hybridEta > 0) {
-              final consumed =
-                  dcConsumedByInverter[hybrid.id] ?? 0.0;
-              final remainingInverterDc =
-                  math.max(0.0, dcLimit * stepHours - consumed);
-              final remainingBusDc = remainingInverterDc / hybridEta;
-              if (clippedResidual > remainingBusDc) {
-                curtailedDcKwh += clippedResidual - remainingBusDc;
-                clippedResidual = remainingBusDc;
-              }
-              dcConsumedByInverter[hybrid.id] =
-                  consumed + clippedResidual * hybridEta;
-            }
-            // Inverter own efficiency is multiplicative with the edge
-            // efficiency (the edge already carries it in fromLegacy,
-            // but explicit topologies might split them — multiply both
-            // for safety). Share the inverter's AC rating with any AC
-            // already emitted by the legacy AC path on the same
-            // inverter — otherwise the sum (legacy + bypass) could
-            // exceed the inverter's physical AC max.
-            final rawAc = clippedResidual * hybridEta * hybrid.efficiency;
-            final acAlreadyEmitted = acEmittedByInverter[hybrid.id] ?? 0.0;
-            final remainingAc = math.max(
-                0.0, hybrid.effectiveMaxAcKw * stepHours - acAlreadyEmitted);
-            final limitedAc = math.min(rawAc, remainingAc);
-            pvAcKwh += limitedAc;
-            curtailedAcKwh += math.max(0.0, rawAc - limitedAc);
-            acEmittedByInverter[hybrid.id] = acAlreadyEmitted + limitedAc;
-            final preChargeBus = pvDcByBusBefore[busId] ?? 0.0;
-            acBypassRatioByBus[busId] =
-                preChargeBus > 0 ? limitedAc / preChargeBus : 0.0;
-          } else {
-            // Hybrid bus without a hybrid inverter wired up — residual
-            // has no AC path. Treat as DC curtailment so the energy
-            // balance stays honest. Validation should normally catch
-            // this misconfiguration (rule 4 in chunk 4). Surface it in
-            // BOTH the generic `curtailedDcKwh` total (so the existing
-            // KPI/monthly aggregators count it) and the Phase-4b-
-            // specific `dcCurtailedKwh` breakdown.
-            curtailedDcKwh += residual;
-            dcCurtailedKwhTotal += residual;
-            acBypassRatioByBus[busId] = 0.0;
-          }
-        } else {
-          // 1d: batteryFed — residual is lost. Same dual-accounting as
-          // the no-hybrid-inverter case above so downstream consumers
-          // that read `curtailedDcKwh` don't underreport.
-          curtailedDcKwh += residual;
-          dcCurtailedKwhTotal += residual;
-          acBypassRatioByBus[busId] = 0.0;
-        }
-        pvDcByBus[busId] = 0;
+    // === Allocate AC load across hybrid buses (single global pool) ===
+    // Walking buses in declared order ensures determinism; the pool
+    // is decremented as each bus claims its share so two hybrid
+    // buses don't both reserve the full load (Codex round 7 #3).
+    var remainingLoadAcGlobal = math.max(0.0, loadKwh - pvAcKwh);
+    final loadAcShareByBus = <String, double>{};
+    if (remainingLoadAcGlobal > 0 && (hasDcPath || hasDcCoupling)) {
+      for (final bus in topology.dcBuses) {
+        if (remainingLoadAcGlobal <= 0) break;
+        if (bus.mode == BusMode.batteryFed) continue;
+        final pool = pvDcByBus[bus.id] ?? 0.0;
+        final dcBatteries = dcBatteriesByBus[bus.id] ?? const <int>[];
+        if (pool <= 0 && dcBatteries.isEmpty) continue;
+        final info = busInverterEdge[bus.id];
+        if (info == null) continue;
+        final inv = info.inverter;
+        final invAcRemaining = math.max(0.0,
+            inv.effectiveMaxAcKw * stepHours -
+                (acEmittedByInverter[inv.id] ?? 0.0));
+        if (invAcRemaining <= 0) continue;
+        final share = math.min(remainingLoadAcGlobal, invAcRemaining);
+        if (share <= 0) continue;
+        loadAcShareByBus[bus.id] = share;
+        remainingLoadAcGlobal -= share;
       }
     }
 
+    // === Run DcBusSolver per bus ===
+    final acBypassRatioByBus = <String, double>{};
+    final dcDirectCharges = List<double>.filled(config.batteries.length, 0.0);
+    final dcDirectDischargesAc =
+        List<double>.filled(config.batteries.length, 0.0);
+    const solver = DcBusSolver();
+    if (hasDcPath || hasDcCoupling) {
+      for (final bus in topology.dcBuses) {
+        final pool = pvDcByBus[bus.id] ?? 0.0;
+        final dcBatteries = dcBatteriesByBus[bus.id] ?? const <int>[];
+        if (pool <= 0 && dcBatteries.isEmpty) continue;
+
+        final info = busInverterEdge[bus.id];
+        HybridInverterInfo? hybridInfo;
+        if (info != null) {
+          final inv = info.inverter;
+          final invAcCapRemaining = math.max(0.0,
+              inv.effectiveMaxAcKw * stepHours -
+                  (acEmittedByInverter[inv.id] ?? 0.0));
+          double? invDcRemaining;
+          final invDc = inv.maxDcInputKw;
+          if (invDc != null) {
+            invDcRemaining = math.max(0.0,
+                invDc * stepHours - (dcConsumedByInverter[inv.id] ?? 0.0));
+          }
+          final edgeCap = info.edge.maxPowerKw;
+          hybridInfo = HybridInverterInfo(
+            inverterId: inv.id,
+            edgeEfficiency: info.edge.efficiency,
+            inverterEfficiency: inv.efficiency,
+            inverterAcCapRemainingKwh: invAcCapRemaining,
+            inverterDcCapRemainingKwh: invDcRemaining,
+            edgeMaxPowerKwh: edgeCap == null ? null : edgeCap * stepHours,
+          );
+        }
+
+        final solverBatteries = <DcBusBattery>[
+          for (final k in dcBatteries)
+            () {
+              final battery = config.batteries[k];
+              final chargeTarget = k < plan.batteryChargeRequestsKwh.length
+                  ? math.max(0.0, plan.batteryChargeRequestsKwh[k])
+                  : 0.0;
+              final dischargeTarget =
+                  k < plan.batteryDirectDischargeRequestsKwh.length
+                      ? math.max(0.0,
+                          plan.batteryDirectDischargeRequestsKwh[k])
+                      : 0.0;
+              return DcBusBattery(
+                batteryIndex: k,
+                chargeRateCapKwh: battery.maxChargeKw * stepHours,
+                dischargeRateCapKwh: battery.maxDischargeKw * stepHours,
+                chargeEfficiency: battery.chargeEfficiency,
+                dischargeEfficiency: battery.dischargeEfficiency,
+                headroomStoredKwh:
+                    math.max(0.0, battery.capacityKwh - socs[k]),
+                usableStoredKwh:
+                    math.max(0.0, socs[k] - battery.minSocKwh),
+                chargeTargetKwh: chargeTarget,
+                dischargeTargetKwh: dischargeTarget,
+              );
+            }(),
+        ];
+
+        final outcome = solver.solve(DcBusInput(
+          busId: bus.id,
+          mode: bus.mode,
+          pvDcInKwh: pool,
+          loadAcShareKwh: loadAcShareByBus[bus.id] ?? 0.0,
+          batteries: solverBatteries,
+          stepHours: stepHours,
+          busInverter: hybridInfo,
+        ));
+
+        // === Apply outcome ===
+        for (final entry in outcome.batteryChargesDcKwh.entries) {
+          final k = entry.key;
+          final dcIn = entry.value;
+          socs[k] += dcIn * config.batteries[k].chargeEfficiency;
+          dcDirectCharges[k] += dcIn;
+          dcDirectChargeKwhTotal += dcIn;
+        }
+        for (final entry in outcome.batteryDischargesDcKwh.entries) {
+          final k = entry.key;
+          final dcOut = entry.value;
+          final eff = config.batteries[k].dischargeEfficiency;
+          if (eff > 0) socs[k] -= dcOut / eff;
+          // AC the battery delivered via this bus = dcOut × bus.eta.
+          final acFactor = hybridInfo?.acPerBusDc ?? 0.0;
+          dcDirectDischargesAc[k] += dcOut * acFactor;
+        }
+        dcLoadCoveredAcTotal +=
+            outcome.loadCoveredAcKwh + outcome.dischargeAcKwh;
+        pvAcKwh += outcome.bypassAcKwh + outcome.loadCoveredAcKwh;
+        curtailedDcKwh += outcome.curtailedDcKwh;
+        // Match the legacy split: bus-side residual that couldn't go
+        // anywhere (no AC path or `batteryFed`) goes into the
+        // `dcCurtailedKwh` breakdown too.
+        if (bus.mode == BusMode.batteryFed || info == null) {
+          dcCurtailedKwhTotal += outcome.curtailedDcKwh;
+        }
+        if (info != null) {
+          acEmittedByInverter[info.inverter.id] =
+              (acEmittedByInverter[info.inverter.id] ?? 0.0) +
+                  outcome.inverterAcConsumedKwh;
+          dcConsumedByInverter[info.inverter.id] =
+              (dcConsumedByInverter[info.inverter.id] ?? 0.0) +
+                  outcome.inverterDcConsumedKwh;
+        }
+        final preChargeBus = pvDcByBusBefore[bus.id] ?? 0.0;
+        // AC produced from THIS bus's PV pool (loadCovered + bypass)
+        // — discharge AC came from the battery, not from PV-DC.
+        final acFromBusPv =
+            outcome.loadCoveredAcKwh + outcome.bypassAcKwh;
+        acBypassRatioByBus[bus.id] =
+            preChargeBus > 0 ? acFromBusPv / preChargeBus : 0.0;
+      }
+    }
+
+    // === Per-array AC distribution ===
     for (var i = 0; i < config.arrays.length; i++) {
       final array = config.arrays[i];
-      final ccId = hasDcPath ? arrayToCc[array.id] : null;
-      if (ccId == null) {
-        // Legacy AC path.
+      final edge = hasDcPath ? arrayToCcEdge[array.id] : null;
+      if (edge == null) {
         arrayAcScratch[i] = arrayDcScratch[i] *
             (acRatioByInverter[array.inverterId] ?? 0.0);
       } else {
-        // DC path: factor in cc input clip, cc efficiency, and the
-        // bus-side AC-bypass ratio. For batteryFed buses or buses
-        // where the battery absorbed everything, the ratio is 0.
-        final cc = ccById[ccId]!;
-        final clip = ccCapRatio[ccId] ?? 0.0;
+        final cc = ccById[edge.toId]!;
+        final atCcInput = arrayDcAtCcInput?[i] ?? 0.0;
+        final clip = ccCapRatio[cc.id] ?? 0.0;
         final busRatio = acBypassRatioByBus[cc.dcBusId] ?? 0.0;
-        arrayAcScratch[i] =
-            arrayDcScratch[i] * clip * cc.efficiency * busRatio;
+        arrayAcScratch[i] = atCcInput * clip * cc.efficiency * busRatio;
       }
     }
 
-    // Per-battery AC envelope per Architektur §5.3:
-    //   `allowedPowerW = min(targetPowerW, battery.maxDischargeW, inverterLimitW)`.
-    // - AC-coupled battery (legacy): when the coupling names an AC-side
-    //   `inverterId`, take the min of `maxDischargeKw` and that
-    //   inverter's effective AC cap (already 800-W-clamped for
-    //   `InverterRole.microInverter800W`).
-    // - DC-coupled battery (Phase 4b): discharge necessarily passes
-    //   through the bus's outgoing inverter — the topology guarantees
-    //   exactly one for `batteryFed` buses (rule 3) and validation
-    //   ensures it exists for hybrid buses too when batteries are
-    //   present. Apply that inverter's AC cap so a `1 kW` battery
-    //   inverter wired to a `5 kW` battery cannot deliver above the
-    //   inverter rating.
-    // - Anything else falls back to the legacy `maxDischargeKw`-only
-    //   cap, preserving pre-Phase-4 behaviour.
+    // === Per-battery AC envelope for the router (AC-coupled only) ===
+    // DC-coupled batteries are already handled by the solver; the
+    // router skips them via `skipChargeIndices` /
+    // `skipDirectDischargeIndices`. The envelope below is the legacy
+    // Phase-4 cap for AC-coupled batteries.
     final acCapKwh = <double>[
       for (var i = 0; i < config.batteries.length; i++)
         () {
           final batteryAcCap = maxDischarge[i] * stepHours;
           final coupling = topology.couplingFor(config.batteries[i].id);
-          if (coupling.coupling == BatteryCoupling.ac) {
-            final invId = coupling.inverterId;
-            if (invId == null) return batteryAcCap;
-            final inv = inverterById[invId];
-            if (inv == null) return batteryAcCap;
-            final inverterAcCap = inv.effectiveMaxAcKw * stepHours;
-            return inverterAcCap < batteryAcCap ? inverterAcCap : batteryAcCap;
-          }
-          if (coupling.coupling == BatteryCoupling.dc &&
-              coupling.dcBusId != null) {
-            // First `bus → inverter` edge identifies the discharge
-            // path's inverter on this DC bus. Subtract any AC the
-            // same inverter has already emitted this step (legacy
-            // AC-path PV + hybrid-bus bypass) so the discharge can't
-            // push the inverter past its physical AC rating.
-            for (final e in topology.edges) {
-              if (e.fromId == coupling.dcBusId &&
-                  inverterById.containsKey(e.toId)) {
-                final inv = inverterById[e.toId]!;
-                final emitted = acEmittedByInverter[inv.id] ?? 0.0;
-                final inverterAcCap = math.max(
-                    0.0, inv.effectiveMaxAcKw * stepHours - emitted);
-                return inverterAcCap < batteryAcCap
-                    ? inverterAcCap
-                    : batteryAcCap;
-              }
-            }
-            // No `bus → inverter` edge — the DC bus has no AC path,
-            // so the battery cannot deliver to household AC. Cap at
-            // zero so the router can't conjure AC out of an unwired
-            // bus. (A bus that is purely a charge target is still
-            // valid; the user can model "charging only" by leaving
-            // the bus inverter-less.)
-            return 0.0;
-          }
-          return batteryAcCap;
+          if (coupling.coupling != BatteryCoupling.ac) return batteryAcCap;
+          final invId = coupling.inverterId;
+          if (invId == null) return batteryAcCap;
+          final inv = inverterById[invId];
+          if (inv == null) return batteryAcCap;
+          final inverterAcCap = inv.effectiveMaxAcKw * stepHours;
+          return inverterAcCap < batteryAcCap ? inverterAcCap : batteryAcCap;
         }(),
     ];
 
-    // Per-battery direct-discharge inverter info (Findings 1, 3):
-    //   - `batteryInverter[i]` names the inverter the direct
-    //     discharge flows through (bus inverter for DC-coupled,
-    //     coupling.inverterId for AC-coupled).
-    //   - `inverterAcRemainingKwh[invId]` is the inverter's AC
-    //     headroom AFTER the AC-path + hybrid-bypass have already
-    //     emitted this step. The router enforces this as a shared
-    //     budget across all batteries on the same inverter so two
-    //     batteries on one bus can't each push the full cap.
-    //   - `batteryDirectDischargeAcLossEff[i]` is the bus inverter's
-    //     combined η for the direct-discharge path. The router
-    //     applies it to both the AC delivery cap and the SOC
-    //     withdrawal so bus-inverter losses are honoured.
-    final batteryInverter = <int, String>{};
-    final batteryDirectDischargeAcLossEff = <int, double>{};
-    final inverterAcRemainingKwh = <String, double>{};
-    void recordRouterInverter(String invId, double maxAcKwh) {
-      final emitted = acEmittedByInverter[invId] ?? 0.0;
-      inverterAcRemainingKwh[invId] =
-          math.max(0.0, maxAcKwh - emitted);
-    }
-    for (var i = 0; i < config.batteries.length; i++) {
-      final coupling = topology.couplingFor(config.batteries[i].id);
-      if (coupling.coupling == BatteryCoupling.dc &&
-          coupling.dcBusId != null) {
-        final info = busHybridInverter[coupling.dcBusId];
-        if (info != null) {
-          batteryInverter[i] = info.invId;
-          batteryDirectDischargeAcLossEff[i] = info.eta;
-          recordRouterInverter(info.invId, info.maxAcKwh);
-        }
-      } else if (coupling.coupling == BatteryCoupling.ac &&
-          coupling.inverterId != null) {
-        final inv = inverterById[coupling.inverterId];
-        if (inv != null) {
-          batteryInverter[i] = inv.id;
-          recordRouterInverter(inv.id, inv.effectiveMaxAcKw * stepHours);
-        }
-      }
-    }
-
+    // === Router for AC batteries + banks + grid ===
+    //
+    // Subtract the load already covered by the solver (PV bypass to
+    // load + DC-coupled battery discharge to load) so the router sees
+    // the correct unmet load. Add discharge AC to `selfConsumption`
+    // after the router runs.
+    final loadForRouter = math.max(0.0, loadKwh - dcLoadCoveredAcTotal);
     final flows = const EnergyRouter().apply(
       plan: plan,
       socs: socs,
@@ -2512,14 +2398,12 @@ class PvSimulator {
       batteryIds: batteryIds,
       banks: config.microInverterBanks,
       pvAcKwh: pvAcKwh,
-      loadKwh: loadKwh,
+      loadKwh: loadForRouter,
       stepHours: stepHours,
       gridExportLimitKw: config.gridExportLimitKw,
       batteryAcCapKwh: acCapKwh,
       skipChargeIndices: dcCoupledIndices,
-      batteryDirectDischargeAcLossEff: batteryDirectDischargeAcLossEff,
-      batteryInverter: batteryInverter,
-      inverterAcRemainingKwh: inverterAcRemainingKwh,
+      skipDirectDischargeIndices: dcCoupledIndices,
     );
 
     // For pre-run steps `buf` is null — the SOC mutation from
@@ -2532,20 +2416,27 @@ class PvSimulator {
     var totalCharge = 0.0;
     var totalDischarge = 0.0;
     for (var i = 0; i < buf.batteryCount; i++) {
-      // For DC-coupled batteries the AC router skipped charging, so
-      // `flows.batteryChargesKwh[i]` is 0 — the actual charge came in
-      // via the DC pre-step (`dcDirectCharges[i]`). For AC-coupled
-      // batteries `dcDirectCharges[i]` is 0. Summing both keeps the
-      // per-step "battery in" total honest regardless of coupling.
-      final ac = flows.batteryChargesKwh[i];
-      final dc = i < dcDirectCharges.length ? dcDirectCharges[i] : 0.0;
-      final c = ac + dc;
-      final d = flows.batteryDischargesKwh[i];
+      // For DC-coupled batteries the AC router skipped charging /
+      // direct discharge, so `flows.batteryChargesKwh[i]` and the
+      // direct-discharge half of `flows.batteryDischargesKwh[i]` are
+      // 0 — the actual values came from the DcBusSolver. For
+      // AC-coupled batteries the solver totals are 0. Summing both
+      // keeps the per-step "battery in/out" totals honest regardless
+      // of coupling.
+      final acIn = flows.batteryChargesKwh[i];
+      final dcIn = i < dcDirectCharges.length ? dcDirectCharges[i] : 0.0;
+      final c = acIn + dcIn;
+      // `flows.batteryDischargesKwh[i]` already includes any bank
+      // deliveries from this battery (banks bypass the bus inverter
+      // and stay in the router for both AC- and DC-coupled batteries).
+      // Add the solver's direct discharge AC for DC-coupled paths.
+      final acOut = flows.batteryDischargesKwh[i] +
+          (i < dcDirectDischargesAc.length ? dcDirectDischargesAc[i] : 0.0);
       totalCharge += c;
-      totalDischarge += d;
+      totalDischarge += acOut;
       final row = writeIdx * buf.batteryCount + i;
       buf.batteryCharges[row] = c;
-      buf.batteryDischarges[row] = d;
+      buf.batteryDischarges[row] = acOut;
       buf.batterySocs[row] = flows.batterySocsKwh[i];
     }
     var totalDelivered = 0.0;
@@ -2576,7 +2467,12 @@ class PvSimulator {
     buf.pvDcKwh[writeIdx] = pvDcKwh;
     buf.pvAcKwh[writeIdx] = pvAcKwh;
     buf.loadKwh[writeIdx] = loadKwh;
-    buf.selfConsumptionKwh[writeIdx] = flows.selfConsumptionKwh;
+    // Self-consumption = PV / battery AC that ended up serving load.
+    // Router only saw the load not yet covered by the DcBusSolver
+    // (load was reduced by `dcLoadCoveredAcTotal` before the router
+    // ran), so add that contribution back here.
+    buf.selfConsumptionKwh[writeIdx] =
+        flows.selfConsumptionKwh + dcLoadCoveredAcTotal;
     buf.batteryChargeKwh[writeIdx] = totalCharge;
     buf.batteryDischargeKwh[writeIdx] = totalDischarge;
     buf.batterySocKwh[writeIdx] = aggregateSoc;

@@ -2,57 +2,17 @@ import 'dart:math' as math;
 
 import 'dispatch_policy.dart';
 
-/// Compute the DC-side charge request for battery [i] on a DC-coupled
-/// bus, sharing a per-bus DC budget with any earlier DC-coupled
-/// batteries on the same bus (mutates [dcBudgetByBus] in place). On
-/// `hybrid` buses, reserves the remaining household load (load not yet
-/// covered by `ctx.pvAcKwh`) so the bus's hybrid inverter still has
-/// energy to serve self-consumption first; on `batteryFed` buses there
-/// is no AC bypass, so the entire DC pool is available for charging.
-///
-/// [headroomStored] is the storage-side headroom in kWh (e.g. up to
-/// capacity, or up to a policy's reserve ceiling). Returns the charge
-/// request in `AC-equivalent kWh going into the battery path` (matching
-/// the convention `EnergyRouter.apply` expects).
-double _dcChargeRequest({
-  required DispatchContext ctx,
-  required int i,
-  required String dcBus,
-  required double headroomStored,
-  required Map<String, double> dcBudgetByBus,
-}) {
-  if (headroomStored <= 0) return 0.0;
-  // Initialise the per-bus budget on the first DC-coupled battery on
-  // this bus; subsequent batteries decrement what the earlier ones
-  // already requested so the load reservation isn't double-counted.
-  final budget = dcBudgetByBus.putIfAbsent(dcBus, () {
-    final pool = ctx.pvDcByBus[dcBus] ?? 0.0;
-    // The simulator precomputes how much bus-side DC must be reserved
-    // for the load that the hybrid inverter can actually serve this
-    // step (see `_simulateStep`'s `dcReservedForLoadByBus`). It is
-    // already:
-    //   - in DC kWh on the bus side (scaled by inverter η),
-    //   - capped at the inverter's remaining AC headroom,
-    //   - zero for charge-only hybrid buses and `batteryFed` buses.
-    // We just need to subtract it from the pool.
-    final reserved = ctx.dcReservedForLoadByBus[dcBus] ?? 0.0;
-    return math.max(0.0, pool - reserved);
-  });
-  if (budget <= 0) return 0.0;
-  final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0
-      ? 0.0
-      : headroomStored / ctx.batteryChargeEfficiency[i];
-  final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
-  final req = math.min(budget, math.min(rateCap, ackHeadroom));
-  dcBudgetByBus[dcBus] = budget - req;
-  return req;
-}
-
 /// Default policy: PV covers load first, surplus charges every battery
 /// in declared order up to full capacity, batteries discharge in
 /// declared order to cover unmet load, anything left exports to grid,
-/// and the grid covers whatever load remains. Reproduces the
-/// pre-Phase-4 dispatch when no banks are configured.
+/// and the grid covers whatever load remains.
+///
+/// Phase 4c: policies emit per-battery **ceilings** (rate cap +
+/// headroom-to-capacity); the `EnergyRouter` / `DcBusSolver`
+/// downstream cap them against actual surplus / load. This means an
+/// AC-coupled battery in a mixed AC + DC topology naturally picks up
+/// any hybrid bypass AC produced by the solver, without the policy
+/// needing to estimate it ahead of time.
 class SelfConsumptionFirstPolicy extends DispatchPolicy {
   const SelfConsumptionFirstPolicy();
 
@@ -65,58 +25,20 @@ class SelfConsumptionFirstPolicy extends DispatchPolicy {
     final charge = List<double>.filled(n, 0.0);
     final discharge = List<double>.filled(n, 0.0);
 
-    // AC-coupled batteries can also draw from the simulator's
-    // estimated hybrid-bypass AC (Finding 2 in PR #36 review round
-    // 5): in a mixed AC+DC topology, the DC pre-step will turn DC
-    // surplus into bypass AC after this policy returns, so include
-    // that estimate in the surplus an AC battery sees. DC-side
-    // reservations still use `ctx.pvAcKwh` only (see helper).
-    var surplus = math.max(
-        0.0, ctx.pvAcKwh + ctx.estimatedBypassAcKwh - ctx.loadKwh);
-    var unmet = math.max(0.0, ctx.loadKwh - ctx.pvAcKwh);
-    final dcBudgetByBus = <String, double>{};
-
     for (var i = 0; i < n; i++) {
-      final dcBus = ctx.dcBusForBattery[i];
-      if (dcBus != null) {
-        final headroomStored = math.max(0.0,
-            ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
-        charge[i] = _dcChargeRequest(
-          ctx: ctx,
-          i: i,
-          dcBus: dcBus,
-          headroomStored: headroomStored,
-          dcBudgetByBus: dcBudgetByBus,
-        );
-        continue;
+      final headroomStored = math.max(0.0,
+          ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
+      if (headroomStored > 0 && ctx.batteryChargeEfficiency[i] > 0) {
+        final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
+        final ackHeadroom = headroomStored / ctx.batteryChargeEfficiency[i];
+        charge[i] = math.min(rateCap, ackHeadroom);
       }
-      if (surplus <= 0) continue;
-      final headroom = math.max(0.0, ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
-      final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
-      // Express the request as the AC kWh going **into** the battery
-      // path; the router converts via the charge efficiency. We translate
-      // the headroom (stored-energy units) back into AC units so the
-      // router's eta application doesn't double-clip.
-      final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0
-          ? 0.0
-          : headroom / ctx.batteryChargeEfficiency[i];
-      final req = math.min(surplus, math.min(rateCap, ackHeadroom));
-      if (req > 0) {
-        charge[i] = req;
-        surplus -= req;
-      }
-    }
-
-    for (var i = 0; i < n; i++) {
-      if (unmet <= 0) break;
-      final usableStored = math.max(0.0, ctx.batteryStates[i] - ctx.batteryMinSocsKwh[i]);
-      // discharge output in AC kWh = stored * eta_discharge
-      final acAvailable = usableStored * ctx.batteryDischargeEfficiency[i];
-      final rateCap = ctx.batteryMaxDischargeKw[i] * ctx.stepHours;
-      final req = math.min(unmet, math.min(rateCap, acAvailable));
-      if (req > 0) {
-        discharge[i] = req;
-        unmet -= req;
+      final usableStored = math.max(0.0,
+          ctx.batteryStates[i] - ctx.batteryMinSocsKwh[i]);
+      if (usableStored > 0) {
+        final acAvailable = usableStored * ctx.batteryDischargeEfficiency[i];
+        final rateCap = ctx.batteryMaxDischargeKw[i] * ctx.stepHours;
+        discharge[i] = math.min(rateCap, acAvailable);
       }
     }
 
@@ -131,12 +53,10 @@ class SelfConsumptionFirstPolicy extends DispatchPolicy {
   Map<String, dynamic> toJson() => {'id': id};
 }
 
-/// Like SelfConsumptionFirst, but PV surplus stops charging a battery
-/// once its SOC reaches `reserveSocFraction * capacity` (per battery).
-/// Excess goes to grid export earlier, leaving room for later
-/// reservation. Discharge below the reserve is still allowed when load
-/// exceeds PV — the reserve is a *charging* ceiling, not a discharge
-/// floor.
+/// Like SelfConsumptionFirst, but charges stop at a reserve fraction
+/// of nominal capacity. Discharge below the reserve is still allowed
+/// when load exceeds PV — the reserve is a *charging* ceiling, not a
+/// discharge floor.
 class BatteryReservePolicy extends DispatchPolicy {
   const BatteryReservePolicy({this.reserveSocFraction = 0.5});
 
@@ -153,59 +73,21 @@ class BatteryReservePolicy extends DispatchPolicy {
     final charge = List<double>.filled(n, 0.0);
     final discharge = List<double>.filled(n, 0.0);
 
-    // AC-coupled batteries can also draw from the simulator's
-    // estimated hybrid-bypass AC (Finding 2 in PR #36 review round
-    // 5): in a mixed AC+DC topology, the DC pre-step will turn DC
-    // surplus into bypass AC after this policy returns, so include
-    // that estimate in the surplus an AC battery sees. DC-side
-    // reservations still use `ctx.pvAcKwh` only (see helper).
-    var surplus = math.max(
-        0.0, ctx.pvAcKwh + ctx.estimatedBypassAcKwh - ctx.loadKwh);
-    var unmet = math.max(0.0, ctx.loadKwh - ctx.pvAcKwh);
-    final dcBudgetByBus = <String, double>{};
-
     for (var i = 0; i < n; i++) {
-      final cap = ctx.batteryCapacitiesKwh[i];
-      final reserveCeiling = reserveSocFraction * cap;
+      final reserveCeiling =
+          reserveSocFraction * ctx.batteryCapacitiesKwh[i];
       final headroom = math.max(0.0, reserveCeiling - ctx.batteryStates[i]);
-      if (headroom <= 0) continue;
-      final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
-      final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0
-          ? 0.0
-          : headroom / ctx.batteryChargeEfficiency[i];
-      final dcBus = ctx.dcBusForBattery[i];
-      if (dcBus != null) {
-        // DC-coupled battery: like SelfConsumptionFirst but capped at
-        // `reserveCeiling` (headroom is reserveCeiling-soc, not
-        // capacity-soc). The shared helper still uses a per-bus
-        // budget so multiple DC batteries on one hybrid bus don't
-        // each independently subtract the same load reservation.
-        charge[i] = _dcChargeRequest(
-          ctx: ctx,
-          i: i,
-          dcBus: dcBus,
-          headroomStored: headroom,
-          dcBudgetByBus: dcBudgetByBus,
-        );
-        continue;
+      if (headroom > 0 && ctx.batteryChargeEfficiency[i] > 0) {
+        final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
+        final ackHeadroom = headroom / ctx.batteryChargeEfficiency[i];
+        charge[i] = math.min(rateCap, ackHeadroom);
       }
-      if (surplus <= 0) continue;
-      final req = math.min(surplus, math.min(rateCap, ackHeadroom));
-      if (req > 0) {
-        charge[i] = req;
-        surplus -= req;
-      }
-    }
-
-    for (var i = 0; i < n; i++) {
-      if (unmet <= 0) break;
-      final usableStored = math.max(0.0, ctx.batteryStates[i] - ctx.batteryMinSocsKwh[i]);
-      final acAvailable = usableStored * ctx.batteryDischargeEfficiency[i];
-      final rateCap = ctx.batteryMaxDischargeKw[i] * ctx.stepHours;
-      final req = math.min(unmet, math.min(rateCap, acAvailable));
-      if (req > 0) {
-        discharge[i] = req;
-        unmet -= req;
+      final usableStored = math.max(0.0,
+          ctx.batteryStates[i] - ctx.batteryMinSocsKwh[i]);
+      if (usableStored > 0) {
+        final acAvailable = usableStored * ctx.batteryDischargeEfficiency[i];
+        final rateCap = ctx.batteryMaxDischargeKw[i] * ctx.stepHours;
+        discharge[i] = math.min(rateCap, acAvailable);
       }
     }
 
@@ -238,46 +120,15 @@ class ConstantFeed24hPolicy extends DispatchPolicy {
     final charge = List<double>.filled(n, 0.0);
     final discharge = List<double>.filled(n, 0.0);
 
-    // AC-coupled batteries can also draw from the simulator's
-    // estimated hybrid-bypass AC (Finding 2 in PR #36 review round
-    // 5): in a mixed AC+DC topology, the DC pre-step will turn DC
-    // surplus into bypass AC after this policy returns, so include
-    // that estimate in the surplus an AC battery sees. DC-side
-    // reservations still use `ctx.pvAcKwh` only (see helper).
-    var surplus = math.max(
-        0.0, ctx.pvAcKwh + ctx.estimatedBypassAcKwh - ctx.loadKwh);
-    final dcBudgetByBus = <String, double>{};
-
     for (var i = 0; i < n; i++) {
-      final dcBus = ctx.dcBusForBattery[i];
-      if (dcBus != null) {
-        // DC-coupled battery: use the shared per-bus DC budget rather
-        // than the AC surplus, otherwise an `array → cc → batteryFed`
-        // setup would request 0 charge and the simulator's DC pre-step
-        // would curtail all PV — leaving the bank with an empty
-        // battery to draw from.
-        final headroomStored = math.max(0.0,
-            ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
-        charge[i] = _dcChargeRequest(
-          ctx: ctx,
-          i: i,
-          dcBus: dcBus,
-          headroomStored: headroomStored,
-          dcBudgetByBus: dcBudgetByBus,
-        );
-        continue;
+      final headroomStored = math.max(0.0,
+          ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
+      if (headroomStored > 0 && ctx.batteryChargeEfficiency[i] > 0) {
+        final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
+        final ackHeadroom = headroomStored / ctx.batteryChargeEfficiency[i];
+        charge[i] = math.min(rateCap, ackHeadroom);
       }
-      if (surplus <= 0) continue;
-      final headroom = math.max(0.0, ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
-      final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
-      final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0
-          ? 0.0
-          : headroom / ctx.batteryChargeEfficiency[i];
-      final req = math.min(surplus, math.min(rateCap, ackHeadroom));
-      if (req > 0) {
-        charge[i] = req;
-        surplus -= req;
-      }
+      // discharge[i] = 0: banks handle all output for this policy.
     }
 
     final bankRequests = <String, double>{};
@@ -300,10 +151,8 @@ class ConstantFeed24hPolicy extends DispatchPolicy {
 }
 
 /// Bank-centric policy that only delivers inside the bank's schedule
-/// windows (which already encode hours-of-day). Behaves identically to
-/// `ConstantFeed24hPolicy` when the bank schedule is `AlwaysOnSchedule`;
-/// the distinction is mainly a UX one — users who pick this policy
-/// expect to also configure a `TimeWindowSchedule` on each bank.
+/// windows. Inherits everything from [ConstantFeed24hPolicy]; the
+/// scheduling itself lives on the bank.
 class TimeWindowFeedPolicy extends ConstantFeed24hPolicy {
   const TimeWindowFeedPolicy();
 

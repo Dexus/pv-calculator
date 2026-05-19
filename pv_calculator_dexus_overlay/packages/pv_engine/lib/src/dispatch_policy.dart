@@ -22,18 +22,19 @@ class DispatchContext {
     required this.banks,
     required this.topology,
     required this.gridExportLimitKw,
-    this.pvDcByBus = const {},
-    this.dcBusForBattery = const {},
-    this.dcBusesWithAcPath = const {},
-    this.estimatedBypassAcKwh = 0.0,
-    this.dcReservedForLoadByBus = const {},
+    this.dcCoupledIndices = const {},
   });
 
   final double hourOfDay;
   final int dayOfYear;
   final double stepHours;
 
-  /// Total AC PV energy already produced on the AC bus this step.
+  /// Total AC PV energy already produced on the AC bus this step from
+  /// AC-coupled arrays (legacy `array → inverter` path). The
+  /// `DcBusSolver` adds any hybrid bypass AC AFTER this policy has
+  /// run, so AC-coupled batteries see only AC-path PV when the
+  /// policy is invoked. The router then re-checks actual surplus and
+  /// caps the AC battery's charge accordingly.
   final double pvAcKwh;
   final double loadKwh;
 
@@ -51,48 +52,13 @@ class DispatchContext {
   final TopologyGraph topology;
   final double? gridExportLimitKw;
 
-  /// Phase-4b: per-DC-bus PV energy already pooled on the bus side
-  /// of the charge controllers this step (after cc clip + efficiency,
-  /// before any battery charging). Empty unless the simulator detects
-  /// at least one `array → chargeController` path; policies may use
-  /// this to issue DC-side charge requests for DC-coupled batteries.
-  final Map<String, double> pvDcByBus;
-
-  /// Phase-4b: maps each DC-coupled battery's index in
-  /// [batteryIds] to its DC bus id. Empty for AC-only topologies.
-  /// Policies use this to detect that a battery's charge target
-  /// must be sourced from [pvDcByBus] rather than from AC surplus.
-  final Map<int, String> dcBusForBattery;
-
-  /// Phase-4b: ids of DC buses that have a `dcBus → inverter` edge
-  /// (i.e. an actual AC path for hybrid bypass). Policies use this
-  /// to decide whether reserving DC for AC load makes sense — a
-  /// charge-only hybrid bus (no inverter edge) cannot serve load
-  /// directly, so reserving DC there would just curtail.
-  final Set<String> dcBusesWithAcPath;
-
-  /// Phase-4b: best-estimate AC that the simulator's DC pre-step
-  /// will deliver via hybrid bypass after this policy returns
-  /// (before any DC-coupled batteries claim part of the bus pool).
-  /// Policies use it to inflate the AC surplus when deciding AC-
-  /// coupled battery charging — without it, an AC-coupled battery
-  /// in a mixed AC+DC scenario would see `pvAcKwh = 0` from the
-  /// AC-path alone and refuse to charge from what is actually
-  /// surplus PV that ends up exporting. DO NOT use this for DC
-  /// reservation: it is exactly the energy being decided here.
-  final double estimatedBypassAcKwh;
-
-  /// Phase-4b: bus-side DC kWh to reserve out of [pvDcByBus] for
-  /// covering household load via the bus's hybrid inverter. The
-  /// simulator precomputes this per bus as
-  ///   `min(remainingLoadAc, bus_inv.remainingAcKwh) / bus_inv.eta`
-  /// so the reservation: (a) is expressed in the same DC kWh units
-  /// as `pvDcByBus`, (b) never exceeds what the inverter can
-  /// actually serve this step, and (c) is zero for charge-only
-  /// hybrid buses (no `dcBus → inverter` edge) and for batteryFed
-  /// buses (no AC bypass path). Policies subtract this from
-  /// `pvDcByBus[B]` when sizing DC-coupled battery charge requests.
-  final Map<String, double> dcReservedForLoadByBus;
+  /// Indexes of DC-coupled batteries. Policies use this to mark a
+  /// battery as "charge / discharge target lives on a DC bus" — the
+  /// concrete sizing of the in/out flow happens in `DcBusSolver`
+  /// inside `_simulateStep`, after the policy returns. Policies just
+  /// emit the per-battery upper bound on what the user is willing to
+  /// charge / discharge this step.
+  final Set<int> dcCoupledIndices;
 }
 
 /// Output of a [DispatchPolicy]. Carries **request** energies; the
