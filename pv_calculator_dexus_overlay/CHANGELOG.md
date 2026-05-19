@@ -12,7 +12,66 @@ The two artefacts versioned here are:
 The About dialog in the app surfaces `appVersion (engine kEngineVersion)`
 so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
-## [Unreleased]
+## [Unreleased] — engine 0.15.0
+
+Phase 4b — DC-Kopplung & Laderegler. Closes the "planned for future
+phases" marker in `packages/pv_engine/lib/src/topology.dart`: the
+simulator now actually routes DC-coupled flows (PV → charge
+controller → DC bus → battery / hybrid inverter) instead of treating
+`BatteryCoupling.dc` as a descriptive marker. Per DC bus, `BusMode`
+selects between hybrid (PV bypasses a full battery to the inverter)
+and `batteryFed` (PV reaches AC only via the battery). Existing
+AC-coupled scenarios stay byte-identical (regression-guarded by
+`test/dc_coupled_dispatch_test.dart`).
+
+### Added — Engine
+- **`ChargeController`** (MPPT charge controller / Laderegler) value
+  type in `lib/src/topology.dart`, with `dcBusId`, multiplicative
+  `efficiency`, optional `maxInputKw`, parasitic `standbyW`, JSON
+  round-trip and field-level validation.
+- **`BusMode { hybrid, batteryFed }`** and a new `DcBus.mode` field.
+  Default `hybrid` preserves legacy behaviour; JSON emits `mode`
+  only when non-default so legacy projects round-trip byte-stable.
+- **`SimulationConfig.chargeControllers`** top-level list, fed into
+  `TopologyGraph.fromLegacy` when no explicit topology is given.
+  When `topology` is set, controllers MUST live inside it (single
+  source of truth — enforced in `validate()`).
+- **JSON schema v6** triggered by the new fields. `fromJson` range
+  widened to `[1, 6]`; legacy projects continue to round-trip on
+  their original schema version.
+- **DC-side pre-dispatch in `_simulateStep`**: arrays wired to a
+  charge controller via an `array → cc` edge are partitioned off the
+  legacy AC path. For each DC bus, PV-DC charges DC-coupled batteries
+  without the inverter η, then either flows through a hybrid inverter
+  to AC (`hybrid` mode) or is curtailed (`batteryFed` mode).
+- **`EnergyRouter.apply(skipChargeIndices: ...)`** parameter so DC-
+  coupled batteries are not double-charged from AC surplus.
+- **`SimulationStep.dcDirectChargeKwh` / `dcCurtailedKwh`** and the
+  matching `SimulationSummary` fields, defaulted to `0.0` so legacy
+  consumers compile unchanged. Aggregated across years in
+  `_aggregateYears`.
+- **Cross-validation rules** in `TopologyGraph.validate` (rules 2-5
+  in ROADMAP §Phase 4b): DC-coupled batteries require ≥1 cc on
+  their bus; batteryFed buses need exactly one DC battery + one
+  outgoing inverter edge and no AC-side PV; no array on both a cc
+  and an MPPT path.
+- **`kEngineVersion = '0.15.0'`**.
+
+### Added — App
+- **`ChargeControllerCatalogEntry`** kind in `component_catalog`
+  (efficiency, optional maxInputKw / maxOutputKw / mpptCount /
+  standbyW), three sample seed entries.
+- **DB schema v2 → v3 migration** relaxes the `component_catalog.kind`
+  CHECK to include `'chargeController'` (rebuild-and-rename inside a
+  transaction so a failure leaves the table intact).
+- **`widgets/forms/charge_controllers_section.dart`** mounted in the
+  Results tab between Inverters and Batteries; supports loading
+  entries from the catalog picker and free-form entry.
+- **BusMode dropdown** per DC bus in the expert-mode topology editor
+  (`topology_section.dart`) with inline help on each option.
+- **`ConfigSection.chargeControllers`** with keyword routing in
+  `classifyValidationMessage` so engine errors land in the right
+  card.
 
 ## [0.9.0] — 2026-05-19 (app) / [0.14.0] — 2026-05-19 (engine)
 

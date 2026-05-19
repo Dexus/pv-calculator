@@ -55,7 +55,7 @@ Ziel: Mehrere PV-Arrays mit individuellen Ausrichtungen, gerichteter Energiegrap
 
 ---
 
-## Phase 4b – DC-Kopplung & Laderegler (in Arbeit)
+## Phase 4b – DC-Kopplung & Laderegler ✓
 
 Ziel: Echte DC-gekoppelte Topologie simulieren — PV → Laderegler → DC-Bus → (Batterie ∥ Hybrid-/Batterie-Wechselrichter). Der `TopologyGraph` kennt bereits `BatteryCoupling.dc` und `dcBusId`, der UI-Editor zeigt die Wahl AC/DC; der Header-Kommentar in `packages/pv_engine/lib/src/topology.dart` Z. 9-11 markiert die Dispatch-Seite jedoch als „planned for future phases". Diese verschobene Arbeit wird hier nachgeholt. Bestehende AC-Szenarien rechnen byte-identisch weiter (Regressions-Test gegen Pre-Change-Fixture mit Toleranz `1e-9`).
 
