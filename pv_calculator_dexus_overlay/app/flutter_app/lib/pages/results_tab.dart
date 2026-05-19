@@ -17,6 +17,7 @@ import '../state/validation_warning_l10n.dart';
 import '../widgets/forms/_expert_gate.dart';
 import '../widgets/forms/_field.dart';
 import '../widgets/forms/batteries_section.dart';
+import '../widgets/forms/charge_controllers_section.dart';
 import '../widgets/forms/dispatch_policy_section.dart';
 import '../widgets/forms/inverters_section.dart';
 import '../widgets/forms/load_section.dart';
@@ -86,6 +87,8 @@ class ResultsTab extends StatelessWidget {
         _SimParamsSection(),
         const SizedBox(height: 12),
         const InvertersSection(),
+        const SizedBox(height: 12),
+        const ChargeControllersSection(),
         const SizedBox(height: 12),
         const BatteriesSection(),
         const SizedBox(height: 12),

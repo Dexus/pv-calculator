@@ -14,6 +14,7 @@ enum ConfigSection {
   banks,
   policy,
   topology,
+  chargeControllers,
   load,
   tariff,
   unknown,
@@ -84,6 +85,14 @@ ConfigSection classifyValidationMessage(String message) {
       m.contains('maxdcinputkw') ||
       m.contains('efficiency') && !m.contains('roundtrip')) {
     return ConfigSection.inverters;
+  }
+  // Phase-4b: route charge-controller-specific messages to their own
+  // section before falling through to the general topology bucket
+  // (cc validation messages contain the word "topology" too).
+  if (m.contains('chargecontroller') ||
+      m.contains('charge controller') ||
+      m.contains('laderegler')) {
+    return ConfigSection.chargeControllers;
   }
   // Topology messages mention 'battery' too (e.g. "Topology coupling for
   // battery X..."), so route them before the battery section.
@@ -272,6 +281,7 @@ class ConfigDraft {
     LoadProfileDraft? loadProfile,
     TopologyGraphDraft? topology,
     TariffDraft? tariff,
+    List<ChargeControllerDraft>? chargeControllers,
   })  : siteIrradiance = siteIrradiance ?? SiteIrradianceDraft(),
         tariff = tariff ?? TariffDraft(),
         arrays = arrays ?? <PvArrayDraft>[],
@@ -280,7 +290,9 @@ class ConfigDraft {
         microInverterBanks = microInverterBanks ?? <MicroInverterBankDraft>[],
         dispatchPolicy = dispatchPolicy ?? DispatchPolicyDraft.selfConsumption(),
         loadProfile = loadProfile ?? LoadProfileDraft(),
-        topology = topology ?? TopologyGraphDraft();
+        topology = topology ?? TopologyGraphDraft(),
+        chargeControllers =
+            chargeControllers ?? <ChargeControllerDraft>[];
 
   int startDayOfYear;
   int days;
@@ -324,6 +336,14 @@ class ConfigDraft {
   /// reproduces pre-Phase-4 behaviour.
   TopologyGraphDraft topology;
 
+  /// Phase-4b charge controllers (Laderegler) used by DC-coupled
+  /// batteries. When [TopologyGraphDraft.enabled] is `false` the
+  /// engine accepts them through `SimulationConfig.chargeControllers`;
+  /// when topology is enabled, the controllers live inside the
+  /// topology graph instead (single source of truth — enforced by
+  /// `SimulationConfig.validate`).
+  final List<ChargeControllerDraft> chargeControllers;
+
   LoadProfileDraft loadProfile;
 
   /// Builds the [IrradianceSource] used by the engine, or `null` to fall
@@ -345,7 +365,8 @@ class ConfigDraft {
   bool get usesAdvancedFeatures =>
       topology.enabled ||
       microInverterBanks.isNotEmpty ||
-      dispatchPolicy.kind != DispatchPolicyKind.selfConsumption;
+      dispatchPolicy.kind != DispatchPolicyKind.selfConsumption ||
+      chargeControllers.isNotEmpty;
 
   /// Builds the canonical [SimulationConfig] for **persistence**: the
   /// returned config mirrors the draft exactly so a Pro-authored
@@ -356,6 +377,28 @@ class ConfigDraft {
   /// gated features.
   SimulationConfig build() {
     final policy = dispatchPolicy.build();
+    final cc = chargeControllers
+        .map((c) => c.build())
+        .toList(growable: false);
+    TopologyGraph? topo;
+    List<ChargeController> topLevelCc = const [];
+    if (topology.enabled) {
+      // When topology is enabled, charge controllers MUST live inside
+      // it (engine's single-source-of-truth rule). Inject the
+      // user-edited list so the topology built here is the canonical
+      // one.
+      final built = topology.build();
+      topo = TopologyGraph(
+        dcBuses: built.dcBuses,
+        acBuses: built.acBuses,
+        mppts: built.mppts,
+        edges: built.edges,
+        batteryCouplings: built.batteryCouplings,
+        chargeControllers: cc,
+      );
+    } else {
+      topLevelCc = cc;
+    }
     return SimulationConfig(
       arrays: arrays.map((a) => a.build()).toList(growable: false),
       inverters: inverters.map((i) => i.build()).toList(growable: false),
@@ -365,7 +408,8 @@ class ConfigDraft {
       // round-tripping through v1 JSON (the engine bumps to v2 only
       // when one of these new fields is set).
       dispatchPolicy: policy is SelfConsumptionFirstPolicy ? null : policy,
-      topology: topology.enabled ? topology.build() : null,
+      topology: topo,
+      chargeControllers: topLevelCc,
       loadProfile: loadProfile.build(),
       startDayOfYear: startDayOfYear,
       days: days,
@@ -472,6 +516,15 @@ class ConfigDraft {
         topology: config.topology == null
             ? TopologyGraphDraft()
             : TopologyGraphDraft.fromGraph(config.topology!),
+        // Charge controllers live on the draft top-level regardless of
+        // whether they were stored inside `topology` or at the engine
+        // top level — `build()` reads them from a single place and
+        // re-routes based on `topology.enabled` (engine SoT rule).
+        chargeControllers: [
+          ...config.chargeControllers.map(ChargeControllerDraft.fromController),
+          ...?config.topology?.chargeControllers
+              .map(ChargeControllerDraft.fromController),
+        ],
         tariff: TariffDraft.fromTariff(config.tariff),
       );
 
@@ -901,14 +954,61 @@ class DispatchPolicyDraft {
   }
 }
 
-/// Mutable working copy of an engine [DcBus].
+/// Mutable working copy of an engine [DcBus]. [mode] selects between
+/// the hybrid (PV may bypass a full battery to the inverter, default)
+/// and `batteryFed` (PV only reaches AC via the battery) operating
+/// modes from Phase 4b.
 class DcBusDraft {
-  DcBusDraft({required this.id, this.label = ''});
+  DcBusDraft({required this.id, this.label = '', this.mode = BusMode.hybrid});
   String id;
   String label;
+  BusMode mode;
 
-  DcBus build() => DcBus(id: id, label: label);
-  static DcBusDraft fromBus(DcBus b) => DcBusDraft(id: b.id, label: b.label);
+  DcBus build() => DcBus(id: id, label: label, mode: mode);
+  static DcBusDraft fromBus(DcBus b) =>
+      DcBusDraft(id: b.id, label: b.label, mode: b.mode);
+}
+
+/// Mutable working copy of an engine [ChargeController] (Laderegler /
+/// MPPT charger). Only meaningful inside a Phase-4b DC-coupled
+/// topology; when [TopologyGraphDraft.enabled] is `false` the engine
+/// reads these as top-level entries via
+/// `SimulationConfig.chargeControllers`.
+class ChargeControllerDraft {
+  ChargeControllerDraft({
+    required this.id,
+    required this.dcBusId,
+    this.efficiency = 0.97,
+    this.maxInputKw,
+    this.standbyW = 0.0,
+    this.label = '',
+  });
+
+  String id;
+  String dcBusId;
+  double efficiency;
+  double? maxInputKw;
+  double standbyW;
+  String label;
+
+  ChargeController build() => ChargeController(
+        id: id,
+        dcBusId: dcBusId,
+        efficiency: efficiency,
+        maxInputKw: maxInputKw,
+        standbyW: standbyW,
+        label: label,
+      );
+
+  static ChargeControllerDraft fromController(ChargeController c) =>
+      ChargeControllerDraft(
+        id: c.id,
+        dcBusId: c.dcBusId,
+        efficiency: c.efficiency,
+        maxInputKw: c.maxInputKw,
+        standbyW: c.standbyW,
+        label: c.label,
+      );
 }
 
 /// Mutable working copy of an engine [AcBus].
@@ -1074,6 +1174,9 @@ class TopologyGraphDraft {
         mppts: mppts.map((m) => m.build()).toList(growable: false),
         edges: edges.map((e) => e.build()).toList(growable: false),
         batteryCouplings: couplings.map((c) => c.build()).toList(growable: false),
+        // chargeControllers are owned by `ConfigDraft.chargeControllers`
+        // (single source of truth); `ConfigDraft.build()` re-wraps the
+        // built graph with them when topology is enabled.
       );
 
   static TopologyGraphDraft fromGraph(TopologyGraph graph) {
