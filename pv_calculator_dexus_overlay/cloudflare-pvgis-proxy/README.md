@@ -19,11 +19,12 @@ ohne PVGIS zu kontaktieren.
 8. [Flutter-App einbinden](#flutter-app-einbinden)
 9. [GitHub Actions – Secret einrichten](#github-actions--secret-einrichten)
 10. [Antwort-Header & Observability](#antwort-header--observability)
-11. [Cache-Verwaltung](#cache-verwaltung)
-12. [Konfigurationsreferenz](#konfigurationsreferenz)
-13. [Sicherheitshinweise](#sicherheitshinweise)
-14. [Kosten](#kosten)
-15. [Lizenz](#lizenz)
+11. [Fehlerbehebung](#fehlerbehebung)
+12. [Cache-Verwaltung](#cache-verwaltung)
+13. [Konfigurationsreferenz](#konfigurationsreferenz)
+14. [Sicherheitshinweise](#sicherheitshinweise)
+15. [Kosten](#kosten)
+16. [Lizenz](#lizenz)
 
 ---
 
@@ -351,6 +352,16 @@ finden oder gezielt zu löschen (siehe Cache-Verwaltung).
 **Loglevel im Cloudflare-Dashboard:**  
 Dashboard → Workers & Pages → `pvgis-proxy` → **Logs** zeigt alle
 Requests mit Status, Latenz und Worker-Logs in Echtzeit.
+
+---
+
+## Fehlerbehebung
+
+| Symptom | Ursache & Abhilfe |
+|---------|-------------------|
+| `502 PVGIS upstream unreachable` mit JSON-Body `{ error, detail }` | Der `fetch` zu `re.jrc.ec.europa.eu` hat einen Connection-Error geworfen (DNS, TLS-Handshake, Timeout). PVGIS-Status separat prüfen (z. B. mit `curl` außerhalb von Cloudflare); ist PVGIS erreichbar, im Worker-Tail-Log nach dem Stack-Trace suchen. Der Body wird **nicht** gecacht — sobald der Upstream wieder antwortet, ist der nächste Request wieder normal. |
+| `X-Cache: MISS` auf scheinbar identischen Wiederhol-Anfragen | Ein Parameter unterscheidet sich, der **in `CACHE_PARAMS`** geführt wird (`src/index.ts` Zeile 48ff). Häufige Ursache: client setzt `outputformat=csv` o.ä. — der Worker erzwingt `json`, der `pvcalculation`-Wert geht dagegen 1:1 in den Cache-Key. Unbekannte Params werden ignoriert und ändern den Schlüssel nicht. Den `X-Cache-Key` der beiden Antworten vergleichen, dann das diffende Param-Paar isolieren. |
+| 4xx oder 5xx wird durchgereicht, aber nicht gecacht | Das ist gewollt: der Worker cached nur, wenn `pvgisResponse.ok` (`src/index.ts` Zeile 188), damit eine kurze PVGIS-Outage nicht stundenlang im R2 hängen bleibt. PVGIS-Fehlertexte wie `"outside coverage"` (4xx) oder `"service unavailable"` (5xx) sind also bewusst transient. |
 
 ---
 

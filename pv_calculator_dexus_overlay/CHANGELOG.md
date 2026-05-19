@@ -14,6 +14,54 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+### Added — Infra
+- **PVGIS caching proxy ROADMAP tick + bookkeeping**. Acknowledges the
+  Cloudflare-Worker + R2-bucket proxy that has been live alongside the
+  app since commit `81bf635` (May 2026) but was never formally ticked
+  off in `docs/ROADMAP.md`. No app/engine code changes — both stay at
+  `0.9.0` / `0.14.0` respectively.
+  - Worker source: `cloudflare-pvgis-proxy/src/index.ts` — SHA-256
+    cache key over 14 canonicalised PVGIS query params, `X-Cache:
+    HIT|MISS` response header, transparent `PVGIS-SARAH2` → v5.2 vs.
+    everything else → v5.3 routing (v5.3 dropped SARAH2).
+  - CI gate: `.github/workflows/ci.yml` `pvgis-proxy` job runs the
+    proxy's vitest suite on every push.
+  - Manual deploy fallback: `.github/workflows/proxy-deploy.yml`
+    (`workflow_dispatch` only — day-to-day deploys go through
+    Cloudflare's own GitHub integration).
+  - App wiring: `app/flutter_app/lib/config.dart` reads
+    `PVGIS_PROXY` from `--dart-define`; `lib/services/pvgis_api.dart`
+    surfaces the `X-Cache` flag in the UI. Without the define the app
+    falls back to the public PVGIS endpoint.
+  - Pages workflow injects the secret only when set
+    (`.github/workflows/pages.yml` lines 64, 86, 99–100).
+  - Setup guide at `docs/CLOUDFLARE_SETUP.md`; proxy `README.md`
+    documents the full deploy flow.
+  - `docs/ROADMAP.md` Phase 10 weather-proxy line flipped to `[x]`;
+    Global Solar Atlas / cross-source normalisation split out as a
+    new "Verschoben" entry with an explicit trigger.
+
+### Added — Proxy tests
+- `cloudflare-pvgis-proxy/test/index.spec.ts`: two new cases close
+  branch-coverage gaps in `src/index.ts`:
+  - **`returns a 502 envelope when the upstream fetch throws`** —
+    asserts the `try/catch` around `fetch(upstreamUrl)` (lines
+    175–182) returns the `{ error: "PVGIS upstream unreachable",
+    detail: … }` JSON body with `Content-Type: application/json`.
+  - **`propagates upstream 5xx without caching`** — mirrors the
+    existing 4xx test on the `pvgisResponse.ok` gate (line 188), so a
+    transient PVGIS 503 is forwarded once and re-issuing the request
+    still goes upstream (the error never lands in R2).
+
+### Documentation
+- `docs/ARCHITECTURE.md` "Externe Datenquellen" section: one-line
+  reference to the optional Cloudflare proxy so the architecture
+  overview matches what's actually deployed.
+- `cloudflare-pvgis-proxy/README.md`: new "Fehlerbehebung" section
+  between Antwort-Header (§10) and Cache-Verwaltung (§11) covering
+  the three operator-facing failure modes (`502 upstream unreachable`,
+  unexpected `X-Cache: MISS`, 4xx forwarded but not cached).
+
 ## [0.9.0] — 2026-05-19 (app) / [0.14.0] — 2026-05-19 (engine)
 
 Phase 10 follow-up — Pareto frontier (cost × autarky). Closes the
