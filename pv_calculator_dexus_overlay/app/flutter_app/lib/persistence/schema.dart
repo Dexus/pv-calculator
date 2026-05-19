@@ -11,7 +11,7 @@
 /// `currentSchemaVersion` is the on-disk version this build understands.
 /// Bump it when adding columns or tables and add a corresponding `from N to
 /// N+1` block in [AppDatabase._upgrade].
-const int currentSchemaVersion = 2;
+const int currentSchemaVersion = 3;
 
 /// Statements executed on a fresh database. Listed once here so tests and
 /// production share the same source of truth. `IF NOT EXISTS` keeps re-runs
@@ -87,10 +87,23 @@ const List<String> createStatements = [
       origin TEXT NOT NULL DEFAULT 'user'
     )
   ''',
+  '''
+    CREATE TABLE IF NOT EXISTS irradiance_cache (
+      lookup_key TEXT PRIMARY KEY,
+      latitude_deg REAL NOT NULL,
+      longitude_deg REAL NOT NULL,
+      year INTEGER NOT NULL,
+      rad_database TEXT,
+      payload_json TEXT NOT NULL,
+      fetched_at INTEGER NOT NULL,
+      source TEXT NOT NULL DEFAULT 'pvgis'
+    )
+  ''',
   'CREATE INDEX IF NOT EXISTS scenarios_project_idx ON scenarios(project_id)',
   'CREATE INDEX IF NOT EXISTS sites_project_idx ON sites(project_id)',
   'CREATE INDEX IF NOT EXISTS runs_scenario_idx ON simulation_runs(scenario_id)',
   'CREATE INDEX IF NOT EXISTS component_catalog_kind_idx ON component_catalog(kind)',
+  'CREATE INDEX IF NOT EXISTS irradiance_cache_year_idx ON irradiance_cache(year)',
 ];
 
 /// SQL statements executed when migrating a v1 store up to v2 (introduces
@@ -111,4 +124,24 @@ const List<String> migrationV1ToV2 = [
     )
   ''',
   'CREATE INDEX IF NOT EXISTS component_catalog_kind_idx ON component_catalog(kind)',
+];
+
+/// v3 adds the global `irradiance_cache` table. Stores one PVGIS
+/// horizontal-series payload per (rounded lat/lon, year, raddatabase)
+/// so multiple projects at the same location reuse the same fetch and
+/// reopening a project restores its irradiance without a network call.
+const List<String> migrationV2ToV3 = [
+  '''
+    CREATE TABLE IF NOT EXISTS irradiance_cache (
+      lookup_key TEXT PRIMARY KEY,
+      latitude_deg REAL NOT NULL,
+      longitude_deg REAL NOT NULL,
+      year INTEGER NOT NULL,
+      rad_database TEXT,
+      payload_json TEXT NOT NULL,
+      fetched_at INTEGER NOT NULL,
+      source TEXT NOT NULL DEFAULT 'pvgis'
+    )
+  ''',
+  'CREATE INDEX IF NOT EXISTS irradiance_cache_year_idx ON irradiance_cache(year)',
 ];

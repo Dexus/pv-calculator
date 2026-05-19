@@ -31,12 +31,13 @@ void main() {
         'simulation_runs',
         'app_meta',
         'component_catalog',
+        'irradiance_cache',
       ]),
     );
     final version = db.db
         .select("SELECT value FROM app_meta WHERE key = 'schema_version'")
         .first['value'];
-    expect(version, equals('2'));
+    expect(version, equals('3'));
   });
 
   test('ProjectRepository.createProject auto-creates a default site', () {

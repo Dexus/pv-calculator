@@ -260,6 +260,12 @@ class HorizontalIrradianceSample {
   );
 }
 
+double _toDouble(Object? value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.parse(value);
+  throw FormatException('Expected num, got ${value.runtimeType}');
+}
+
 /// 365×24 horizontal-irradiance samples for one site/year, plus the
 /// site metadata needed to drive transposition.
 ///
@@ -331,6 +337,60 @@ class HorizontalIrradianceSeries {
       total += s.globalHorizontalWPerM2;
     }
     return total / samples.length;
+  }
+
+  /// Serialises the full series — metadata plus all 8760 samples — into a
+  /// JSON-encodable map. Samples are packed as a flat `List<double>` of
+  /// length `8760 * 4` in `[ghi, dhi, t, wind]` order to keep the payload
+  /// compact (the per-object form would add ~3× key overhead).
+  Map<String, dynamic> toJson() {
+    final packed = List<double>.filled(samples.length * 4, 0.0);
+    for (var i = 0; i < samples.length; i++) {
+      final s = samples[i];
+      final base = i * 4;
+      packed[base] = s.globalHorizontalWPerM2;
+      packed[base + 1] = s.diffuseHorizontalWPerM2;
+      packed[base + 2] = s.ambientTempC;
+      packed[base + 3] = s.windMS;
+    }
+    return {
+      'version': 1,
+      'year': year,
+      'latitudeDeg': latitudeDeg,
+      'longitudeDeg': longitudeDeg,
+      if (radDatabase != null) 'radDatabase': radDatabase,
+      'samples': packed,
+    };
+  }
+
+  /// Inverse of [toJson]. Throws [FormatException] when the payload is
+  /// shaped wrong or has the wrong number of samples.
+  factory HorizontalIrradianceSeries.fromJson(Map<String, dynamic> json) {
+    final raw = json['samples'];
+    if (raw is! List) {
+      throw const FormatException('samples must be a list');
+    }
+    if (raw.length != 365 * 24 * 4) {
+      throw FormatException(
+        'samples list must have ${365 * 24 * 4} entries, got ${raw.length}',
+      );
+    }
+    final out = List<HorizontalIrradianceSample>.generate(365 * 24, (i) {
+      final base = i * 4;
+      return HorizontalIrradianceSample(
+        globalHorizontalWPerM2: _toDouble(raw[base]),
+        diffuseHorizontalWPerM2: _toDouble(raw[base + 1]),
+        ambientTempC: _toDouble(raw[base + 2]),
+        windMS: _toDouble(raw[base + 3]),
+      );
+    });
+    return HorizontalIrradianceSeries(
+      samples: out,
+      year: (json['year'] as num).toInt(),
+      latitudeDeg: _toDouble(json['latitudeDeg']),
+      longitudeDeg: _toDouble(json['longitudeDeg']),
+      radDatabase: json['radDatabase'] as String?,
+    );
   }
 }
 
