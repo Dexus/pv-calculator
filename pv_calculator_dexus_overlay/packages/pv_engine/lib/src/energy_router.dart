@@ -136,9 +136,22 @@ class EnergyRouter {
       final usableStored = math.max(0.0, socs[i] - minSocsKwh[i]);
       final directLossEff = batteryDirectDischargeAcLossEff[i] ?? 1.0;
       final usableAc = usableStored * dischargeEfficiency[i] * directLossEff;
-      var acCap = batteryAcCapKwh != null && i < batteryAcCapKwh.length
-          ? batteryAcCapKwh[i]
-          : maxDischargeKw[i] * stepHours;
+      // Battery's own DC withdrawal rate expressed in delivered AC
+      // units. For a DC-coupled battery `directLossEff < 1` reduces
+      // the AC the battery can supply at its DC rate cap — without
+      // this, the router would allow `maxDischargeKw * stepHours` of
+      // AC and the SOC update (divides by directLossEff) would draw
+      // > `maxDischargeKw * stepHours` from the battery in one step.
+      final acRateCap = maxDischargeKw[i] * stepHours * directLossEff;
+      var acCap = acRateCap;
+      // `batteryAcCapKwh[i]` is a per-battery AC envelope (Phase-4
+      // topology with explicit `coupling.inverterId`, or the
+      // bus-inverter remaining AC for DC-coupled). Treat it as a
+      // ceiling alongside the battery rate cap.
+      if (batteryAcCapKwh != null && i < batteryAcCapKwh.length) {
+        final envelope = batteryAcCapKwh[i];
+        if (envelope < acCap) acCap = envelope;
+      }
       final invId = batteryInverter[i];
       if (invId != null) {
         final remaining = invRemaining[invId] ?? acCap;
