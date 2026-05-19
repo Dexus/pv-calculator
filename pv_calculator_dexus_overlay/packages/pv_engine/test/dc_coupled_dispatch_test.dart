@@ -1236,6 +1236,97 @@ void main() {
       expect(sawPeak, isTrue);
     });
 
+    test('batteryFed bus + load + charged battery: battery serves load (Codex round 8)', () {
+      // Codex round 8 finding: pre-fix `_simulateStep` skipped
+      // batteryFed buses in the load-share allocation, so the
+      // solver received `loadAcShareKwh == 0` and never discharged
+      // the battery — load imported from grid even with stored
+      // energy available.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'BusInv', maxAcKw: 10.0, efficiency: 1.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 20.0, maxChargeKw: 5.0,
+            maxDischargeKw: 5.0, minSocKwh: 0, initialSocKwh: 10.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: LoadProfile(
+          dailyKwh: 24.0 * 2.0,
+          hourlyShape: List<double>.filled(24, 1.0),
+        ),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.batteryFed, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _DarkWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // No PV (dark), so PV → grid contribution = 0. Battery has
+      // 10 kWh stored and 5 kW discharge cap × 24 h = up to 120 kWh
+      // total. Daily load is 48 kWh. Battery covers at least its
+      // 10 kWh; grid covers the rest.
+      expect(result.summary.batteryDischargeKwh, greaterThan(9.0),
+          reason: 'batteryFed bus must discharge to serve load');
+      expect(result.summary.gridImportKwh,
+          lessThan(result.summary.loadKwh - 9.0),
+          reason: 'grid import must drop by the battery contribution');
+    });
+
+    test('array → cc edge maxPowerKw clip lands in curtailedDcKwh (Codex round 8)', () {
+      // PV 3 kWh, array → cc edge has maxPowerKw = 1 kW → 1 kWh
+      // capped, so 2 kWh disappears into curtailedDcKwh (the
+      // wiring limit). Battery starts full; cc + bus pass the 1
+      // kWh through unaltered to AC for export.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1.0, maxChargeKw: 10.0,
+            maxDischargeKw: 10.0, minSocKwh: 0, initialSocKwh: 1.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        topology: const TopologyGraph(
+          dcBuses: [DcBus(id: 'dc-1')],
+          acBuses: [AcBus(id: 'ac-main')],
+          chargeControllers: [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: [
+            // 1 kW cap on the array→cc wiring.
+            BusEdge(fromId: 'a1', toId: 'cc-1', maxPowerKw: 1.0),
+            BusEdge(fromId: 'dc-1', toId: 'inv'),
+            BusEdge(fromId: 'inv', toId: 'ac-main', maxPowerKw: 100.0),
+          ],
+          batteryCouplings: [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _FullSunWeather(),
+        gridExportLimitKw: 100.0,
+      );
+      final result = const PvSimulator().run(cfg);
+      // 3 kWh peak PV → 2 kWh clipped at the edge → curtailedDc.
+      var sawPeak = false;
+      for (final s in result.steps) {
+        if (s.pvDcKwh >= 2.999) {
+          sawPeak = true;
+          expect(s.curtailedDcKwh, closeTo(2.0, 1e-9),
+              reason: 'array→cc edge clip must be reported as DC curtailment');
+          expect(s.pvAcKwh, closeTo(1.0, 1e-9),
+              reason: '1 kWh passes through bypass to AC');
+        }
+      }
+      expect(sawPeak, isTrue);
+    });
+
     test('zero-PV step in DC topology produces no NaNs in per-array AC', () {
       // Dark hour, DC topology configured — array DC = 0, every ratio
       // computation must not divide by zero.

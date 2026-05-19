@@ -111,8 +111,10 @@ void main() {
         busInverter: _inv(edgeEta: 0.5, invEta: 0.9, acRemainingKwh: 100.0),
       ));
       expect(outcome.bypassAcKwh, closeTo(4.0 * 0.5 * 0.9, 1e-9));
-      // DC consumed = bus-side amount (4 kWh).
-      expect(outcome.inverterDcConsumedKwh, closeTo(4.0, 1e-9));
+      // `inverterDcConsumedKwh` is reported in inverter-input kWh
+      // (the unit the caller subtracts from `Inverter.maxDcInputKw`
+      // budgets), so it's `dcUsed × edge.eta = 4.0 × 0.5 = 2.0`.
+      expect(outcome.inverterDcConsumedKwh, closeTo(2.0, 1e-9));
     });
 
     test('batteryFed: load coverage is not allowed; PV goes to battery or curtails', () {
@@ -227,7 +229,9 @@ void main() {
           dcRemainingKwh: 5.0,
         ),
       ));
-      expect(outcome.inverterDcConsumedKwh, closeTo(10.0, 1e-9));
+      // 10 bus-side kWh × 0.5 edge η = 5 kWh at the inverter input
+      // — fits the 5 kWh inverter DC cap exactly.
+      expect(outcome.inverterDcConsumedKwh, closeTo(5.0, 1e-9));
       expect(outcome.bypassAcKwh, closeTo(5.0, 1e-9));
       expect(outcome.curtailedDcKwh, closeTo(0.0, 1e-9));
     });
@@ -257,12 +261,18 @@ void main() {
           .fold<double>(0.0, (a, b) => a + b);
       // Bus DC ledger: PV-in plus battery discharge equals what got
       // stored, plus what passed through the inverter (load + bypass
-      // + discharge AC, summed back to bus-side as `inverterDcConsumed`),
-      // plus curtailment.
+      // + discharge AC, summed back to bus-side via the edge η),
+      // plus curtailment. `inverterDcConsumedKwh` is in INVERTER-side
+      // kWh (so the caller can subtract from `maxDcInputKw` budgets
+      // directly), so convert back to bus-side by dividing by the
+      // edge η.
+      final edgeEta = input.busInverter?.edgeEfficiency ?? 1.0;
+      final busSideThroughInverter =
+          edgeEta > 0 ? out.inverterDcConsumedKwh / edgeEta : 0.0;
       final balance = input.pvDcInKwh +
           dischargesDc -
           chargesDc -
-          out.inverterDcConsumedKwh;
+          busSideThroughInverter;
       expect(balance, closeTo(out.curtailedDcKwh, 1e-9),
           reason: 'bus DC ledger must balance');
       // No negative numbers.

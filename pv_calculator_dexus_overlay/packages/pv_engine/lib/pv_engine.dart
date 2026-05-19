@@ -2022,6 +2022,10 @@ class PvSimulator {
     final tempModel = config.temperatureModel;
     final topology = config.effectiveTopology;
     var pvDcKwh = 0.0;
+    // Declared before the array partition so the `array → cc` edge
+    // `maxPowerKw` clip can land in `curtailedDcKwh` alongside the
+    // legacy MPPT clip and the controller's own `maxInputKw` clip.
+    var curtailedDcKwh = 0.0;
 
     // === DC-coupling pre-routing ===
     // Build cc lookup and the `array → cc` routing map from explicit
@@ -2070,12 +2074,17 @@ class PvSimulator {
         // Apply the `array → cc` edge η and `maxPowerKw` before the
         // controller sees the energy. Pre-fix this edge was ignored
         // (Codex round 7 finding #1) — a lossy or capped edge would
-        // overstate bus-side DC.
+        // overstate bus-side DC. The clipped portion is DC-side
+        // curtailment (just like an inverter MPPT clip), so it lands
+        // in `curtailedDcKwh` rather than disappearing.
         var contrib = dcKwh * edge.efficiency;
         final cap = edge.maxPowerKw;
         if (cap != null) {
           final capKwh = cap * stepHours;
-          if (contrib > capKwh) contrib = capKwh;
+          if (contrib > capKwh) {
+            curtailedDcKwh += contrib - capKwh;
+            contrib = capKwh;
+          }
         }
         arrayDcAtCcInput![i] = contrib;
         dcByController!.update(edge.toId, (v) => v + contrib,
@@ -2086,7 +2095,6 @@ class PvSimulator {
     }
 
     var pvAcKwh = 0.0;
-    var curtailedDcKwh = 0.0;
     var curtailedAcKwh = 0.0;
     var dcDirectChargeKwhTotal = 0.0;
     var dcCurtailedKwhTotal = 0.0;
@@ -2227,34 +2235,18 @@ class PvSimulator {
     );
     final plan = policy.plan(ctx);
 
-    // === Allocate AC load across hybrid buses (single global pool) ===
-    // Walking buses in declared order ensures determinism; the pool
-    // is decremented as each bus claims its share so two hybrid
-    // buses don't both reserve the full load (Codex round 7 #3).
-    var remainingLoadAcGlobal = math.max(0.0, loadKwh - pvAcKwh);
-    final loadAcShareByBus = <String, double>{};
-    if (remainingLoadAcGlobal > 0 && (hasDcPath || hasDcCoupling)) {
-      for (final bus in topology.dcBuses) {
-        if (remainingLoadAcGlobal <= 0) break;
-        if (bus.mode == BusMode.batteryFed) continue;
-        final pool = pvDcByBus[bus.id] ?? 0.0;
-        final dcBatteries = dcBatteriesByBus[bus.id] ?? const <int>[];
-        if (pool <= 0 && dcBatteries.isEmpty) continue;
-        final info = busInverterEdge[bus.id];
-        if (info == null) continue;
-        final inv = info.inverter;
-        final invAcRemaining = math.max(0.0,
-            inv.effectiveMaxAcKw * stepHours -
-                (acEmittedByInverter[inv.id] ?? 0.0));
-        if (invAcRemaining <= 0) continue;
-        final share = math.min(remainingLoadAcGlobal, invAcRemaining);
-        if (share <= 0) continue;
-        loadAcShareByBus[bus.id] = share;
-        remainingLoadAcGlobal -= share;
-      }
-    }
-
     // === Run DcBusSolver per bus ===
+    //
+    // Each bus is offered the entire remaining load AC pool and
+    // returns what it could actually serve. We subtract the served
+    // amount and pass the residual to the next bus. This is
+    // equivalent to "allocate min(pool, deliverable)" without having
+    // to estimate `deliverable` separately — the solver's own caps
+    // make sure neither PV pool, battery capacity, edge η/cap, nor
+    // inverter AC/DC budget is exceeded. `batteryFed` buses are
+    // included: their batteries can still serve load through the
+    // bus inverter even though PV cannot bypass.
+    var remainingLoadAcGlobal = math.max(0.0, loadKwh - pvAcKwh);
     final acBypassRatioByBus = <String, double>{};
     final dcDirectCharges = List<double>.filled(config.batteries.length, 0.0);
     final dcDirectDischargesAc =
@@ -2322,7 +2314,7 @@ class PvSimulator {
           busId: bus.id,
           mode: bus.mode,
           pvDcInKwh: pool,
-          loadAcShareKwh: loadAcShareByBus[bus.id] ?? 0.0,
+          loadAcShareKwh: remainingLoadAcGlobal,
           batteries: solverBatteries,
           stepHours: stepHours,
           busInverter: hybridInfo,
@@ -2348,6 +2340,15 @@ class PvSimulator {
         solverLoadCoveredAc += outcome.loadCoveredAcKwh;
         solverDischargeAcTotal += outcome.dischargeAcKwh;
         pvAcKwh += outcome.bypassAcKwh + outcome.loadCoveredAcKwh;
+        // Decrement the global load pool by what this bus actually
+        // served (PV bypass to load + battery discharge to load) so
+        // subsequent buses see only the still-unmet portion (Codex
+        // round 8 finding #4).
+        remainingLoadAcGlobal = math.max(
+            0.0,
+            remainingLoadAcGlobal -
+                outcome.loadCoveredAcKwh -
+                outcome.dischargeAcKwh);
         curtailedDcKwh += outcome.curtailedDcKwh;
         // Match the legacy split: bus-side residual that couldn't go
         // anywhere (no AC path or `batteryFed`) goes into the

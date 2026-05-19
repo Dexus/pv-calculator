@@ -314,7 +314,14 @@ class DcBusSolver {
       if (invDcRemaining.isFinite) invDcRemaining -= dcUsed * edgeEta;
       if (edgeRemaining.isFinite) edgeRemaining -= dcUsed;
       inverterAcConsumed += acDelivered;
-      inverterDcConsumed += dcUsed;
+      // The caller subtracts this from the inverter's
+      // `maxDcInputKw * stepHours` budget across buses sharing the
+      // same inverter. The cap lives at the inverter input, so
+      // report the inverter-side equivalent (`dcUsed × edgeEta`),
+      // not the bus-side amount. Pre-fix a lossy edge would consume
+      // the entire inverter DC cap with the first bus and block
+      // subsequent ones spuriously.
+      inverterDcConsumed += dcUsed * edgeEta;
       return (dcUsed: dcUsed, acDelivered: acDelivered);
     }
 
