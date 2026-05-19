@@ -426,6 +426,164 @@ void main() {
       expect(result.summary.finalBatterySocKwh, closeTo(0.8, 1e-9));
     });
 
+    test('SelfConsumptionFirst: DC reservation honours already-covered AC load', () {
+      // Codex P2: when an AC-path array already covers AC load, the
+      // DC-coupled battery should NOT have its charge target reduced
+      // by `loadKwh` — only by load not yet served on AC. We mix one
+      // DC array (via cc) and one AC array (legacy MPPT path) and
+      // confirm the DC battery still receives the full DC pool.
+      final cfg = SimulationConfig(
+        arrays: const [
+          // 3 kWp on the DC path.
+          PvArray(
+              id: 'a1', label: 'A1', peakKw: 3.0, azimuthDeg: 180, tiltDeg: 35,
+              inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0),
+          // 2 kWp on the legacy AC path through 'ac-inv' — produces
+          // enough at peak to cover the household load on its own.
+          PvArray(
+              id: 'a2', label: 'A2', peakKw: 2.0, azimuthDeg: 180, tiltDeg: 35,
+              inverterId: 'ac-inv', lossFactor: 0.0, shadingFactor: 0.0),
+        ],
+        inverters: const [
+          Inverter(id: 'inv', label: 'Hybrid', maxAcKw: 10.0, efficiency: 1.0),
+          Inverter(id: 'ac-inv', label: 'AC only', maxAcKw: 10.0, efficiency: 1.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1000.0, maxChargeKw: 10.0,
+            maxDischargeKw: 10.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 12.0),
+        days: 1,
+        topology: TopologyGraph(
+          dcBuses: const [DcBus(id: 'dc-1')],
+          acBuses: const [AcBus(id: 'ac-main')],
+          chargeControllers: const [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          mppts: const [MpptNode(id: 'mppt-ac-inv', inverterId: 'ac-inv')],
+          edges: const [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+            BusEdge(fromId: 'a2', toId: 'mppt-ac-inv'),
+            BusEdge(fromId: 'dc-1', toId: 'inv'),
+            BusEdge(fromId: 'inv', toId: 'ac-main', maxPowerKw: 10.0),
+            BusEdge(fromId: 'mppt-ac-inv', toId: 'ac-inv'),
+            BusEdge(fromId: 'ac-inv', toId: 'ac-main', maxPowerKw: 10.0),
+          ],
+          batteryCouplings: const [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _FullSunWeather(),
+        gridExportLimitKw: 100.0,
+      );
+      final result = const PvSimulator().run(cfg);
+      // Find a peak-sun step where both arrays produce; the DC array
+      // contributes 3 kWh to the bus, the AC array contributes 2 kWh
+      // straight to AC. Load at that hour is far below 2 kWh, so the
+      // AC side already covers it.
+      var sawPeak = false;
+      for (final s in result.steps) {
+        // a1 contributes ~3 kWh DC, a2 contributes ~2 kWh DC at peak.
+        if (s.dcKwhByArray[0] > 2.99 && s.dcKwhByArray[1] > 1.99) {
+          sawPeak = true;
+          // The DC battery received the full DC bus pool (3 × 1.0 cc.eta
+          // × 1.0 chargeEff = 3 kWh stored). No reduction by load.
+          expect(s.dcDirectChargeKwh, closeTo(3.0, 1e-9));
+          // AC export equals (a2's 2 kWh AC minus the small load slice
+          // for that hour). At a 12 kWh/day load and the default shape,
+          // peak hours carry < 1 kWh load, so AC has plenty for both
+          // load and export.
+          expect(s.gridImportKwh, closeTo(0.0, 1e-9));
+        }
+      }
+      expect(sawPeak, isTrue);
+    });
+
+    test('batteryFed bus: empty battery + AC load = battery charges first, grid covers load', () {
+      // Codex P2: the policy must NOT reserve DC for "load" on a
+      // batteryFed bus, because there is no hybrid bypass. The bus's
+      // entire DC pool belongs to the battery; load comes from the
+      // battery's discharge later (or, if the battery can't keep up,
+      // from the grid).
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1000.0, maxChargeKw: 100.0,
+            maxDischargeKw: 0.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 24.0),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.batteryFed, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _FullSunWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // PV-DC = pvDcKwh; battery stores it all (no AC bypass, no load
+      // can siphon any away in the policy step).
+      expect(result.summary.dcDirectChargeKwh,
+          closeTo(result.summary.pvDcKwh, 1e-9));
+      // Load is unmet by PV (no AC path) and not by battery
+      // (maxDischargeKw=0), so it imports from grid in full.
+      expect(result.summary.gridImportKwh,
+          closeTo(result.summary.loadKwh, 1e-9));
+      // No curtailment — battery had headroom for everything.
+      expect(result.summary.dcCurtailedKwh, closeTo(0.0, 1e-9));
+    });
+
+    test('rule 10: batteryFed inverter rejects arrays not wired through a cc', () {
+      // PvArray.inverterId points at the batteryFed bus's inverter,
+      // but the explicit topology has no `array → cc` edge for it.
+      // The simulator's legacy fallback would then route this array's
+      // PV through `dcByInverter[inv]` → AC, violating the batteryFed
+      // guarantee. SimulationConfig.validate must reject this.
+      final brokenCfg = SimulationConfig(
+        arrays: const [
+          PvArray(
+              id: 'a1', label: 'A1', peakKw: 3.0, azimuthDeg: 180, tiltDeg: 35,
+              inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0),
+          PvArray(
+              id: 'a2', label: 'A2', peakKw: 1.0, azimuthDeg: 180, tiltDeg: 35,
+              inverterId: 'inv', lossFactor: 0.0, shadingFactor: 0.0),
+        ],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 5.0, maxChargeKw: 2.0,
+            maxDischargeKw: 2.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        topology: const TopologyGraph(
+          dcBuses: [DcBus(id: 'dc-1', mode: BusMode.batteryFed)],
+          chargeControllers: [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+            // `a2` has inverterId='inv' but no `a2 → cc` edge — would
+            // silently route through the inverter's AC stage.
+            BusEdge(fromId: 'dc-1', toId: 'inv'),
+          ],
+          batteryCouplings: [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _FullSunWeather(),
+      );
+      expect(brokenCfg.validate, throwsArgumentError);
+    });
+
     test('zero-PV step in DC topology produces no NaNs in per-array AC', () {
       // Dark hour, DC topology configured — array DC = 0, every ratio
       // computation must not divide by zero.

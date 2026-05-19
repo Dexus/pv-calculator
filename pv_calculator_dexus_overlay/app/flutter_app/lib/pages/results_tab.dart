@@ -88,12 +88,18 @@ class ResultsTab extends StatelessWidget {
         const SizedBox(height: 12),
         const InvertersSection(),
         const SizedBox(height: 12),
-        const ChargeControllersSection(),
-        const SizedBox(height: 12),
         const BatteriesSection(),
         const SizedBox(height: 12),
         const _ExpertOffHint(),
         const ExpertOnly(child: TopologySection()),
+        const ExpertOnly(child: SizedBox(height: 12)),
+        // ChargeControllersSection is expert-only: its entries are
+        // only meaningful inside an explicit topology graph (the
+        // engine rejects top-level controllers without `array → cc`
+        // edges, which only the topology editor can create). Hiding
+        // the section in non-expert mode prevents users from adding
+        // controllers that produce a validation-rejected config.
+        const ExpertOnly(child: ChargeControllersSection()),
         const ExpertOnly(child: SizedBox(height: 12)),
         const ExpertOnly(child: MicroInverterBanksSection()),
         const ExpertOnly(child: SizedBox(height: 12)),

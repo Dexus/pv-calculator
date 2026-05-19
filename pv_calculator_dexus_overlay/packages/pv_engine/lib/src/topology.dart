@@ -513,8 +513,12 @@ class TopologyGraph {
     final mpptNodeIds = {for (final m in mppts) m.id};
     final arrayToCc = <String>{};
     final arrayToMppt = <String>{};
+    final ccEdgesPerArray = <String, int>{};
     for (final e in edges) {
-      if (ccNodeIds.contains(e.toId)) arrayToCc.add(e.fromId);
+      if (ccNodeIds.contains(e.toId)) {
+        arrayToCc.add(e.fromId);
+        ccEdgesPerArray.update(e.fromId, (n) => n + 1, ifAbsent: () => 1);
+      }
       if (mpptNodeIds.contains(e.toId)) arrayToMppt.add(e.fromId);
     }
     for (final arrayId in arrayToCc) {
@@ -522,6 +526,19 @@ class TopologyGraph {
         throw ArgumentError(
             'PV array $arrayId is wired to both a chargeController and an '
             'MPPT — pick exactly one path (DC-coupled or AC-coupled).');
+      }
+    }
+    // Phase-4b rule 9: an array may only point at ONE chargeController.
+    // Two `array → cc` edges would silently overwrite each other in
+    // `arrayToCc` and route all of the array's PV through whichever
+    // edge happened to win the lookup, leaving the other controller's
+    // sizing/efficiency unused.
+    for (final entry in ccEdgesPerArray.entries) {
+      if (entry.value > 1) {
+        throw ArgumentError(
+            'PV array ${entry.key} is wired to ${entry.value} charge '
+            'controllers. Split the array into separate `PvArray` entries '
+            'if you want to drive multiple controllers from one roof.');
       }
     }
 

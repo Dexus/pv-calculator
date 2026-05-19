@@ -676,12 +676,56 @@ class SimulationConfig {
           '(single source of truth — declare chargeControllers inside the topology instead).');
     }
     if (explicitTopology != null || chargeControllers.isNotEmpty) {
-      effectiveTopology.validate(
+      final topo = effectiveTopology;
+      topo.validate(
         arrayIds: arrayIds,
         inverterIds: inverterIds,
         batteryIds: batteryIds,
         bankIds: bankIds,
       );
+      // Phase-4b rule 10: on a batteryFed bus, ANY array whose
+      // `inverterId` is the bus's outgoing inverter must be wired
+      // through a chargeController on that bus. Rule 4 only rejected
+      // explicit `array → mppt` edges; without an explicit edge, the
+      // simulator falls back to `dcByInverter[array.inverterId]` and
+      // routes PV through the inverter's AC stage anyway — silently
+      // violating the batteryFed promise that PV reaches AC only via
+      // the battery. The check needs `PvArray.inverterId`, which
+      // TopologyGraph.validate doesn't see, so it lives here.
+      final batteryFedBuses =
+          topo.dcBuses.where((b) => b.mode == BusMode.batteryFed);
+      if (batteryFedBuses.isNotEmpty) {
+        final ccNodeIds = {for (final c in topo.chargeControllers) c.id};
+        final ccBusByArray = <String, String>{};
+        for (final e in topo.edges) {
+          if (ccNodeIds.contains(e.toId)) {
+            // Each array has at most one cc target (rule 9).
+            final cc = topo.chargeControllers
+                .firstWhere((c) => c.id == e.toId);
+            ccBusByArray[e.fromId] = cc.dcBusId;
+          }
+        }
+        for (final bus in batteryFedBuses) {
+          final invIds = <String>{
+            for (final e in topo.edges)
+              if (e.fromId == bus.id && inverterIds.contains(e.toId)) e.toId,
+          };
+          if (invIds.isEmpty) continue;
+          for (final array in arrays) {
+            if (!invIds.contains(array.inverterId)) continue;
+            final ccBus = ccBusByArray[array.id];
+            if (ccBus != bus.id) {
+              throw ArgumentError(
+                  'PV array ${array.id} has inverterId ${array.inverterId} '
+                  '(the inverter of batteryFed dcBus ${bus.id}), but is not '
+                  'wired through a chargeController on that bus. Without an '
+                  '`array → cc` edge the simulator falls back to the AC path '
+                  'and PV would reach the inverter directly, violating the '
+                  'batteryFed guarantee.');
+            }
+          }
+        }
+      }
     }
     loadProfile.validate();
   }
