@@ -72,4 +72,28 @@ void main() {
         () => parseSeedCatalog(jsonEncode({'version': 99, 'modules': []})),
         throwsArgumentError);
   });
+
+  test('bundled seed declares v2 and carries unitPriceEur on every entry', () {
+    final txt = File('assets/components_seed_v1.json').readAsStringSync();
+    final raw = jsonDecode(txt) as Map<String, dynamic>;
+    expect(raw['version'], 2);
+    final entries = parseSeedCatalog(txt);
+    for (final e in entries) {
+      expect(e.unitPriceEur, isNotNull,
+          reason: 'seed entry ${e.id} must declare a price');
+      expect(e.unitPriceEur, greaterThan(0.0));
+    }
+  });
+
+  test('still parses a v1 document (without prices)', () {
+    final txt = jsonEncode({
+      'version': 1,
+      'modules': [
+        {'id': 'm', 'manufacturer': 'A', 'model': 'B', 'peakKwPerModule': 0.4},
+      ],
+    });
+    final entries = parseSeedCatalog(txt);
+    expect(entries, hasLength(1));
+    expect(entries.first.unitPriceEur, isNull);
+  });
 }

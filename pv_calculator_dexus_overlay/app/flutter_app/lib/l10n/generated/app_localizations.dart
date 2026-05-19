@@ -2131,6 +2131,48 @@ abstract class AppLocalizations {
   /// **'Min. SOC (kWh)'**
   String get catalogEditorFieldMinSoc;
 
+  /// No description provided for @catalogEditorFieldUnitPrice.
+  ///
+  /// In de, this message translates to:
+  /// **'Stückpreis (€)'**
+  String get catalogEditorFieldUnitPrice;
+
+  /// No description provided for @catalogEditorFieldUnitPriceHelpModule.
+  ///
+  /// In de, this message translates to:
+  /// **'Listenpreis je Modul. Optional.'**
+  String get catalogEditorFieldUnitPriceHelpModule;
+
+  /// No description provided for @catalogEditorFieldUnitPriceHelpInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'Listenpreis je Wechselrichter. Optional.'**
+  String get catalogEditorFieldUnitPriceHelpInverter;
+
+  /// No description provided for @catalogEditorFieldUnitPriceHelpBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'Listenpreis je Speichereinheit. Optional.'**
+  String get catalogEditorFieldUnitPriceHelpBattery;
+
+  /// No description provided for @catalogSummaryUnitPriceModule.
+  ///
+  /// In de, this message translates to:
+  /// **'{price} €/Modul'**
+  String catalogSummaryUnitPriceModule(String price);
+
+  /// No description provided for @catalogSummaryUnitPriceInverter.
+  ///
+  /// In de, this message translates to:
+  /// **'{price} €/Stück'**
+  String catalogSummaryUnitPriceInverter(String price);
+
+  /// No description provided for @catalogSummaryUnitPriceBattery.
+  ///
+  /// In de, this message translates to:
+  /// **'{price} €/Stück'**
+  String catalogSummaryUnitPriceBattery(String price);
+
   /// No description provided for @catalogEditorValidationFailed.
   ///
   /// In de, this message translates to:

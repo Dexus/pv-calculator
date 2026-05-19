@@ -209,6 +209,41 @@ Engine and schemas unchanged.
   `share_plus_platform_interface 6.1.0` plus transitive
   `url_launcher_*` / `uuid` / `mime` / `fixnum` / `win32`.
 
+### Added — Component Catalog
+
+- **`CatalogEntry.unitPriceEur`** (optional) on every entry kind
+  — per module for `ModuleCatalogEntry`, per unit for
+  `InverterCatalogEntry` / `BatteryCatalogEntry` /
+  `ChargeControllerCatalogEntry`. `null` means unknown. Validated
+  finite and `>= 0`. JSON round-trip omits the field when null,
+  so existing serialised entries in `component_catalog`
+  `payload_json` columns load unchanged.
+- **Seed-catalog v2** in `assets/components_seed_v1.json` —
+  illustrative `unitPriceEur` on all 14 bundled entries. The
+  parser still accepts v1 documents (without prices), so older
+  fixtures and any user JSON exports from earlier releases load
+  unchanged.
+
+### Added — Flutter app — Catalog price field
+
+- **`CatalogEntryEditor`** gains a "Stückpreis (€)" / "Unit
+  price (€)" field for module, inverter, and battery edits.
+  Optional; empty input round-trips to `unitPriceEur: null`.
+- **`summariseCatalogEntry`** appends a price segment
+  (`120 €/Modul`, `950 €/Stück`, …) to the picker-sheet and
+  manager-page subtitles when the entry declares a price.
+- New ARB keys (`catalogEditorFieldUnitPrice*`,
+  `catalogSummaryUnitPrice*`) added in `en` / `de` / `es` / `fr`
+  to keep the locale parity.
+
+### Deferred — Catalog prices
+
+- Optimizer integration of catalog prices stays open: the engine
+  types (`PvArray` / `Inverter` / `BatteryConfig`) need a
+  `catalogEntryId` link before the optimizer can derive per-kWp /
+  per-kWh / per-kW costs from individual catalog entries. Tracked
+  in `docs/ROADMAP.md` Phase-10 "Verschoben".
+
 ## [Unreleased] — engine 0.16.0
 
 Phase 4c — DC-Bus-Solver-Konsolidierung. 30+ Codex review findings

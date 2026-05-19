@@ -245,4 +245,69 @@ void main() {
     expect(fileIo.exportCalls, 0,
         reason: 'must skip file-io entirely on empty export');
   });
+
+  testWidgets('editor persists optional unit price on a user module',
+      (tester) async {
+    final repo = CatalogRepository(
+      seedSource: InMemoryCatalogSource(const [], writable: false),
+      userSource: InMemoryCatalogSource(const []),
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('catalog-manager-add-module')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-manufacturer')), 'Trina');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-model')), 'TSM 450');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-peak-kw')), '0.45');
+    // Unit price sits below the kind-specific fields in a ListView; the
+    // ListView lazy-builds children, so drag the form-list to bring it
+    // into view. `drag` works even when the target widget hasn't been
+    // built yet (unlike `scrollUntilVisible`, which needs a single
+    // unambiguous target Scrollable).
+    await tester.drag(
+        find.byKey(const Key('catalog-editor-peak-kw')),
+        const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-unit-price')), '120');
+
+    await tester.tap(find.byKey(const Key('catalog-editor-save')));
+    await tester.pumpAndSettle();
+
+    final users = await repo.userEntries();
+    expect(users, hasLength(1));
+    expect((users.single as ModuleCatalogEntry).unitPriceEur, 120.0);
+  });
+
+  testWidgets('empty unit price round-trips as null', (tester) async {
+    final repo = CatalogRepository(
+      seedSource: InMemoryCatalogSource(const [], writable: false),
+      userSource: InMemoryCatalogSource(const []),
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('catalog-manager-add-module')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-manufacturer')), 'Trina');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-model')), 'TSM 450');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-peak-kw')), '0.45');
+    // Unit price field left empty.
+
+    await tester.tap(find.byKey(const Key('catalog-editor-save')));
+    await tester.pumpAndSettle();
+
+    final users = await repo.userEntries();
+    expect(users, hasLength(1));
+    expect((users.single as ModuleCatalogEntry).unitPriceEur, isNull);
+  });
 }
