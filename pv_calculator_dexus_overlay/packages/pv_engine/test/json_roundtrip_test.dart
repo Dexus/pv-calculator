@@ -385,10 +385,13 @@ void main() {
       expect(cfg.validate, throwsArgumentError);
     });
 
-    test('top-level chargeControllers validate against legacy auto-generated dc bus ids', () {
+    test('top-level chargeControllers without `array → cc` edges are rejected as inert', () {
+      // Top-level cc + legacy `fromLegacy` topology can never produce
+      // `array → cc` edges, so the controllers would be inert. The
+      // engine rejects this rather than silently ignoring them. The
+      // fix is to declare an explicit topology with the right edges.
       final base = _config();
-      // Inverter id is 'main' ⇒ legacy fromLegacy produces dc bus 'dc-main'.
-      final ok = SimulationConfig(
+      final inert = SimulationConfig(
         arrays: base.arrays,
         inverters: base.inverters,
         batteries: base.batteries,
@@ -398,8 +401,9 @@ void main() {
           ChargeController(id: 'cc-1', dcBusId: 'dc-main'),
         ],
       );
-      expect(ok.validate, returnsNormally);
-      // A mistyped dc bus id must fail.
+      expect(inert.validate, throwsArgumentError);
+      // A mistyped dc bus id must fail for the same reason: the
+      // referenced bus doesn't exist in the fromLegacy graph.
       final broken = SimulationConfig(
         arrays: base.arrays,
         inverters: base.inverters,

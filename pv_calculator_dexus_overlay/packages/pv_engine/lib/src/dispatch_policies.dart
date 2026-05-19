@@ -23,7 +23,28 @@ class SelfConsumptionFirstPolicy extends DispatchPolicy {
     var unmet = math.max(0.0, ctx.loadKwh - ctx.pvAcKwh);
 
     for (var i = 0; i < n; i++) {
-      if (surplus <= 0) break;
+      final dcBus = ctx.dcBusForBattery[i];
+      if (dcBus != null) {
+        // DC-coupled battery: source charge from the bus's DC pool
+        // rather than the AC surplus. The bus's hybrid inverter
+        // covers AC load before charging — approximate that here by
+        // deducting `loadKwh` from the available DC pool. The
+        // simulator's DC pre-step enforces the actual ordering;
+        // this policy expression caps the intent at the headroom
+        // and reserve ceiling (`BatteryReservePolicy` overrides
+        // with a tighter cap).
+        final dcPool = ctx.pvDcByBus[dcBus] ?? 0.0;
+        final dcAvailable = math.max(0.0, dcPool - ctx.loadKwh);
+        final headroom = math.max(0.0,
+            ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
+        final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0
+            ? 0.0
+            : headroom / ctx.batteryChargeEfficiency[i];
+        final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
+        charge[i] = math.min(dcAvailable, math.min(rateCap, ackHeadroom));
+        continue;
+      }
+      if (surplus <= 0) continue;
       final headroom = math.max(0.0, ctx.batteryCapacitiesKwh[i] - ctx.batteryStates[i]);
       final rateCap = ctx.batteryMaxChargeKw[i] * ctx.stepHours;
       // Express the request as the AC kWh going **into** the battery
@@ -90,7 +111,6 @@ class BatteryReservePolicy extends DispatchPolicy {
     var unmet = math.max(0.0, ctx.loadKwh - ctx.pvAcKwh);
 
     for (var i = 0; i < n; i++) {
-      if (surplus <= 0) break;
       final cap = ctx.batteryCapacitiesKwh[i];
       final reserveCeiling = reserveSocFraction * cap;
       final headroom = math.max(0.0, reserveCeiling - ctx.batteryStates[i]);
@@ -99,6 +119,17 @@ class BatteryReservePolicy extends DispatchPolicy {
       final ackHeadroom = ctx.batteryChargeEfficiency[i] == 0
           ? 0.0
           : headroom / ctx.batteryChargeEfficiency[i];
+      final dcBus = ctx.dcBusForBattery[i];
+      if (dcBus != null) {
+        // DC-coupled battery: like SelfConsumptionFirst but capped at
+        // `reserveCeiling`. The DC pre-step honours this cap (the
+        // unconditional physics path would otherwise sail past it).
+        final dcPool = ctx.pvDcByBus[dcBus] ?? 0.0;
+        final dcAvailable = math.max(0.0, dcPool - ctx.loadKwh);
+        charge[i] = math.min(dcAvailable, math.min(rateCap, ackHeadroom));
+        continue;
+      }
+      if (surplus <= 0) continue;
       final req = math.min(surplus, math.min(rateCap, ackHeadroom));
       if (req > 0) {
         charge[i] = req;

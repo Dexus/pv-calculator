@@ -80,19 +80,20 @@ ConfigSection classifyValidationMessage(String message) {
       m.contains('minsocshutdown')) {
     return ConfigSection.banks;
   }
+  // Phase-4b: route charge-controller-specific messages to their own
+  // section BEFORE the inverter branch, which would otherwise capture
+  // any message containing "efficiency" — including
+  // `ChargeController.validate()` errors.
+  if (m.contains('chargecontroller') ||
+      m.contains('charge controller') ||
+      m.contains('laderegler')) {
+    return ConfigSection.chargeControllers;
+  }
   if (m.contains('inverter') ||
       m.contains('maxackw') ||
       m.contains('maxdcinputkw') ||
       m.contains('efficiency') && !m.contains('roundtrip')) {
     return ConfigSection.inverters;
-  }
-  // Phase-4b: route charge-controller-specific messages to their own
-  // section before falling through to the general topology bucket
-  // (cc validation messages contain the word "topology" too).
-  if (m.contains('chargecontroller') ||
-      m.contains('charge controller') ||
-      m.contains('laderegler')) {
-    return ConfigSection.chargeControllers;
   }
   // Topology messages mention 'battery' too (e.g. "Topology coupling for
   // battery X..."), so route them before the battery section.
