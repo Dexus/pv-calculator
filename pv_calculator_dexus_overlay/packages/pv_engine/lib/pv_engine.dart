@@ -2090,7 +2090,15 @@ class PvSimulator {
     var curtailedAcKwh = 0.0;
     var dcDirectChargeKwhTotal = 0.0;
     var dcCurtailedKwhTotal = 0.0;
-    var dcLoadCoveredAcTotal = 0.0;
+    // Solver-side AC that served load this step. Split so the router
+    // pipeline knows which AC went where:
+    //   * `solverLoadCoveredAc`: AC delivered by PV via hybrid bypass
+    //     directly to the load (subset of `pvAcKwh`).
+    //   * `solverDischargeAcTotal`: AC delivered by DC-coupled
+    //     batteries via the bus inverter to the load (NOT in
+    //     `pvAcKwh` — added to the per-step discharge sum instead).
+    var solverLoadCoveredAc = 0.0;
+    var solverDischargeAcTotal = 0.0;
     // For per-array AC distribution: remember each inverter's
     // (limitedAc, dcAfterCap) pair so the array breakdown can scale
     // each array's DC share by the same loss ratio its inverter saw.
@@ -2337,8 +2345,8 @@ class PvSimulator {
           final acFactor = hybridInfo?.acPerBusDc ?? 0.0;
           dcDirectDischargesAc[k] += dcOut * acFactor;
         }
-        dcLoadCoveredAcTotal +=
-            outcome.loadCoveredAcKwh + outcome.dischargeAcKwh;
+        solverLoadCoveredAc += outcome.loadCoveredAcKwh;
+        solverDischargeAcTotal += outcome.dischargeAcKwh;
         pvAcKwh += outcome.bypassAcKwh + outcome.loadCoveredAcKwh;
         curtailedDcKwh += outcome.curtailedDcKwh;
         // Match the legacy split: bus-side residual that couldn't go
@@ -2403,11 +2411,17 @@ class PvSimulator {
 
     // === Router for AC batteries + banks + grid ===
     //
-    // Subtract the load already covered by the solver (PV bypass to
-    // load + DC-coupled battery discharge to load) so the router sees
-    // the correct unmet load. Add discharge AC to `selfConsumption`
-    // after the router runs.
-    final loadForRouter = math.max(0.0, loadKwh - dcLoadCoveredAcTotal);
+    // The router sees only the AC that's still available for further
+    // routing (legacy AC-path + hybrid bypass) and the load not yet
+    // served by the solver. The solver's `loadCoveredAcKwh` and
+    // `dischargeAcKwh` already covered their portion of load and are
+    // NOT exportable — keep them out of the router's `pvAcKwh` so
+    // the router doesn't double-count them as surplus. `pvAcKwh`
+    // (the KPI reported on `_StepBuffer`) keeps the total AC PV
+    // across every path.
+    final pvAcKwhForRouter = math.max(0.0, pvAcKwh - solverLoadCoveredAc);
+    final loadForRouter = math.max(0.0,
+        loadKwh - solverLoadCoveredAc - solverDischargeAcTotal);
     final flows = const EnergyRouter().apply(
       plan: plan,
       socs: socs,
@@ -2419,7 +2433,7 @@ class PvSimulator {
       dischargeEfficiency: dischargeEta,
       batteryIds: batteryIds,
       banks: config.microInverterBanks,
-      pvAcKwh: pvAcKwh,
+      pvAcKwh: pvAcKwhForRouter,
       loadKwh: loadForRouter,
       stepHours: stepHours,
       gridExportLimitKw: config.gridExportLimitKw,
@@ -2491,10 +2505,12 @@ class PvSimulator {
     buf.loadKwh[writeIdx] = loadKwh;
     // Self-consumption = PV / battery AC that ended up serving load.
     // Router only saw the load not yet covered by the DcBusSolver
-    // (load was reduced by `dcLoadCoveredAcTotal` before the router
-    // ran), so add that contribution back here.
-    buf.selfConsumptionKwh[writeIdx] =
-        flows.selfConsumptionKwh + dcLoadCoveredAcTotal;
+    // (load was reduced by `solverLoadCoveredAc + solverDischargeAcTotal`
+    // before the router ran), so add the solver's load contributions
+    // back here.
+    buf.selfConsumptionKwh[writeIdx] = flows.selfConsumptionKwh +
+        solverLoadCoveredAc +
+        solverDischargeAcTotal;
     buf.batteryChargeKwh[writeIdx] = totalCharge;
     buf.batteryDischargeKwh[writeIdx] = totalDischarge;
     buf.batterySocKwh[writeIdx] = aggregateSoc;
