@@ -135,5 +135,88 @@ void main() {
       final legacyRound = BatteryCouplingSpec.fromJson(legacy.toJson().cast<String, dynamic>());
       expect(legacyRound.inverterId, isNull);
     });
+
+    test('DcBus.mode is omitted from JSON when hybrid (legacy round-trip stays byte-identical)', () {
+      const hybrid = DcBus(id: 'dc-1');
+      expect(hybrid.toJson().containsKey('mode'), isFalse);
+      const fed = DcBus(id: 'dc-2', mode: BusMode.batteryFed);
+      expect(fed.toJson()['mode'], 'batteryFed');
+      final round = DcBus.fromJson(fed.toJson().cast<String, dynamic>());
+      expect(round.mode, BusMode.batteryFed);
+      // Missing key defaults to hybrid.
+      final legacyJson = {'id': 'dc-3', 'label': ''};
+      expect(DcBus.fromJson(legacyJson).mode, BusMode.hybrid);
+    });
+
+    test('ChargeController round-trips through JSON and validates fields', () {
+      const cc = ChargeController(
+        id: 'cc-1',
+        dcBusId: 'dc-1',
+        efficiency: 0.96,
+        maxInputKw: 4.5,
+        label: 'MPPT 100/50',
+      );
+      final round = ChargeController.fromJson(cc.toJson().cast<String, dynamic>());
+      expect(round.id, 'cc-1');
+      expect(round.dcBusId, 'dc-1');
+      expect(round.efficiency, closeTo(0.96, 1e-9));
+      expect(round.maxInputKw, closeTo(4.5, 1e-9));
+      expect(round.label, 'MPPT 100/50');
+      // Field-level validation.
+      expect(
+        () => const ChargeController(id: '', dcBusId: 'dc-1').validate(),
+        throwsArgumentError,
+      );
+      expect(
+        () => const ChargeController(id: 'cc', dcBusId: 'dc-1', efficiency: 0).validate(),
+        throwsArgumentError,
+      );
+      expect(
+        () => const ChargeController(id: 'cc', dcBusId: 'dc-1', efficiency: 1.5).validate(),
+        throwsArgumentError,
+      );
+      expect(
+        () => const ChargeController(id: 'cc', dcBusId: 'dc-1', maxInputKw: 0).validate(),
+        throwsArgumentError,
+      );
+    });
+
+    test('TopologyGraph chargeControllers round-trip and dcBus reference is validated', () {
+      const topo = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 0.97)],
+      );
+      final round = TopologyGraph.fromJson(topo.toJson());
+      expect(round.chargeControllers.single.id, 'cc-1');
+      expect(round.chargeControllers.single.dcBusId, 'dc-1');
+      expect(round.controllersForBus('dc-1').single.id, 'cc-1');
+      expect(round.dcBusById('dc-1'), isNotNull);
+      // Reference to an unknown bus is rejected.
+      const broken = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        chargeControllers: [ChargeController(id: 'cc-1', dcBusId: 'phantom')],
+      );
+      expect(
+        () => broken.validate(arrayIds: {}, inverterIds: {}, batteryIds: {}, bankIds: {}),
+        throwsArgumentError,
+      );
+      // Duplicate cc ids are rejected.
+      const dup = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        chargeControllers: [
+          ChargeController(id: 'cc-1', dcBusId: 'dc-1'),
+          ChargeController(id: 'cc-1', dcBusId: 'dc-1'),
+        ],
+      );
+      expect(
+        () => dup.validate(arrayIds: {}, inverterIds: {}, batteryIds: {}, bankIds: {}),
+        throwsArgumentError,
+      );
+    });
+
+    test('TopologyGraph without chargeControllers stays byte-identical in JSON', () {
+      const topo = TopologyGraph(dcBuses: [DcBus(id: 'dc-1')]);
+      expect(topo.toJson().containsKey('chargeControllers'), isFalse);
+    });
   });
 }
