@@ -475,6 +475,7 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
             label: l.catalogEditorFieldCcMpptCount,
             required: false,
             min: 1,
+            integerOnly: true,
             localizations: l,
           ),
           const SizedBox(height: 12),
@@ -513,20 +514,26 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
     required AppLocalizations localizations,
     double? min,
     double? max,
+    bool integerOnly = false,
   }) {
     // Mirror the shared `NumberField`'s keyboard choice: mobile browsers
     // strip the minus key from inputmode=decimal even with signed:true,
     // so the text keyboard is the only reliable way to type negatives.
     final canBeNegative = min == null || min < 0;
-    final keyboardType = canBeNegative
+    final keyboardType = canBeNegative && !integerOnly
         ? TextInputType.text
-        : const TextInputType.numberWithOptions(decimal: true, signed: false);
+        : TextInputType.numberWithOptions(
+            decimal: !integerOnly, signed: false);
+    // Digit-only formatter for integer fields prevents `1.5` / `1,0` from
+    // ever reaching the controller, so the save-time `int.parse` cannot
+    // throw a late `FormatException`.
+    final allowed = integerOnly ? RegExp(r'[0-9]') : RegExp(r'[0-9.,\-]');
     return TextFormField(
       key: key,
       controller: controller,
       keyboardType: keyboardType,
       inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,\-]')),
+        FilteringTextInputFormatter.allow(allowed),
       ],
       decoration: InputDecoration(labelText: label),
       validator: (v) {
@@ -534,13 +541,19 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
         if (text.isEmpty) {
           return required ? localizations.validationRequired : null;
         }
-        // Suppress errors for in-progress input that can't yet be parsed
-        // (lone '-', dangling decimal). The form's final validate() pass
-        // on save will still catch genuinely invalid input.
-        if (text == '-' || text.endsWith('.') || text.endsWith(',')) {
+        if (!integerOnly &&
+            (text == '-' || text.endsWith('.') || text.endsWith(','))) {
+          // Suppress errors for in-progress decimal input. The form's
+          // final validate() pass on save will still catch genuinely
+          // invalid input.
           return null;
         }
-        final parsed = double.tryParse(text.replaceAll(',', '.'));
+        final double? parsed;
+        if (integerOnly) {
+          parsed = int.tryParse(text)?.toDouble();
+        } else {
+          parsed = double.tryParse(text.replaceAll(',', '.'));
+        }
         if (parsed == null || !parsed.isFinite) {
           return localizations.validationMustBeNumber;
         }
