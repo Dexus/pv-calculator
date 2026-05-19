@@ -129,22 +129,32 @@ class FileIo {
     required String mimeType,
     Rect? sharePositionOrigin,
   }) async {
-    final bytes = Uint8List.fromList(utf8.encode(content));
     if (share.kIsMobilePlatform) {
+      // Mobile path: encode up front because `share_plus` consumes
+      // the bytes synchronously inside `XFile.fromData`.
+      final bytes = Uint8List.fromList(utf8.encode(content));
       final outcome = await share.shareBytesViaSheet(
         suggestedName: suggestedName,
         bytes: bytes,
         mimeType: mimeType,
         sharePositionOrigin: sharePositionOrigin,
       );
-      // Treat `unavailable` (no share targets at all) as cancelled; the
-      // caller's SnackBar collapses both to the "Export abgebrochen"
-      // copy. A future slice can split them if the platform actually
-      // surfaces unavailable in practice.
-      return outcome == share.ShareOutcome.success;
+      // `ShareResultStatus.unavailable` is documented as "platform
+      // succeeded to share content but user action cannot be
+      // determined" — i.e. the file WAS handed off, we just can't
+      // observe the target app. Only `dismissed` is a real cancel
+      // (Codex review on PR #43). Treating `unavailable` as
+      // cancelled used to wrongly tell users "Export abgebrochen"
+      // on platforms that don't report the user-picked target.
+      return outcome != share.ShareOutcome.dismissed;
     }
+    // Desktop / web path: show the save dialog first so a cancel is
+    // cheap. Encoding a multi-MB quarter-hourly CSV before the picker
+    // appears would noticeably delay the dialog (Copilot review on
+    // PR #43) and do useless work for users who back out.
     final location = await getSaveLocation(suggestedName: suggestedName);
     if (location == null) return false;
+    final bytes = Uint8List.fromList(utf8.encode(content));
     final xfile = XFile.fromData(bytes, mimeType: mimeType, name: suggestedName);
     await xfile.saveTo(location.path);
     return true;
@@ -153,8 +163,10 @@ class FileIo {
 
 /// Computes the iPad share-sheet anchor rect from [context]'s closest
 /// `RenderBox`. Returns `null` when the context has no attached render
-/// object (in which case `share_plus` centres the popover on iPad —
-/// degraded UX but not a crash). Android / iPhone ignore the field.
+/// object — `share_helper_io.dart` substitutes a top-left 1×1 fallback
+/// on iOS so iPad never crashes (`share_plus` requires a non-null
+/// origin there, see its README "iPad" section). Android / iPhone /
+/// desktop / web ignore the field entirely.
 Rect? shareOriginFromContext(BuildContext context) {
   final ro = context.findRenderObject();
   if (ro is! RenderBox || !ro.attached) return null;
