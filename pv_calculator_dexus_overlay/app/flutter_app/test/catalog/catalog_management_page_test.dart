@@ -361,7 +361,7 @@ void main() {
     expect(saved.unitPriceEur, 350.0);
   });
 
-  testWidgets('MPPT count field refuses decimals at the input layer',
+  testWidgets('MPPT count rejects decimals with an inline validator error',
       (tester) async {
     final repo = CatalogRepository(
       seedSource: InMemoryCatalogSource(const [], writable: false),
@@ -376,10 +376,23 @@ void main() {
         find.byKey(const Key('catalog-manager-add-chargeController')));
     await tester.pumpAndSettle();
 
-    // Scroll the MPPT field into view, then type a decimal — the
-    // digit-only formatter should drop the '.' so the controller ends
-    // up with `15`, not `1.5`. This is what prevents a save-time
-    // `FormatException` from `int.parse`.
+    // Type the bare minimum to make the form "save-able" except for
+    // the bad MPPT value, then try to save. The validator must reject
+    // `1.5` with the inline "ganze Zahl" message rather than silently
+    // coercing the input into `15` (data corruption) or letting it
+    // through to a save-time `int.parse` FormatException.
+    //
+    // Each `enterText` auto-scrolls the form down to its target, so we
+    // mirror the prior passing test's order — efficiency / max-input
+    // first, then a final drag to reveal the lower fields, then MPPT.
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-manufacturer')), 'Acme');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-model')), 'Test');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-cc-efficiency')), '0.98');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-cc-max-input-kw')), '5.8');
     await tester.drag(
         find.byKey(const Key('catalog-editor-cc-efficiency')),
         const Offset(0, -500),
@@ -387,12 +400,54 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
         find.byKey(const Key('catalog-editor-cc-mppt-count')), '1.5');
+    await tester.tap(find.byKey(const Key('catalog-editor-save')));
     await tester.pumpAndSettle();
 
     final field = tester.widget<TextFormField>(
         find.byKey(const Key('catalog-editor-cc-mppt-count')));
-    expect(field.controller!.text, '15',
-        reason: 'integerOnly formatter must strip the decimal point');
+    expect(field.controller!.text, '1.5',
+        reason: 'input must not be silently coerced to "15"');
+    expect(find.text('Bitte eine ganze Zahl eingeben'), findsOneWidget,
+        reason: 'validator must surface a "whole number" error inline');
+    // Save must have been blocked: no entry persisted.
+    expect(await repo.userEntries(), isEmpty);
+  });
+
+  testWidgets('unit price rejects negative input with an inline error',
+      (tester) async {
+    final repo = CatalogRepository(
+      seedSource: InMemoryCatalogSource(const [], writable: false),
+      userSource: InMemoryCatalogSource(const []),
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('catalog-manager-add-module')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-manufacturer')), 'Acme');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-model')), 'Test');
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-peak-kw')), '0.4');
+    // Drag the form up so the unit-price field is built and reachable.
+    await tester.drag(
+        find.byKey(const Key('catalog-editor-peak-kw')),
+        const Offset(0, -400),
+        warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-unit-price')), '-350');
+    await tester.tap(find.byKey(const Key('catalog-editor-save')));
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextFormField>(
+        find.byKey(const Key('catalog-editor-unit-price')));
+    expect(field.controller!.text, '-350',
+        reason: 'input must not be silently flipped positive');
+    expect(find.text('Mindestens 0'), findsOneWidget,
+        reason: 'validator must surface a "min 0" error inline');
+    expect(await repo.userEntries(), isEmpty);
   });
 
   testWidgets('seed-duplicate for charge controller carries fields + price',

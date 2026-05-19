@@ -33,6 +33,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get validationMustBeNumber => 'Introduce un número';
 
   @override
+  String get validationMustBeInteger => 'Introduce un número entero';
+
+  @override
   String validationAtLeast(String value) {
     return 'Al menos $value';
   }

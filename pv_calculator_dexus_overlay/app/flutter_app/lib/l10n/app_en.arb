@@ -10,6 +10,7 @@
 
   "validationRequired": "Required",
   "validationMustBeNumber": "Please enter a number",
+  "validationMustBeInteger": "Please enter a whole number",
   "validationAtLeast": "At least {value}",
   "validationAtMost": "At most {value}",
 
