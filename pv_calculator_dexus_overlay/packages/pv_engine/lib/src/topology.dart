@@ -20,14 +20,47 @@
 
 enum BatteryCoupling { ac, dc }
 
+/// Operating mode of a DC bus.
+///
+/// `hybrid` (default, legacy-equivalent): PV-DC may bypass the battery
+/// and flow to a hybrid inverter on the same bus when the battery is
+/// full or doesn't request charging — i.e. the inverter sees both PV-DC
+/// and battery-DC.
+///
+/// `batteryFed`: PV-DC cannot reach the bus's inverter directly. Any
+/// PV-DC that exceeds the battery's charge request is curtailed; AC
+/// output is only available via the battery's discharge round-trip.
+enum BusMode { hybrid, batteryFed }
+
 class DcBus {
-  const DcBus({required this.id, this.label = ''});
+  const DcBus({required this.id, this.label = '', this.mode = BusMode.hybrid});
   final String id;
   final String label;
+  final BusMode mode;
 
-  Map<String, dynamic> toJson() => {'id': id, 'label': label};
-  static DcBus fromJson(Map<String, dynamic> json) =>
-      DcBus(id: (json['id'] as String).trim(), label: json['label'] as String? ?? '');
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{'id': id, 'label': label};
+    // Emit only when set, so legacy projects round-trip byte-identically.
+    if (mode != BusMode.hybrid) {
+      json['mode'] = mode.name;
+    }
+    return json;
+  }
+
+  static DcBus fromJson(Map<String, dynamic> json) {
+    final modeName = json['mode'] as String?;
+    final mode = modeName == null
+        ? BusMode.hybrid
+        : BusMode.values.firstWhere(
+            (m) => m.name == modeName,
+            orElse: () => throw ArgumentError('Unknown BusMode: $modeName'),
+          );
+    return DcBus(
+      id: (json['id'] as String).trim(),
+      label: json['label'] as String? ?? '',
+      mode: mode,
+    );
+  }
 }
 
 class AcBus {
@@ -52,6 +85,69 @@ class MpptNode {
   static MpptNode fromJson(Map<String, dynamic> json) => MpptNode(
         id: (json['id'] as String).trim(),
         inverterId: (json['inverterId'] as String).trim(),
+        label: json['label'] as String? ?? '',
+      );
+}
+
+/// MPPT charge controller (Laderegler) feeding a DC bus from PV arrays.
+///
+/// Sits between PV arrays (DC side) and a [DcBus] (battery / hybrid-
+/// inverter side). [efficiency] is multiplicative, applied to the DC
+/// energy passing through; [maxInputKw] optionally clips the PV-side
+/// power before the efficiency conversion (overflow is reported as
+/// DC-side curtailment by the simulator).
+///
+/// PV arrays are routed to a charge controller via a `BusEdge fromId:
+/// arrayId, toId: chargeControllerId` entry in [TopologyGraph.edges];
+/// the battery / inverter side is implicit via [dcBusId].
+class ChargeController {
+  const ChargeController({
+    required this.id,
+    required this.dcBusId,
+    this.efficiency = 0.97,
+    this.maxInputKw,
+    this.standbyW = 0.0,
+    this.label = '',
+  });
+
+  final String id;
+  final String dcBusId;
+  final double efficiency;
+  final double? maxInputKw;
+  final double standbyW;
+  final String label;
+
+  void validate() {
+    if (id.trim().isEmpty) {
+      throw ArgumentError('ChargeController id must not be empty.');
+    }
+    if (efficiency <= 0 || efficiency > 1) {
+      throw ArgumentError('ChargeController $id efficiency must be in (0, 1].');
+    }
+    final cap = maxInputKw;
+    if (cap != null && cap <= 0) {
+      throw ArgumentError('ChargeController $id maxInputKw must be positive.');
+    }
+    if (standbyW < 0) {
+      throw ArgumentError('ChargeController $id standbyW must not be negative.');
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'dcBusId': dcBusId,
+        'efficiency': efficiency,
+        'maxInputKw': maxInputKw,
+        'standbyW': standbyW,
+        'label': label,
+      };
+
+  static ChargeController fromJson(Map<String, dynamic> json) => ChargeController(
+        id: (json['id'] as String).trim(),
+        dcBusId: (json['dcBusId'] as String).trim(),
+        efficiency: (json['efficiency'] as num?)?.toDouble() ?? 0.97,
+        maxInputKw: (json['maxInputKw'] as num?)?.toDouble(),
+        standbyW: (json['standbyW'] as num?)?.toDouble() ?? 0.0,
         label: json['label'] as String? ?? '',
       );
 }
@@ -169,6 +265,7 @@ class TopologyGraph {
     this.mppts = const [],
     this.edges = const [],
     this.batteryCouplings = const [],
+    this.chargeControllers = const [],
   });
 
   final List<DcBus> dcBuses;
@@ -176,12 +273,28 @@ class TopologyGraph {
   final List<MpptNode> mppts;
   final List<BusEdge> edges;
   final List<BatteryCouplingSpec> batteryCouplings;
+  final List<ChargeController> chargeControllers;
 
   BatteryCouplingSpec couplingFor(String batteryId) {
     for (final spec in batteryCouplings) {
       if (spec.batteryId == batteryId) return spec;
     }
     return BatteryCouplingSpec(batteryId: batteryId);
+  }
+
+  /// All charge controllers feeding [dcBusId] (the battery / inverter
+  /// side of the bus).
+  Iterable<ChargeController> controllersForBus(String dcBusId) sync* {
+    for (final cc in chargeControllers) {
+      if (cc.dcBusId == dcBusId) yield cc;
+    }
+  }
+
+  DcBus? dcBusById(String id) {
+    for (final b in dcBuses) {
+      if (b.id == id) return b;
+    }
+    return null;
   }
 
   /// Build a default topology from the flat lists in `SimulationConfig`
@@ -205,6 +318,7 @@ class TopologyGraph {
     Iterable<MapEntry<String, double?>>? inverterMaxAc,
     Iterable<MapEntry<String, double?>>? inverterMaxDcInput,
     Iterable<MapEntry<String, double>>? inverterEfficiency,
+    Iterable<ChargeController>? chargeControllers,
   }) {
     final dcBuses = <DcBus>[];
     final mppts = <MpptNode>[];
@@ -262,6 +376,9 @@ class TopologyGraph {
       mppts: mppts,
       edges: edges,
       batteryCouplings: couplings,
+      chargeControllers: chargeControllers == null
+          ? const []
+          : List<ChargeController>.unmodifiable(chargeControllers),
     );
   }
 
@@ -274,6 +391,7 @@ class TopologyGraph {
     final dcIds = {for (final b in dcBuses) b.id};
     final acIds = {for (final b in acBuses) b.id};
     final mpptIds = {for (final m in mppts) m.id};
+    final ccIds = {for (final c in chargeControllers) c.id};
 
     final dupDc = _firstDuplicate(dcBuses.map((b) => b.id));
     if (dupDc != null) throw ArgumentError('Duplicate topology dcBus id: $dupDc.');
@@ -281,10 +399,20 @@ class TopologyGraph {
     if (dupAc != null) throw ArgumentError('Duplicate topology acBus id: $dupAc.');
     final dupMppt = _firstDuplicate(mppts.map((m) => m.id));
     if (dupMppt != null) throw ArgumentError('Duplicate topology mppt id: $dupMppt.');
+    final dupCc = _firstDuplicate(chargeControllers.map((c) => c.id));
+    if (dupCc != null) throw ArgumentError('Duplicate topology chargeController id: $dupCc.');
 
     for (final m in mppts) {
       if (!inverterIds.contains(m.inverterId)) {
         throw ArgumentError('Topology MPPT ${m.id} references missing inverter ${m.inverterId}.');
+      }
+    }
+
+    for (final cc in chargeControllers) {
+      cc.validate();
+      if (!dcIds.contains(cc.dcBusId)) {
+        throw ArgumentError(
+            'Topology chargeController ${cc.id} references unknown dcBus ${cc.dcBusId}.');
       }
     }
 
@@ -296,6 +424,7 @@ class TopologyGraph {
       ...dcIds,
       ...acIds,
       ...mpptIds,
+      ...ccIds,
     };
     for (final e in edges) {
       e.validate();
@@ -325,13 +454,20 @@ class TopologyGraph {
     }
   }
 
-  Map<String, dynamic> toJson() => {
-        'dcBuses': dcBuses.map((b) => b.toJson()).toList(),
-        'acBuses': acBuses.map((b) => b.toJson()).toList(),
-        'mppts': mppts.map((m) => m.toJson()).toList(),
-        'edges': edges.map((e) => e.toJson()).toList(),
-        'batteryCouplings': batteryCouplings.map((c) => c.toJson()).toList(),
-      };
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'dcBuses': dcBuses.map((b) => b.toJson()).toList(),
+      'acBuses': acBuses.map((b) => b.toJson()).toList(),
+      'mppts': mppts.map((m) => m.toJson()).toList(),
+      'edges': edges.map((e) => e.toJson()).toList(),
+      'batteryCouplings': batteryCouplings.map((c) => c.toJson()).toList(),
+    };
+    // Omit when empty so legacy projects round-trip byte-identically.
+    if (chargeControllers.isNotEmpty) {
+      json['chargeControllers'] = chargeControllers.map((c) => c.toJson()).toList();
+    }
+    return json;
+  }
 
   static TopologyGraph fromJson(Map<String, dynamic> json) {
     List<T> listOf<T>(String key, T Function(Map<String, dynamic>) decode) {
@@ -345,6 +481,7 @@ class TopologyGraph {
       mppts: listOf('mppts', MpptNode.fromJson),
       edges: listOf('edges', BusEdge.fromJson),
       batteryCouplings: listOf('batteryCouplings', BatteryCouplingSpec.fromJson),
+      chargeControllers: listOf('chargeControllers', ChargeController.fromJson),
     );
   }
 }
