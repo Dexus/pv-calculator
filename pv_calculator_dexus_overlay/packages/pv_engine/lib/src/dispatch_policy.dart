@@ -26,6 +26,7 @@ class DispatchContext {
     this.dcBusForBattery = const {},
     this.dcBusesWithAcPath = const {},
     this.estimatedBypassAcKwh = 0.0,
+    this.dcReservedForLoadByBus = const {},
   });
 
   final double hourOfDay;
@@ -80,6 +81,18 @@ class DispatchContext {
   /// surplus PV that ends up exporting. DO NOT use this for DC
   /// reservation: it is exactly the energy being decided here.
   final double estimatedBypassAcKwh;
+
+  /// Phase-4b: bus-side DC kWh to reserve out of [pvDcByBus] for
+  /// covering household load via the bus's hybrid inverter. The
+  /// simulator precomputes this per bus as
+  ///   `min(remainingLoadAc, bus_inv.remainingAcKwh) / bus_inv.eta`
+  /// so the reservation: (a) is expressed in the same DC kWh units
+  /// as `pvDcByBus`, (b) never exceeds what the inverter can
+  /// actually serve this step, and (c) is zero for charge-only
+  /// hybrid buses (no `dcBus → inverter` edge) and for batteryFed
+  /// buses (no AC bypass path). Policies subtract this from
+  /// `pvDcByBus[B]` when sizing DC-coupled battery charge requests.
+  final Map<String, double> dcReservedForLoadByBus;
 }
 
 /// Output of a [DispatchPolicy]. Carries **request** energies; the
