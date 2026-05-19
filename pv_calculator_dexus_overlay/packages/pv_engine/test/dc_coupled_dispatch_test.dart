@@ -736,6 +736,107 @@ void main() {
           greaterThanOrEqualTo(result.summary.dcCurtailedKwh - 1e-9));
     });
 
+    test('DC battery discharge shares the bus inverter AC cap with PV bypass', () {
+      // Codex P2: 5 kW bus inverter, PV produces 3 kWh DC at peak
+      // and the battery is full. The bypass uses 3 kWh of the 5 kWh
+      // inverter cap; an unconstrained battery discharge would have
+      // tried for another 5 kWh under enough load. Verify the
+      // combined inverter AC output stays at or below the rating.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'Hybrid', maxAcKw: 5.0, efficiency: 1.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 100.0, maxChargeKw: 10.0,
+            maxDischargeKw: 100.0, minSocKwh: 0, initialSocKwh: 100.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 24.0 * 10.0),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.hybrid, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _FullSunWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      for (final s in result.steps) {
+        // pvAcKwh already includes the hybrid bypass. Adding the
+        // direct discharge (which goes through the same inverter)
+        // must not exceed 5 kWh per 1-hour step.
+        final totalInverterAc = s.pvAcKwh + s.batteryDischargeKwh;
+        expect(totalInverterAc, lessThanOrEqualTo(5.0 + 1e-9),
+            reason: 'PV bypass + battery discharge must respect the '
+                '5 kW bus inverter cap');
+      }
+    });
+
+    test('DC battery on hybrid bus without bus-inverter edge cannot direct-discharge', () {
+      // Codex P2: missing `dcBus → inverter` edge ⇒ direct discharge
+      // has no AC path. The router should not deliver any AC from
+      // the battery's direct-discharge path. (Banks with their own
+      // inverters are unaffected — covered separately.)
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 50.0, maxChargeKw: 10.0,
+            maxDischargeKw: 5.0, minSocKwh: 0, initialSocKwh: 25.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 24.0 * 2.0),
+        days: 1,
+        // Topology with a charge controller but NO `dc-1 → inv` edge.
+        // The hybrid bus has nowhere to send AC, so battery direct
+        // discharge must be capped at zero.
+        topology: const TopologyGraph(
+          dcBuses: [DcBus(id: 'dc-1')],
+          chargeControllers: [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+          ],
+          batteryCouplings: [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _DarkWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // Battery cannot direct-discharge → batteryDischargeKwh stays 0
+      // and the full load imports from the grid.
+      expect(result.summary.batteryDischargeKwh, closeTo(0.0, 1e-9));
+      expect(result.summary.gridImportKwh,
+          closeTo(result.summary.loadKwh, 1e-9));
+    });
+
+    test('rule 11: a DC bus may have at most one outgoing inverter edge', () {
+      const cfg = TopologyGraph(
+        dcBuses: [DcBus(id: 'dc-1')],
+        chargeControllers: [
+          ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+        ],
+        edges: [
+          BusEdge(fromId: 'a1', toId: 'cc-1'),
+          BusEdge(fromId: 'dc-1', toId: 'inv1'),
+          BusEdge(fromId: 'dc-1', toId: 'inv2'),
+        ],
+      );
+      expect(
+        () => cfg.validate(
+            arrayIds: {'a1'},
+            inverterIds: {'inv1', 'inv2'},
+            batteryIds: {},
+            bankIds: {}),
+        throwsArgumentError,
+      );
+    });
+
     test('zero-PV step in DC topology produces no NaNs in per-array AC', () {
       // Dark hour, DC topology configured — array DC = 0, every ratio
       // computation must not divide by zero.

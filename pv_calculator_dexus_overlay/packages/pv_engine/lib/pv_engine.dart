@@ -2348,17 +2348,29 @@ class PvSimulator {
           if (coupling.coupling == BatteryCoupling.dc &&
               coupling.dcBusId != null) {
             // First `bus → inverter` edge identifies the discharge
-            // path's inverter on this DC bus.
+            // path's inverter on this DC bus. Subtract any AC the
+            // same inverter has already emitted this step (legacy
+            // AC-path PV + hybrid-bus bypass) so the discharge can't
+            // push the inverter past its physical AC rating.
             for (final e in topology.edges) {
               if (e.fromId == coupling.dcBusId &&
                   inverterById.containsKey(e.toId)) {
                 final inv = inverterById[e.toId]!;
-                final inverterAcCap = inv.effectiveMaxAcKw * stepHours;
+                final emitted = acEmittedByInverter[inv.id] ?? 0.0;
+                final inverterAcCap = math.max(
+                    0.0, inv.effectiveMaxAcKw * stepHours - emitted);
                 return inverterAcCap < batteryAcCap
                     ? inverterAcCap
                     : batteryAcCap;
               }
             }
+            // No `bus → inverter` edge — the DC bus has no AC path,
+            // so the battery cannot deliver to household AC. Cap at
+            // zero so the router can't conjure AC out of an unwired
+            // bus. (A bus that is purely a charge target is still
+            // valid; the user can model "charging only" by leaving
+            // the bus inverter-less.)
+            return 0.0;
           }
           return batteryAcCap;
         }(),

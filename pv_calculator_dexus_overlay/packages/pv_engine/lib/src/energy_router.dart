@@ -164,9 +164,17 @@ class EnergyRouter {
       // Architektur §5.3 `inverterLimitW`; otherwise fall back to the
       // legacy battery-rate cap so pre-topology projects keep their
       // existing dispatch numbers.
-      final acCap = batteryAcCapKwh != null && battIdx < batteryAcCapKwh.length
-          ? batteryAcCapKwh[battIdx]
-          : maxDischargeKw[battIdx] * stepHours;
+      //
+      // DC-coupled batteries (`skipChargeIndices`) are special: the
+      // bus-inverter cap in `batteryAcCapKwh` is the *direct-discharge*
+      // path only — banks have their own AC stage and bypass the bus
+      // inverter entirely, so they use `maxDischargeKw` (the battery's
+      // DC rate cap) regardless of whether a bus inverter is wired.
+      final acCap = skipChargeIndices.contains(battIdx)
+          ? maxDischargeKw[battIdx] * stepHours
+          : (batteryAcCapKwh != null && battIdx < batteryAcCapKwh.length
+              ? batteryAcCapKwh[battIdx]
+              : maxDischargeKw[battIdx] * stepHours);
       final battAcRemaining =
           math.max(0.0, acCap - batteryAcUsed[battIdx]);
       final battRateAc = battAcRemaining * bank.inverterEfficiency;
