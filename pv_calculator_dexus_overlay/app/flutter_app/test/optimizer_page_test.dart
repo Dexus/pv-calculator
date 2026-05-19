@@ -178,6 +178,8 @@ void main() {
     expect(find.byKey(const Key('optimizer-pareto-card')), findsNothing);
     expect(find.byType(OptimizerParetoChart), findsNothing);
     expect(find.byType(OptimizerParetoTable), findsNothing);
+    // No Pareto column in the main table either, so no markers exist.
+    expect(find.byKey(const Key('optimizer-pareto-marker-0')), findsNothing);
   });
 
   testWidgets('Pareto card renders when tariff is active', (tester) async {
@@ -201,6 +203,36 @@ void main() {
     expect(find.byKey(const Key('optimizer-pareto-card')), findsOneWidget);
     expect(find.byType(OptimizerParetoChart), findsOneWidget);
     expect(find.byType(OptimizerParetoTable), findsOneWidget);
+
+    // Every displayed top-N row now carries a Pareto marker; rows whose
+    // candidate identity is on the frontier render a star icon, the rest
+    // render an em dash. At least one of the displayed candidates must
+    // be on the frontier (the cheapest combo, by construction).
+    final result = optimizer.lastResult!;
+    final frontierIds = <int>{
+      for (final c in result.paretoFrontier) identityHashCode(c),
+    };
+    var stars = 0;
+    var dashes = 0;
+    for (var i = 0; i < result.candidates.length; i++) {
+      final marker = find.byKey(ValueKey('optimizer-pareto-marker-$i'));
+      expect(marker, findsOneWidget,
+          reason: 'row $i missing Pareto marker');
+      final isOnFrontier =
+          frontierIds.contains(identityHashCode(result.candidates[i]));
+      final widget = tester.widget(marker);
+      if (isOnFrontier) {
+        expect(widget, isA<Icon>(), reason: 'row $i should be ★');
+        expect((widget as Icon).icon, equals(Icons.star));
+        stars++;
+      } else {
+        expect(widget, isA<Text>(), reason: 'row $i should be —');
+        dashes++;
+      }
+    }
+    expect(stars, greaterThan(0),
+        reason: 'expected at least one frontier row in the top-N');
+    expect(stars + dashes, equals(result.candidates.length));
   });
 
   testWidgets('post-completion state clears progress and cancelled flag',

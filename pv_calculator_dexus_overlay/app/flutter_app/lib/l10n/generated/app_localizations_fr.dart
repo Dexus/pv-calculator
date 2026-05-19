@@ -2052,6 +2052,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get optimizerColPvAcKwh => 'PV AC (kWh/an)';
 
   @override
+  String get optimizerColPareto => 'Pareto';
+
+  @override
+  String get optimizerColParetoTooltipOn =>
+      'Pareto-optimal : aucune autre combinaison évaluée n\'est à la fois moins chère et plus autoconsommatrice.';
+
+  @override
+  String get optimizerColParetoTooltipOff =>
+      'Dominé par au moins une autre combinaison (à la fois moins chère et plus autoconsommatrice).';
+
+  @override
   String get optimizerParetoTitle =>
       'Frontière de Pareto (coût × autoconsommation)';
 
