@@ -125,5 +125,37 @@
       "minSocKwh": 0.75,
       "notes": "Larger residential LFP storage stack."
     }
+  ],
+  "chargeControllers": [
+    {
+      "id": "seed-cc-mppt-50a",
+      "manufacturer": "Generic",
+      "model": "MPPT 100/50",
+      "efficiency": 0.97,
+      "maxInputKw": 2.9,
+      "maxOutputKw": 2.4,
+      "mpptCount": 1,
+      "notes": "Typical small residential MPPT controller (~50 A, 100 V input)."
+    },
+    {
+      "id": "seed-cc-mppt-100a",
+      "manufacturer": "Generic",
+      "model": "MPPT 150/100",
+      "efficiency": 0.98,
+      "maxInputKw": 5.8,
+      "maxOutputKw": 4.8,
+      "mpptCount": 1,
+      "notes": "Larger residential MPPT controller (~100 A, 150 V input)."
+    },
+    {
+      "id": "seed-cc-mppt-dual",
+      "manufacturer": "Generic",
+      "model": "MPPT Dual-Tracker 80A",
+      "efficiency": 0.98,
+      "maxInputKw": 4.6,
+      "maxOutputKw": 3.8,
+      "mpptCount": 2,
+      "notes": "Dual-MPPT charge controller for split arrays."
+    }
   ]
 }

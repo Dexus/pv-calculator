@@ -11,7 +11,7 @@
 /// `currentSchemaVersion` is the on-disk version this build understands.
 /// Bump it when adding columns or tables and add a corresponding `from N to
 /// N+1` block in [AppDatabase._upgrade].
-const int currentSchemaVersion = 3;
+const int currentSchemaVersion = 4;
 
 /// Statements executed on a fresh database. Listed once here so tests and
 /// production share the same source of truth. `IF NOT EXISTS` keeps re-runs
@@ -80,7 +80,7 @@ const List<String> createStatements = [
   '''
     CREATE TABLE IF NOT EXISTS component_catalog (
       id TEXT PRIMARY KEY,
-      kind TEXT NOT NULL CHECK (kind IN ('module','inverter','battery')),
+      kind TEXT NOT NULL CHECK (kind IN ('module','inverter','battery','chargeController')),
       payload_json TEXT NOT NULL,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
@@ -144,4 +144,28 @@ const List<String> migrationV2ToV3 = [
     )
   ''',
   'CREATE INDEX IF NOT EXISTS irradiance_cache_year_idx ON irradiance_cache(year)',
+];
+
+/// SQL statements executed when migrating v3 → v4. SQLite does not
+/// support `ALTER TABLE … MODIFY CHECK` — relax the `kind` CHECK
+/// constraint via the documented rebuild-and-rename recipe. The
+/// migration runs inside a transaction in [AppDatabase._migrateV3ToV4],
+/// so a half-renamed table cannot leak out of a failed run. Existing
+/// rows transfer verbatim (the new CHECK is a strict superset of the
+/// old one).
+const List<String> migrationV3ToV4 = [
+  '''
+    CREATE TABLE component_catalog__new (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('module','inverter','battery','chargeController')),
+      payload_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      origin TEXT NOT NULL DEFAULT 'user'
+    )
+  ''',
+  'INSERT INTO component_catalog__new SELECT * FROM component_catalog',
+  'DROP TABLE component_catalog',
+  'ALTER TABLE component_catalog__new RENAME TO component_catalog',
+  'CREATE INDEX IF NOT EXISTS component_catalog_kind_idx ON component_catalog(kind)',
 ];
