@@ -24,6 +24,14 @@ String summariseCatalogEntry(CatalogEntry e, AppLocalizations l) {
         '${e.maxChargeKw.toStringAsFixed(1)}/${e.maxDischargeKw.toStringAsFixed(1)} kW'
         '$chem$priceSuffix';
   }
+  if (e is ChargeControllerCatalogEntry) {
+    final parts = <String>[
+      '${(e.efficiency * 100).toStringAsFixed(0)} %',
+      if (e.maxInputKw != null) '${e.maxInputKw!.toStringAsFixed(1)} kW DC',
+      if (e.mpptCount != null) l.catalogSummaryChargeControllerMppt(e.mpptCount!),
+    ];
+    return '${parts.join(' · ')}$priceSuffix';
+  }
   return '';
 }
 
@@ -31,13 +39,16 @@ String _priceSuffix(CatalogEntry e, AppLocalizations l) {
   final price = e.unitPriceEur;
   if (price == null) return '';
   final formatted = _formatPriceEur(price);
+  // CatalogEntry is sealed with these four subclasses, so the switch
+  // is exhaustive without a default arm.
   final label = switch (e) {
     ModuleCatalogEntry _ => l.catalogSummaryUnitPriceModule(formatted),
     InverterCatalogEntry _ => l.catalogSummaryUnitPriceInverter(formatted),
     BatteryCatalogEntry _ => l.catalogSummaryUnitPriceBattery(formatted),
-    _ => '',
+    ChargeControllerCatalogEntry _ =>
+      l.catalogSummaryUnitPriceChargeController(formatted),
   };
-  return label.isEmpty ? '' : ' · $label';
+  return ' · $label';
 }
 
 String _formatPriceEur(double v) {

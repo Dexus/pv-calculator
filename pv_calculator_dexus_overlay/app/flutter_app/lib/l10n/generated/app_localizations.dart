@@ -2173,6 +2173,18 @@ abstract class AppLocalizations {
   /// **'{price} €/Stück'**
   String catalogSummaryUnitPriceBattery(String price);
 
+  /// No description provided for @catalogSummaryUnitPriceChargeController.
+  ///
+  /// In de, this message translates to:
+  /// **'{price} €/Stück'**
+  String catalogSummaryUnitPriceChargeController(String price);
+
+  /// No description provided for @catalogSummaryChargeControllerMppt.
+  ///
+  /// In de, this message translates to:
+  /// **'{count} MPPT'**
+  String catalogSummaryChargeControllerMppt(int count);
+
   /// No description provided for @catalogEditorValidationFailed.
   ///
   /// In de, this message translates to:
