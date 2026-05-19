@@ -14,6 +14,7 @@ import 'src/topology.dart';
 import 'src/weather.dart';
 
 export 'src/csv_export.dart';
+export 'src/dc_bus_solver.dart';
 export 'src/dispatch_policies.dart';
 export 'src/load_profile_csv.dart';
 export 'src/dispatch_policy.dart';
