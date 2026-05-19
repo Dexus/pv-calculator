@@ -515,47 +515,48 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
     double? min,
     double? max,
     bool integerOnly = false,
+    String? helperText,
   }) {
     // Mirror the shared `NumberField`'s keyboard choice: mobile browsers
     // strip the minus key from inputmode=decimal even with signed:true,
     // so the text keyboard is the only reliable way to type negatives.
     final canBeNegative = min == null || min < 0;
-    final keyboardType = canBeNegative && !integerOnly
+    final keyboardType = canBeNegative
         ? TextInputType.text
         : TextInputType.numberWithOptions(
             decimal: !integerOnly, signed: false);
-    // Digit-only formatter for integer fields prevents `1.5` / `1,0` from
-    // ever reaching the controller, so the save-time `int.parse` cannot
-    // throw a late `FormatException`.
-    final allowed = integerOnly ? RegExp(r'[0-9]') : RegExp(r'[0-9.,\-]');
+    // One permissive formatter for every variant so non-conforming input
+    // (`1.5` in an integer field, `-350` in a non-negative field) is
+    // surfaced as an inline validator error instead of being silently
+    // rewritten at keystroke time.
     return TextFormField(
       key: key,
       controller: controller,
       keyboardType: keyboardType,
       inputFormatters: [
-        FilteringTextInputFormatter.allow(allowed),
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,\-]')),
       ],
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(labelText: label, helperText: helperText),
       validator: (v) {
         final text = (v ?? '').trim();
         if (text.isEmpty) {
           return required ? localizations.validationRequired : null;
         }
-        if (!integerOnly &&
-            (text == '-' || text.endsWith('.') || text.endsWith(','))) {
-          // Suppress errors for in-progress decimal input. The form's
-          // final validate() pass on save will still catch genuinely
-          // invalid input.
+        // Suppress errors for in-progress input. `-` only counts as an
+        // in-progress prefix when the field can actually accept a
+        // negative value (`min == null || min < 0`); otherwise the user
+        // will see the inline negativity error immediately.
+        final lone = text == '-';
+        final dangling = text.endsWith('.') || text.endsWith(',');
+        if (dangling || (lone && canBeNegative)) {
           return null;
         }
-        final double? parsed;
-        if (integerOnly) {
-          parsed = int.tryParse(text)?.toDouble();
-        } else {
-          parsed = double.tryParse(text.replaceAll(',', '.'));
-        }
+        final parsed = double.tryParse(text.replaceAll(',', '.'));
         if (parsed == null || !parsed.isFinite) {
           return localizations.validationMustBeNumber;
+        }
+        if (integerOnly && parsed != parsed.truncateToDouble()) {
+          return localizations.validationMustBeInteger;
         }
         if (min != null && parsed < min) {
           return localizations.validationAtLeast(_fmt(min));
@@ -569,32 +570,17 @@ class _CatalogEntryEditorState extends State<CatalogEntryEditor> {
   }
 
   Widget _unitPriceField(AppLocalizations l, String helperText) {
-    // The same shared field across module/inverter/battery; helper text
-    // disambiguates "per what" since the unit differs by kind. Optional
-    // — empty input round-trips to `unitPriceEur: null`.
-    return TextFormField(
+    // Shared field across module/inverter/battery/charge-controller; the
+    // helper text disambiguates "per what" since the unit differs by
+    // kind. Optional — empty input round-trips to `unitPriceEur: null`.
+    return _numberField(
       key: const Key('catalog-editor-unit-price'),
       controller: _unitPriceCtrl,
-      keyboardType: const TextInputType.numberWithOptions(
-          decimal: true, signed: false),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-      ],
-      decoration: InputDecoration(
-        labelText: l.catalogEditorFieldUnitPrice,
-        helperText: helperText,
-      ),
-      validator: (v) {
-        final text = (v ?? '').trim();
-        if (text.isEmpty) return null;
-        if (text.endsWith('.') || text.endsWith(',')) return null;
-        final parsed = double.tryParse(text.replaceAll(',', '.'));
-        if (parsed == null || !parsed.isFinite) {
-          return l.validationMustBeNumber;
-        }
-        if (parsed < 0) return l.validationAtLeast('0');
-        return null;
-      },
+      label: l.catalogEditorFieldUnitPrice,
+      required: false,
+      min: 0,
+      localizations: l,
+      helperText: helperText,
     );
   }
 

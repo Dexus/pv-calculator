@@ -150,6 +150,12 @@ abstract class AppLocalizations {
   /// **'Bitte eine Zahl eingeben'**
   String get validationMustBeNumber;
 
+  /// No description provided for @validationMustBeInteger.
+  ///
+  /// In de, this message translates to:
+  /// **'Bitte eine ganze Zahl eingeben'**
+  String get validationMustBeInteger;
+
   /// No description provided for @validationAtLeast.
   ///
   /// In de, this message translates to:

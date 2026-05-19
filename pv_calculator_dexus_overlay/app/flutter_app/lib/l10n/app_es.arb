@@ -10,6 +10,7 @@
 
   "validationRequired": "Campo obligatorio",
   "validationMustBeNumber": "Introduce un número",
+  "validationMustBeInteger": "Introduce un número entero",
   "validationAtLeast": "Al menos {value}",
   "validationAtMost": "Como máximo {value}",
 

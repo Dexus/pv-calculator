@@ -544,19 +544,35 @@ class MergedCatalog {
 /// into a flat `List<CatalogEntry>`. Supported `version` values are
 /// listed in [kSupportedSeedCatalogVersions] — currently `{1, 2}`.
 /// Every section is optional; missing sections produce zero entries
-/// of that kind. The discriminator on each entry is inferred from
-/// the section it appears in (the section name is the authoritative
-/// source; an explicit `kind` on the JSON object is also accepted
-/// for forward-compatibility with mixed-section dumps).
+/// of that kind. The `chargeControllers` section is recognised under
+/// both v1 and v2 — it was added before the version field was bumped,
+/// so legacy v1 fixtures that already declare charge controllers keep
+/// parsing without any version change. The discriminator on each
+/// entry is inferred from the section it appears in (the section
+/// name is the authoritative source; an explicit `kind` on the JSON
+/// object is also accepted for forward-compatibility with mixed-
+/// section dumps).
+///
+/// Filename note: the bundled asset is still
+/// `assets/components_seed_v1.json` even though it now declares
+/// `version: 2`. The `_v1` suffix is the historical asset path that
+/// the Flutter `BundledSeedCatalogSource` and `pubspec.yaml` assets
+/// list pin against, not an in-document version. Renaming would
+/// require coordinated updates across the Dart package, the Flutter
+/// adapter, and the asset bundle, with no functional benefit, so we
+/// keep the filename stable and treat the in-document `version`
+/// integer as the source of truth.
 /// The seed-catalog versions this parser understands. Bump when the
 /// document shape changes incompatibly (e.g. renamed sections, removed
 /// required fields). Forward-compatible field additions on entries
 /// are absorbed silently by the per-entry `fromJson` factories.
 ///
-/// v1 → v2 added the optional `unitPriceEur` field on every entry kind.
-/// v1 documents (without prices) remain valid because the field is
-/// optional; we still accept the older version explicitly so existing
-/// bundled fixtures keep parsing.
+/// v1 → v2 added the optional `unitPriceEur` field on every entry
+/// kind. v1 documents (without prices) remain valid because the field
+/// is optional; we still accept the older version explicitly so
+/// existing bundled fixtures keep parsing. The `chargeControllers`
+/// section is not a v1→v2 delta — it predates the version bump and
+/// is recognised under both.
 const Set<int> kSupportedSeedCatalogVersions = {1, 2};
 
 List<CatalogEntry> parseSeedCatalog(String jsonText) {
