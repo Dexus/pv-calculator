@@ -120,6 +120,14 @@ Netto: ~277 Zeilen Engine-Code weg (449 hinzu, 726 weg).
 
 - `kEngineVersion = '0.16.0'` (Bump wegen Refactor — bestehende AC-only-Szenarien rechnen byte-identisch weiter via Regressions-Test).
 
+### Verschoben
+
+- **Property-Test-Generator: Multi-Bus & Curtailment-Accounting**. Die Round-8-Codex-Findings (4 P2) wurden nur durch gezielte Regressions-Tests in `dc_coupled_dispatch_test.dart` abgedeckt, nicht durch den Property-Test in `dc_dispatch_invariants_test.dart`. Drei der vier Bugs hätten den Generator nur erreicht, wenn er
+  - **mehrere DC-Busse mit geteiltem Inverter** (Finding #1 `inverterDcConsumedKwh`-Einheit, Finding #4 Multi-Bus-Lastreservierung) und
+  - **Energieverlust-Tracking** (Finding #2 `array → cc`-Edge-Clip — die jetzige I6-Invariant ist einseitig „inputs ≥ outputs" und schluckt verlorene Energie geräuschlos)
+
+  produzieren würde. Trigger zum Nachholen: nächste neue Klasse von η/Cap-Bug in PR-Review, oder wenn der Solver um echte Mehr-Bus-Topologien erweitert wird (z.B. Phase 10 mit DC-DC-Konvertern zwischen Bussen). Datei: `pv_calculator_dexus_overlay/packages/pv_engine/test/dc_dispatch_invariants_test.dart` Z. 159-223 (Bus-Generator) und Z. 325-342 (I6-Invariant).
+
 ---
 
 ## Phase 5 – SOC Pre-Run & Jahresgrenzen ✓
