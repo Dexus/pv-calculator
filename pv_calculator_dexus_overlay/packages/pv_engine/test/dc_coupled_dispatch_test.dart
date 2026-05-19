@@ -837,6 +837,197 @@ void main() {
       );
     });
 
+    test('two DC batteries share the bus inverter cap (Codex P2 round 5)', () {
+      // 5 kW bus inverter + two 5 kW batteries on the same bus + 10
+      // kWh of unmet load. Pre-fix: each battery saw the full 5 kW
+      // inverter cap, so combined direct discharge could push 10 kWh
+      // through a 5 kW inverter. After fix: shared `invRemaining`
+      // headroom caps total discharge at 5 kWh.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'BusInv', maxAcKw: 5.0, efficiency: 1.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 50.0, maxChargeKw: 100.0,
+            maxDischargeKw: 5.0, minSocKwh: 0, initialSocKwh: 30.0,
+            roundTripEfficiency: 1.0,
+          ),
+          BatteryConfig(
+            id: 'b2', capacityKwh: 50.0, maxChargeKw: 100.0,
+            maxDischargeKw: 5.0, minSocKwh: 0, initialSocKwh: 30.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 24.0 * 10.0),
+        days: 1,
+        topology: const TopologyGraph(
+          dcBuses: [DcBus(id: 'dc-1')],
+          acBuses: [AcBus(id: 'ac-main')],
+          chargeControllers: [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+            BusEdge(fromId: 'dc-1', toId: 'inv'),
+            BusEdge(fromId: 'inv', toId: 'ac-main', maxPowerKw: 5.0),
+          ],
+          batteryCouplings: [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+            BatteryCouplingSpec(
+                batteryId: 'b2', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _DarkWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // Every step: combined direct discharge across both batteries
+      // stays at or below the 5 kW (= 5 kWh per 1-h step) inverter cap.
+      for (final s in result.steps) {
+        final combined = s.batteryDischargesKwh.fold<double>(0.0, (a, b) => a + b);
+        expect(combined, lessThanOrEqualTo(5.0 + 1e-9),
+            reason: 'two DC batteries on one bus must share the inverter cap');
+      }
+    });
+
+    test('AC battery charges from hybrid-bypass surplus (Codex P2 round 5)', () {
+      // Mixed topology: DC-path via cc (3 kW PV) plus an AC-coupled
+      // battery on a separate inverter that does NOT see direct PV.
+      // Pre-fix: SelfConsumptionFirst saw `pvAcKwh = 0` for the AC
+      // path and refused to charge the AC battery; the DC bypass AC
+      // then exported uselessly. After fix: the policy receives an
+      // `estimatedBypassAcKwh` and the AC battery requests charging.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'Hybrid', maxAcKw: 10.0, efficiency: 1.0),
+          Inverter(id: 'ac-inv', label: 'AC inv', maxAcKw: 10.0, efficiency: 1.0),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'ac-bat', capacityKwh: 10.0, maxChargeKw: 5.0,
+            maxDischargeKw: 5.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        topology: const TopologyGraph(
+          dcBuses: [DcBus(id: 'dc-1')],
+          acBuses: [AcBus(id: 'ac-main')],
+          chargeControllers: [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+            BusEdge(fromId: 'dc-1', toId: 'inv'),
+            BusEdge(fromId: 'inv', toId: 'ac-main', maxPowerKw: 10.0),
+            BusEdge(fromId: 'ac-inv', toId: 'ac-main', maxPowerKw: 10.0),
+          ],
+          // AC-coupled battery (default coupling).
+          batteryCouplings: [
+            BatteryCouplingSpec(batteryId: 'ac-bat', inverterId: 'ac-inv'),
+          ],
+        ),
+        weatherSource: const _FullSunWeather(),
+        gridExportLimitKw: 100.0,
+      );
+      final result = const PvSimulator().run(cfg);
+      // AC battery accumulated SOC from hybrid-bypass AC surplus.
+      expect(result.summary.finalBatterySocKwh, greaterThan(0.0));
+    });
+
+    test('DC discharge through bus inverter respects its efficiency (Codex P2 round 5)', () {
+      // 80 % bus inverter. Battery has 10 kWh stored. Direct discharge
+      // covers a 4 kWh AC load. SOC withdrawal must be `4 / 0.8 = 5`
+      // kWh, not 4 kWh — the bus inverter loss is real.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(id: 'inv', label: 'BusInv', maxAcKw: 10.0, efficiency: 0.8),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 10.0, maxChargeKw: 5.0,
+            maxDischargeKw: 5.0, minSocKwh: 0, initialSocKwh: 10.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        // 4 kWh/h average load — the battery covers it via direct
+        // discharge through the 80%-efficient bus inverter.
+        loadProfile: LoadProfile(
+          dailyKwh: 24.0 * 4.0,
+          hourlyShape: List<double>.filled(24, 1.0),
+        ),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.hybrid, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _DarkWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      for (final s in result.steps) {
+        if (s.batteryDischargeKwh > 0) {
+          // Direct discharge: AC delivered ≤ stored × 0.8.
+          // Look at first step where battery has discharged:
+          // for a 4 kWh AC delivery, the SOC withdrawal is 5 kWh
+          // (i.e. AC = stored × 0.8). Check via the SOC drop:
+          final socsDrop = 10.0 - s.batterySocsKwh.single;
+          // socsDrop / batteryDischargeKwh ≈ 1/0.8 = 1.25
+          if (socsDrop > 0 && s.batteryDischargeKwh > 0) {
+            final ratio = socsDrop / s.batteryDischargeKwh;
+            // Allow some slack — the test fires on the first
+            // discharging step.
+            expect(ratio, closeTo(1.25, 0.01),
+                reason: 'SOC withdrawal must include bus inverter η');
+            break;
+          }
+        }
+      }
+    });
+
+    test('charge-only hybrid bus does NOT reserve DC for load (Codex P2 round 5)', () {
+      // Hybrid bus with NO outgoing inverter edge. The bus is
+      // intentionally charge-only — load cannot be served via this
+      // bus. The policy must not subtract `loadKwh` from the DC
+      // pool, otherwise the battery charges less and the curtail
+      // branch loses energy while the load imports from grid.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [_inverter],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 100.0, maxChargeKw: 10.0,
+            maxDischargeKw: 0.0, minSocKwh: 0, initialSocKwh: 0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 24.0),
+        days: 1,
+        topology: const TopologyGraph(
+          dcBuses: [DcBus(id: 'dc-1')],
+          chargeControllers: [
+            ChargeController(id: 'cc-1', dcBusId: 'dc-1', efficiency: 1.0),
+          ],
+          edges: [
+            BusEdge(fromId: 'a1', toId: 'cc-1'),
+            // NO `dc-1 → inv` edge — charge-only bus.
+          ],
+          batteryCouplings: [
+            BatteryCouplingSpec(
+                batteryId: 'b1', coupling: BatteryCoupling.dc, dcBusId: 'dc-1'),
+          ],
+        ),
+        weatherSource: const _FullSunWeather(),
+      );
+      final result = const PvSimulator().run(cfg);
+      // Charge-only bus: battery absorbs full DC pool, no curtailment
+      // from "load reservation".
+      expect(result.summary.dcDirectChargeKwh,
+          closeTo(result.summary.pvDcKwh, 1e-9));
+    });
+
     test('zero-PV step in DC topology produces no NaNs in per-array AC', () {
       // Dark hour, DC topology configured — array DC = 0, every ratio
       // computation must not divide by zero.

@@ -68,12 +68,26 @@ class EnergyRouter {
     required double? gridExportLimitKw,
     List<double>? batteryAcCapKwh,
     Set<int> skipChargeIndices = const {},
+    // Phase-4b additions, all defaulted so existing call sites stay
+    // compatible. `batteryDirectDischargeAcLossEff[i]` accounts for an
+    // extra eta that sits on the DIRECT-DISCHARGE path only (e.g. a
+    // DC-coupled battery's bus inverter); banks bypass this and use
+    // their own inverter eff. `batteryInverter[i]` + `inverterAcRemainingKwh`
+    // share a per-inverter AC budget across batteries that route their
+    // direct discharge through the same inverter, so two batteries on
+    // one bus can't each emit the full inverter cap.
+    Map<int, double> batteryDirectDischargeAcLossEff = const {},
+    Map<int, String> batteryInverter = const {},
+    Map<String, double> inverterAcRemainingKwh = const {},
   }) {
     final n = batteryIds.length;
     final batteryById = {for (var i = 0; i < n; i++) batteryIds[i]: i};
 
     final actualCharge = List<double>.filled(n, 0.0);
     final actualDirectDischarge = List<double>.filled(n, 0.0);
+    // Mutable copy: tracks how much AC each shared inverter still has
+    // available across all direct-discharge consumers this step.
+    final invRemaining = Map<String, double>.from(inverterAcRemainingKwh);
 
     var surplus = math.max(0.0, pvAcKwh - loadKwh);
     var remainingLoad = math.max(0.0, loadKwh - pvAcKwh);
@@ -105,22 +119,45 @@ class EnergyRouter {
     // inverter limit (when topology supplies one) is the AC ceiling
     // shared by direct discharge and banks; otherwise fall back to
     // `maxDischargeKw` so legacy projects keep their numbers.
+    //
+    // Phase-4b: DC-coupled batteries route their direct discharge
+    // through the bus inverter. `batteryDirectDischargeAcLossEff`
+    // captures that inverter's eta (and the bus→inverter edge eta)
+    // so the AC delivered is `storedKwh × battery_eta × bus_inv_eta`
+    // and the SOC withdrawal mirrors that loss. `batteryInverter[i]`
+    // + `invRemaining` share a per-inverter AC budget across all
+    // batteries on the same bus so two batteries can't each emit a
+    // full inverter cap.
     for (var i = 0; i < n; i++) {
       if (remainingLoad <= 0) break;
       if (i >= plan.batteryDirectDischargeRequestsKwh.length) break;
       final requested = math.max(0.0, plan.batteryDirectDischargeRequestsKwh[i]);
       if (requested <= 0) continue;
       final usableStored = math.max(0.0, socs[i] - minSocsKwh[i]);
-      final usableAc = usableStored * dischargeEfficiency[i];
-      final acCap = batteryAcCapKwh != null && i < batteryAcCapKwh.length
+      final directLossEff = batteryDirectDischargeAcLossEff[i] ?? 1.0;
+      final usableAc = usableStored * dischargeEfficiency[i] * directLossEff;
+      var acCap = batteryAcCapKwh != null && i < batteryAcCapKwh.length
           ? batteryAcCapKwh[i]
           : maxDischargeKw[i] * stepHours;
+      final invId = batteryInverter[i];
+      if (invId != null) {
+        final remaining = invRemaining[invId] ?? acCap;
+        if (remaining < acCap) acCap = remaining;
+      }
       final acKwh = math.min(requested, math.min(math.min(remainingLoad, acCap), usableAc));
       if (acKwh <= 0) continue;
       actualDirectDischarge[i] = acKwh;
-      socs[i] -= dischargeEfficiency[i] == 0 ? 0 : acKwh / dischargeEfficiency[i];
+      // Stored-side withdrawal includes both the battery's own
+      // discharge eff and any downstream inverter eta on the direct
+      // path. For a DC-coupled battery this captures the bus
+      // inverter loss the legacy fallback used to miss.
+      final combinedEff = dischargeEfficiency[i] * directLossEff;
+      socs[i] -= combinedEff == 0 ? 0 : acKwh / combinedEff;
       remainingLoad -= acKwh;
       selfConsumption += acKwh;
+      if (invId != null) {
+        invRemaining[invId] = (invRemaining[invId] ?? acCap) - acKwh;
+      }
     }
 
     // Step 3: Banks — each pulls from its source battery and delivers AC.

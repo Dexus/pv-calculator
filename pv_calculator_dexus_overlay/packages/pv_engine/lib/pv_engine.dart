@@ -2166,6 +2166,49 @@ class PvSimulator {
     final loadKwh = config.loadProfile.energyKwhForStep(
         hourOfDay: hourOfDay, timeStep: config.timeStep);
 
+    // Cache hybrid-inverter info per DC bus once. The first
+    // `dcBus → inverter` edge identifies the bus's outgoing inverter
+    // (rule 11 forbids > 1). `eta` is the combined inverter own η
+    // and the bus-side edge η; `maxAcKwh` is `effectiveMaxAcKw *
+    // stepHours`. Used by:
+    //   - estimated bypass AC for the policy ctx (Finding 2)
+    //   - per-battery direct-discharge eff and inverter cap (Finding 1, 3)
+    //   - `dcBusesWithAcPath` for the policy's load-reservation choice
+    //     on charge-only hybrid buses (Finding 4).
+    final busHybridInverter =
+        <String, ({String invId, double eta, double maxAcKwh})>{};
+    final dcBusesWithAcPath = <String>{};
+    for (final bus in topology.dcBuses) {
+      for (final e in topology.edges) {
+        if (e.fromId == bus.id && inverterById.containsKey(e.toId)) {
+          final inv = inverterById[e.toId]!;
+          busHybridInverter[bus.id] = (
+            invId: inv.id,
+            eta: e.efficiency * inv.efficiency,
+            maxAcKwh: inv.effectiveMaxAcKw * stepHours,
+          );
+          dcBusesWithAcPath.add(bus.id);
+          break;
+        }
+      }
+    }
+
+    // Estimate the maximum AC that DC-bus PV can still deliver via
+    // hybrid bypass this step, capped by each inverter's already-
+    // emitted AC. Add this to the policy context's `pvAcKwh` so an
+    // AC-coupled battery in a mixed AC+DC topology sees the post-
+    // bypass surplus and requests charging accordingly — the router
+    // still enforces actual surplus after the DC pre-step runs.
+    var estimatedBypassAc = 0.0;
+    for (final entry in pvDcByBus.entries) {
+      final info = busHybridInverter[entry.key];
+      if (info == null) continue;
+      final emitted = acEmittedByInverter[info.invId] ?? 0.0;
+      final remaining = math.max(0.0, info.maxAcKwh - emitted);
+      final raw = entry.value * info.eta;
+      estimatedBypassAc += math.min(raw, remaining);
+    }
+
     // Dispatch-policy pipeline. The legacy battery dispatch + grid
     // import/export logic lives in the router; the policy decides
     // *what to request*, the router enforces hard limits. DC-coupled
@@ -2200,6 +2243,8 @@ class PvSimulator {
       gridExportLimitKw: config.gridExportLimitKw,
       pvDcByBus: Map.unmodifiable(pvDcByBus),
       dcBusForBattery: Map.unmodifiable(dcBusForBattery),
+      dcBusesWithAcPath: Set.unmodifiable(dcBusesWithAcPath),
+      estimatedBypassAcKwh: estimatedBypassAc,
     );
     final plan = policy.plan(ctx);
 
@@ -2398,6 +2443,47 @@ class PvSimulator {
         }(),
     ];
 
+    // Per-battery direct-discharge inverter info (Findings 1, 3):
+    //   - `batteryInverter[i]` names the inverter the direct
+    //     discharge flows through (bus inverter for DC-coupled,
+    //     coupling.inverterId for AC-coupled).
+    //   - `inverterAcRemainingKwh[invId]` is the inverter's AC
+    //     headroom AFTER the AC-path + hybrid-bypass have already
+    //     emitted this step. The router enforces this as a shared
+    //     budget across all batteries on the same inverter so two
+    //     batteries on one bus can't each push the full cap.
+    //   - `batteryDirectDischargeAcLossEff[i]` is the bus inverter's
+    //     combined η for the direct-discharge path. The router
+    //     applies it to both the AC delivery cap and the SOC
+    //     withdrawal so bus-inverter losses are honoured.
+    final batteryInverter = <int, String>{};
+    final batteryDirectDischargeAcLossEff = <int, double>{};
+    final inverterAcRemainingKwh = <String, double>{};
+    void recordRouterInverter(String invId, double maxAcKwh) {
+      final emitted = acEmittedByInverter[invId] ?? 0.0;
+      inverterAcRemainingKwh[invId] =
+          math.max(0.0, maxAcKwh - emitted);
+    }
+    for (var i = 0; i < config.batteries.length; i++) {
+      final coupling = topology.couplingFor(config.batteries[i].id);
+      if (coupling.coupling == BatteryCoupling.dc &&
+          coupling.dcBusId != null) {
+        final info = busHybridInverter[coupling.dcBusId];
+        if (info != null) {
+          batteryInverter[i] = info.invId;
+          batteryDirectDischargeAcLossEff[i] = info.eta;
+          recordRouterInverter(info.invId, info.maxAcKwh);
+        }
+      } else if (coupling.coupling == BatteryCoupling.ac &&
+          coupling.inverterId != null) {
+        final inv = inverterById[coupling.inverterId];
+        if (inv != null) {
+          batteryInverter[i] = inv.id;
+          recordRouterInverter(inv.id, inv.effectiveMaxAcKw * stepHours);
+        }
+      }
+    }
+
     final flows = const EnergyRouter().apply(
       plan: plan,
       socs: socs,
@@ -2415,6 +2501,9 @@ class PvSimulator {
       gridExportLimitKw: config.gridExportLimitKw,
       batteryAcCapKwh: acCapKwh,
       skipChargeIndices: dcCoupledIndices,
+      batteryDirectDischargeAcLossEff: batteryDirectDischargeAcLossEff,
+      batteryInverter: batteryInverter,
+      inverterAcRemainingKwh: inverterAcRemainingKwh,
     );
 
     // For pre-run steps `buf` is null — the SOC mutation from
