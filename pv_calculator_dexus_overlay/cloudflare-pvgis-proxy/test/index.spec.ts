@@ -195,4 +195,51 @@ describe('PVGIS caching proxy', () => {
     expect(second.status).toBe(400);
     expect(second.headers.get('X-Cache')).toBe('MISS');
   });
+
+  it('propagates upstream 5xx without caching', async () => {
+    // Mirrors the 4xx test against the same `pvgisResponse.ok` gate so the
+    // 5xx branch is verified independently. A transient PVGIS 503 must
+    // surface to the client once but never land in R2 — otherwise a
+    // short upstream outage would poison the cache for hours.
+    stubPvgis(2, JSON.stringify({ message: 'service unavailable' }), 503);
+
+    const first = await dispatch(
+      'https://proxy.test/?lat=52.41&lon=7.976&angle=30&aspect=0' +
+        '&peakpower=5&loss=14&pvcalculation=1' +
+        '&startyear=2099&endyear=2099&usehorizon=1',
+    );
+    expect(first.status).toBe(503);
+    expect(first.headers.get('X-Cache')).toBe('MISS');
+
+    const second = await dispatch(
+      'https://proxy.test/?lat=52.41&lon=7.976&angle=30&aspect=0' +
+        '&peakpower=5&loss=14&pvcalculation=1' +
+        '&startyear=2099&endyear=2099&usehorizon=1',
+    );
+    expect(second.status).toBe(503);
+    expect(second.headers.get('X-Cache')).toBe('MISS');
+  });
+
+  it('returns a 502 JSON envelope when the upstream fetch throws', async () => {
+    // The handler wraps the upstream fetch in a try/catch (index.ts
+    // lines 175–182) and converts thrown errors into a 502 response with
+    // a JSON envelope. fetchMock's `replyWithError` simulates the
+    // connection-level failure that triggers that branch.
+    fetchMock
+      .get('https://re.jrc.ec.europa.eu')
+      .intercept({ path: (p) => p.startsWith('/api/v5_3/seriescalc') })
+      .replyWithError(new Error('connect ECONNREFUSED'));
+
+    const response = await dispatch(
+      'https://proxy.test/?lat=52.41&lon=7.976&angle=30&aspect=0' +
+        '&peakpower=5&loss=14&pvcalculation=1' +
+        '&startyear=2022&endyear=2022&usehorizon=1',
+    );
+    expect(response.status).toBe(502);
+    expect(response.headers.get('Content-Type')).toBe('application/json');
+
+    const body = (await response.json()) as { error?: string; detail?: string };
+    expect(body.error).toBe('PVGIS upstream unreachable');
+    expect(typeof body.detail).toBe('string');
+  });
 });

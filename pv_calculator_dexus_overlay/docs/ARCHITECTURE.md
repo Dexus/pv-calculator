@@ -53,6 +53,8 @@ Die Engine definiert eine `IrradianceSource`-Abstraktion (`packages/pv_engine/li
 
 HTTP-Aufrufe gegen PVGIS gehören NICHT in die Engine (keine Runtime-Deps). Die Flutter-App oder ein Kommandozeilen-Tool kann PVGIS abfragen und das JSON via `parsePvgisHourlyJson` einspeisen.
 
+Optional vor PVGIS: ein Cloudflare-Worker mit R2-Cache (`cloudflare-pvgis-proxy/`). `lib/services/pvgis_api.dart` schaltet automatisch um, wenn beim Build `--dart-define=PVGIS_PROXY=<worker-url>` gesetzt ist (siehe `docs/CLOUDFLARE_SETUP.md`); ohne Define bleibt der direkte PVGIS-Pfad aktiv. Der Worker reicht Antworten unverändert weiter, cached aber per SHA-256 über die kanonisierten Query-Parameter und exponiert `X-Cache: HIT|MISS` — der `parsePvgisHourlyJson`-Pfad ändert sich dadurch nicht.
+
 Temperaturmodell: `NoctTemperatureModel` (Default) oder `FaimanTemperatureModel`, beide als pure Strategien ohne State.
 
 MPPT-/String-Clipping: `Inverter.maxDcInputKw` cappt die aggregierte DC-Energie pro Wechselrichter vor der AC-Konversion. Reale Gerätekennlinien bleiben Folgearbeit.
