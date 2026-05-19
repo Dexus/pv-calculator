@@ -12,6 +12,91 @@ The two artefacts versioned here are:
 The About dialog in the app surfaces `appVersion (engine kEngineVersion)`
 so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
+## [Unreleased] — engine 0.16.0
+
+Phase 4c — DC-Bus-Solver-Konsolidierung. 30+ Codex review findings
+across 7 rounds on the Phase-4b implementation were all
+manifestations of the same root cause: the per-bus DC energy
+balance was scattered across `_simulateStep`, the dispatch
+policies, and `EnergyRouter`. Each layer had partial η / cap /
+unit conversions; every fix in one layer left a different one
+inconsistent. Phase 4c consolidates the bus-level balance into a
+single `DcBusSolver` so future patches converge.
+
+### Changed — Engine
+
+- **New `DcBusSolver`** in `lib/src/dc_bus_solver.dart` owns the
+  per-bus, per-step energy allocation atomically. Inputs
+  (`pvDcInKwh`, `loadAcShareKwh`, `HybridInverterInfo`,
+  `DcBusBattery[]`, `mode`) → outputs (`batteryChargesDcKwh`,
+  `batteryDischargesDcKwh`, `bypassAcKwh`, `loadCoveredAcKwh`,
+  `dischargeAcKwh`, `curtailedDcKwh`, `inverterAcConsumedKwh`,
+  `inverterDcConsumedKwh`). Five-step allocation: load coverage →
+  battery charging → hybrid bypass → battery discharge →
+  curtailment. Shared AC / DC / edge caps live in one mutable
+  budget per call.
+- **`_simulateStep`** calls the solver once per DC bus. Global
+  load reservation is allocated greedily across hybrid buses in
+  declared order; `array → cc` edge η + `maxPowerKw` are honored
+  before the controller's own clip + efficiency; `dcBus →
+  inverter` edge η + `maxPowerKw` flow through
+  `HybridInverterInfo` to the solver.
+- **`DispatchContext`** loses 5 Phase-4b fields (`pvDcByBus`,
+  `dcBusForBattery`, `dcBusesWithAcPath`, `estimatedBypassAcKwh`,
+  `dcReservedForLoadByBus`) and gains a single
+  `dcCoupledIndices: Set<int>`. Policies emit per-battery
+  CEILINGS (rate cap + headroom); the router / solver cap them
+  against actual surplus / load.
+- **`EnergyRouter.apply`** loses 4 Phase-4b parameters
+  (`batteryDirectDischargeAcLossEff`, `batteryInverter`,
+  `inverterAcRemainingKwh`, plus the loaded `skipChargeIndices`
+  semantic). Direct discharge for DC-coupled batteries happens in
+  the solver; the router gains a separate `skipDirectDischargeIndices`
+  to keep them out of step 2. Step 2 returns to the pre-Phase-4b
+  simple form.
+- **`dispatch_policies.dart`** loses the `_dcChargeRequest`
+  helper and all DC-specific branches in the three policies
+  (~150 lines net). All policies now emit identical "fill to
+  capacity / reserve ceiling" requests irrespective of coupling;
+  the solver enforces what's physically feasible.
+
+Net: ~277 lines of engine code removed (449 added, 726 deleted).
+
+### Added — Engine
+
+- **`packages/pv_engine/test/dc_bus_solver_test.dart`** — 13 unit
+  tests for the solver: allocation order, batteryFed discharge,
+  lossy edges, tight caps, shared inverter, charge-only buses,
+  inverter-side vs bus-side cap conversions, and a bus DC ledger
+  invariant.
+- **`packages/pv_engine/test/dc_dispatch_invariants_test.dart`** —
+  property-based backstop. 100 random topologies × 24 hourly
+  steps = 2400 step-level invariant checks per run: SOC bounds,
+  rate caps, no NaN / negative, grid export limit, full energy
+  balance with SOC tracking, aggregate inverter AC cap. Any
+  future η / cap / unit-mismatch regression fails immediately
+  with the failing seed + step dumped.
+
+### Fixed — Engine (caught by the property test on first run)
+
+- Solver `loadCoveredAcKwh` was double-counted in `_simulateStep`:
+  both pushed into `pvAcKwh` (where the router treated it as
+  exportable surplus) AND added back as self-consumption after
+  the router ran. Reported `selfConsumption + gridExport` could
+  therefore exceed `pvDcKwh + gridImport - ΔSOC`. Split into
+  `solverLoadCoveredAc` + `solverDischargeAcTotal`; subtract from
+  router's `pvAcKwh` and `loadKwh` so the router sees only the
+  exportable AC and the unmet load.
+
+### Compatibility
+
+- `kEngineVersion` bumps to `0.16.0`.
+- AC-only scenarios continue to produce byte-identical results
+  (regression-guarded by `dc_coupled_dispatch_test.dart`'s
+  `legacy AC-only scenario stays byte-identical`).
+- Phase-4b JSON schema v6 still accepted as-is; nothing about
+  the persisted shape changes.
+
 ## [Unreleased] — engine 0.15.0
 
 Phase 4b — DC-Kopplung & Laderegler. Closes the "planned for future
