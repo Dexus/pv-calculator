@@ -1,17 +1,23 @@
 // Directed energy graph linking PV arrays, MPPT inputs, inverters,
-// buses, batteries and micro-inverter banks. Phase 4's domain model.
+// charge controllers, buses, batteries and micro-inverter banks. The
+// Phase 4 domain model — extended in Phase 4b with `ChargeController`
+// and `BusMode` so the simulator actually routes DC-coupled flows
+// (PV → charge controller → DC bus → battery / hybrid inverter).
 //
 // The graph is *descriptive*: edges carry efficiency and power limits,
 // but the simulator continues to enforce those limits via the component
 // fields (`Inverter.efficiency`, `Inverter.maxDcInputKw`,
 // `Inverter.effectiveMaxAcKw`, `BatteryConfig.maxChargeKw`, etc.). The
-// topology mainly answers two new questions that flat lists cannot:
+// topology answers questions that flat lists cannot:
 //   1. Is a battery AC-coupled (charges via the household AC bus, the
-//      legacy behaviour) or DC-coupled to a specific inverter's DC bus
-//      (planned for future phases)?
+//      legacy behaviour) or DC-coupled to a specific DC bus (handled
+//      in `_simulateStep`'s DC-side pre-dispatch in Phase 4b)?
 //   2. Which AC bus does each inverter / micro-inverter bank feed?
 //      Currently a single shared AC bus, but the schema allows multiple
 //      in future (e.g. islanding scenarios).
+//   3. Does a given DC bus permit PV to bypass a full battery directly
+//      to the inverter (`BusMode.hybrid`) or must PV reach AC only via
+//      the battery's round-trip (`BusMode.batteryFed`)?
 //
 // Use `TopologyGraph.fromLegacy(...)` to derive a default graph from
 // the existing `arrays + inverters + batteries + banks` lists; the
