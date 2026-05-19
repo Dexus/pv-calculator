@@ -354,6 +354,12 @@ abstract class AppLocalizations {
   /// **'Exportiert: {filename}'**
   String projectListExported(String filename);
 
+  /// No description provided for @projectListShared.
+  ///
+  /// In de, this message translates to:
+  /// **'Geteilt: {filename}'**
+  String projectListShared(String filename);
+
   /// No description provided for @projectListExportCancelled.
   ///
   /// In de, this message translates to:
@@ -1950,6 +1956,12 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Exportiert: {filename}'**
   String catalogManagerExportSuccess(String filename);
+
+  /// No description provided for @catalogManagerExportShared.
+  ///
+  /// In de, this message translates to:
+  /// **'Geteilt: {filename}'**
+  String catalogManagerExportShared(String filename);
 
   /// No description provided for @catalogManagerExportCancelled.
   ///

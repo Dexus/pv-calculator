@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../catalog/catalog_repository.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../persistence/catalog_file_io.dart';
+import '../persistence/file_io.dart' show FileIo, shareOriginFromContext;
 import '../widgets/catalog/catalog_entry_editor.dart';
 import '../widgets/catalog/catalog_entry_summary.dart';
 
@@ -206,6 +207,11 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
     final repo = context.read<CatalogRepository>();
     final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    // Snapshot the share-sheet anchor before the first await — the
+    // page's RenderBox is still attached here, but the analyzer flags
+    // post-await context usage and the popover rect doesn't change
+    // during the user-entries lookup.
+    final shareOrigin = shareOriginFromContext(context);
     final users = await repo.userEntries();
     if (users.isEmpty) {
       messenger.showSnackBar(
@@ -214,7 +220,10 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
     }
     final String? filename;
     try {
-      filename = await widget.fileIo.exportUserCatalog(repo);
+      filename = await widget.fileIo.exportUserCatalog(
+        repo,
+        sharePositionOrigin: shareOrigin,
+      );
     } catch (e) {
       messenger.showSnackBar(
           SnackBar(content: Text(l.catalogManagerExportFailed('$e'))));
@@ -225,8 +234,11 @@ class _CatalogManagementPageState extends State<CatalogManagementPage>
           SnackBar(content: Text(l.catalogManagerExportCancelled)));
       return;
     }
-    messenger.showSnackBar(
-        SnackBar(content: Text(l.catalogManagerExportSuccess(filename))));
+    messenger.showSnackBar(SnackBar(
+      content: Text(FileIo.isMobile
+          ? l.catalogManagerExportShared(filename)
+          : l.catalogManagerExportSuccess(filename)),
+    ));
   }
 
   CatalogEntry _seedAsUserCopy(CatalogEntry seed, String prefix) {

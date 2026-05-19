@@ -324,13 +324,19 @@ class _ProjectsTabState extends State<ProjectsTab> {
     final l = AppLocalizations.of(context);
     try {
       final filename = '${_safeFilename(scenario.name)}.json';
-      final ok = await _fileIo.exportConfig(filename, scenario.config);
+      final ok = await _fileIo.exportConfig(
+        filename,
+        scenario.config,
+        sharePositionOrigin: shareOriginFromContext(context),
+      );
       if (!mounted) return;
       final String msg;
       if (!ok) {
         msg = l.projectListExportCancelled;
       } else if (kIsWeb) {
         msg = l.projectListDownloaded(filename);
+      } else if (FileIo.isMobile) {
+        msg = l.projectListShared(filename);
       } else {
         msg = l.projectListExported(filename);
       }

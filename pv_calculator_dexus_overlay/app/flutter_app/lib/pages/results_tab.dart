@@ -138,8 +138,16 @@ class ResultsTab extends StatelessWidget {
           ],
           arrayIds: [for (final a in draft.arrays) a.id],
           timeStep: draft.timeStep,
-          onExportCsv: ({required String filename, required String content}) =>
-              io.exportCsv(filename: filename, content: content),
+          onExportCsv: ({
+            required String filename,
+            required String content,
+            Rect? sharePositionOrigin,
+          }) =>
+              io.exportCsv(
+                filename: filename,
+                content: content,
+                sharePositionOrigin: sharePositionOrigin,
+              ),
           draft: draft,
           proFeatures: kProFeatures,
           onSharePdf: defaultSharePdf,
@@ -481,7 +489,11 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
-typedef _CsvExportCallback = Future<void> Function({required String filename, required String content});
+typedef _CsvExportCallback = Future<bool> Function({
+  required String filename,
+  required String content,
+  Rect? sharePositionOrigin,
+});
 
 /// Tear-off so widget tests can swap out the OS-share path for an
 /// in-memory recorder without invoking package:printing during a test
@@ -742,11 +754,16 @@ class _ResultsBody extends StatelessWidget {
         filename: '${_safe(projectName)}_report.pdf',
       );
       if (!context.mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(
-        kIsWeb
-            ? l.projectListDownloaded('${_safe(projectName)}_report.pdf')
-            : l.resultsExported('${_safe(projectName)}_report.pdf'),
-      )));
+      final filename = '${_safe(projectName)}_report.pdf';
+      final String msg;
+      if (kIsWeb) {
+        msg = l.projectListDownloaded(filename);
+      } else if (FileIo.isMobile) {
+        msg = l.projectListShared(filename);
+      } else {
+        msg = l.resultsExported(filename);
+      }
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
@@ -759,11 +776,23 @@ class _ResultsBody extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final l = AppLocalizations.of(context);
     try {
-      await onExportCsv(filename: filename, content: content);
+      final ok = await onExportCsv(
+        filename: filename,
+        content: content,
+        sharePositionOrigin: shareOriginFromContext(context),
+      );
       if (!context.mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(
-        kIsWeb ? l.projectListDownloaded(filename) : l.resultsExported(filename),
-      )));
+      final String msg;
+      if (!ok) {
+        msg = l.projectListExportCancelled;
+      } else if (kIsWeb) {
+        msg = l.projectListDownloaded(filename);
+      } else if (FileIo.isMobile) {
+        msg = l.projectListShared(filename);
+      } else {
+        msg = l.resultsExported(filename);
+      }
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(l.resultsExportFailed(e.toString()))));

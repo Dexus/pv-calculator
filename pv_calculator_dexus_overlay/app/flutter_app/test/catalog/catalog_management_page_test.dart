@@ -30,6 +30,7 @@ class _FakeFileIo extends CatalogFileIo {
   Future<String?> exportUserCatalog(
     CatalogRepository repo, {
     String suggestedName = 'components_user.json',
+    Rect? sharePositionOrigin,
   }) async {
     exportCalls++;
     return null;
