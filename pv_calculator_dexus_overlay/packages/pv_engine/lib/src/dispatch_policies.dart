@@ -30,8 +30,15 @@ double _dcChargeRequest({
     final pool = ctx.pvDcByBus[dcBus] ?? 0.0;
     final bus = ctx.topology.dcBusById(dcBus);
     final isHybrid = (bus?.mode ?? BusMode.hybrid) == BusMode.hybrid;
-    final remainingLoad =
-        isHybrid ? math.max(0.0, ctx.loadKwh - ctx.pvAcKwh) : 0.0;
+    // Reserving DC for load only makes sense when the hybrid bus has
+    // an actual AC path (`dcBus → inverter` edge). A charge-only bus
+    // (intentionally without that edge) cannot serve load directly —
+    // reserving DC there would later get curtailed by the no-inverter
+    // branch in `_simulateStep` while the battery has headroom.
+    final hasAcPath = ctx.dcBusesWithAcPath.contains(dcBus);
+    final remainingLoad = (isHybrid && hasAcPath)
+        ? math.max(0.0, ctx.loadKwh - ctx.pvAcKwh)
+        : 0.0;
     return math.max(0.0, pool - remainingLoad);
   });
   if (budget <= 0) return 0.0;
@@ -61,7 +68,14 @@ class SelfConsumptionFirstPolicy extends DispatchPolicy {
     final charge = List<double>.filled(n, 0.0);
     final discharge = List<double>.filled(n, 0.0);
 
-    var surplus = math.max(0.0, ctx.pvAcKwh - ctx.loadKwh);
+    // AC-coupled batteries can also draw from the simulator's
+    // estimated hybrid-bypass AC (Finding 2 in PR #36 review round
+    // 5): in a mixed AC+DC topology, the DC pre-step will turn DC
+    // surplus into bypass AC after this policy returns, so include
+    // that estimate in the surplus an AC battery sees. DC-side
+    // reservations still use `ctx.pvAcKwh` only (see helper).
+    var surplus = math.max(
+        0.0, ctx.pvAcKwh + ctx.estimatedBypassAcKwh - ctx.loadKwh);
     var unmet = math.max(0.0, ctx.loadKwh - ctx.pvAcKwh);
     final dcBudgetByBus = <String, double>{};
 
@@ -142,7 +156,14 @@ class BatteryReservePolicy extends DispatchPolicy {
     final charge = List<double>.filled(n, 0.0);
     final discharge = List<double>.filled(n, 0.0);
 
-    var surplus = math.max(0.0, ctx.pvAcKwh - ctx.loadKwh);
+    // AC-coupled batteries can also draw from the simulator's
+    // estimated hybrid-bypass AC (Finding 2 in PR #36 review round
+    // 5): in a mixed AC+DC topology, the DC pre-step will turn DC
+    // surplus into bypass AC after this policy returns, so include
+    // that estimate in the surplus an AC battery sees. DC-side
+    // reservations still use `ctx.pvAcKwh` only (see helper).
+    var surplus = math.max(
+        0.0, ctx.pvAcKwh + ctx.estimatedBypassAcKwh - ctx.loadKwh);
     var unmet = math.max(0.0, ctx.loadKwh - ctx.pvAcKwh);
     final dcBudgetByBus = <String, double>{};
 
@@ -220,7 +241,14 @@ class ConstantFeed24hPolicy extends DispatchPolicy {
     final charge = List<double>.filled(n, 0.0);
     final discharge = List<double>.filled(n, 0.0);
 
-    var surplus = math.max(0.0, ctx.pvAcKwh - ctx.loadKwh);
+    // AC-coupled batteries can also draw from the simulator's
+    // estimated hybrid-bypass AC (Finding 2 in PR #36 review round
+    // 5): in a mixed AC+DC topology, the DC pre-step will turn DC
+    // surplus into bypass AC after this policy returns, so include
+    // that estimate in the surplus an AC battery sees. DC-side
+    // reservations still use `ctx.pvAcKwh` only (see helper).
+    var surplus = math.max(
+        0.0, ctx.pvAcKwh + ctx.estimatedBypassAcKwh - ctx.loadKwh);
     final dcBudgetByBus = <String, double>{};
 
     for (var i = 0; i < n; i++) {
