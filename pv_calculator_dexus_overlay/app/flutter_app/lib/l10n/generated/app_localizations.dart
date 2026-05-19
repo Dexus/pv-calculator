@@ -3662,13 +3662,13 @@ abstract class AppLocalizations {
   /// No description provided for @optimizerColParetoTooltipOn.
   ///
   /// In de, this message translates to:
-  /// **'Pareto-optimal: keine andere ausgewertete Kombination ist gleichzeitig günstiger und autarker.'**
+  /// **'Pareto-optimal: keine andere ausgewertete Kombination ist zugleich höchstens so teuer und mindestens so autark (auf mindestens einer Achse strikt besser).'**
   String get optimizerColParetoTooltipOn;
 
   /// No description provided for @optimizerColParetoTooltipOff.
   ///
   /// In de, this message translates to:
-  /// **'Wird von mindestens einer anderen Kombination dominiert (günstiger und autarker zugleich).'**
+  /// **'Wird dominiert: mindestens eine andere Kombination ist höchstens so teuer und mindestens so autark (auf mindestens einer Achse strikt besser).'**
   String get optimizerColParetoTooltipOff;
 
   /// No description provided for @optimizerParetoTitle.

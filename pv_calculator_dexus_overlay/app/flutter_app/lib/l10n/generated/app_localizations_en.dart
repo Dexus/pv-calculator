@@ -2042,11 +2042,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get optimizerColParetoTooltipOn =>
-      'Pareto-optimal: no other evaluated combination is both cheaper and more self-sufficient.';
+      'Pareto-optimal: no other evaluated combination is at the same time at most as costly and at least as self-sufficient (strictly better on at least one axis).';
 
   @override
   String get optimizerColParetoTooltipOff =>
-      'Dominated by at least one other combination (both cheaper and more self-sufficient).';
+      'Dominated: at least one other combination is at most as costly and at least as self-sufficient (strictly better on at least one axis).';
 
   @override
   String get optimizerParetoTitle =>

@@ -2051,11 +2051,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get optimizerColParetoTooltipOn =>
-      'Pareto-optimal: keine andere ausgewertete Kombination ist gleichzeitig günstiger und autarker.';
+      'Pareto-optimal: keine andere ausgewertete Kombination ist zugleich höchstens so teuer und mindestens so autark (auf mindestens einer Achse strikt besser).';
 
   @override
   String get optimizerColParetoTooltipOff =>
-      'Wird von mindestens einer anderen Kombination dominiert (günstiger und autarker zugleich).';
+      'Wird dominiert: mindestens eine andere Kombination ist höchstens so teuer und mindestens so autark (auf mindestens einer Achse strikt besser).';
 
   @override
   String get optimizerParetoTitle => 'Pareto-Front (Kosten × Autarkie)';

@@ -2055,11 +2055,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get optimizerColParetoTooltipOn =>
-      'Pareto-óptimo: ninguna otra combinación evaluada es a la vez más barata y más autosuficiente.';
+      'Pareto-óptimo: ninguna otra combinación evaluada es a la vez como mucho igual de cara y al menos igual de autosuficiente (estrictamente mejor en al menos un eje).';
 
   @override
   String get optimizerColParetoTooltipOff =>
-      'Dominado por al menos otra combinación (a la vez más barata y más autosuficiente).';
+      'Dominado: al menos otra combinación es como mucho igual de cara y al menos igual de autosuficiente (estrictamente mejor en al menos un eje).';
 
   @override
   String get optimizerParetoTitle => 'Frontera de Pareto (coste × autoconsumo)';

@@ -2056,11 +2056,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get optimizerColParetoTooltipOn =>
-      'Pareto-optimal : aucune autre combinaison évaluée n\'est à la fois moins chère et plus autoconsommatrice.';
+      'Pareto-optimal : aucune autre combinaison évaluée n\'est à la fois au plus aussi coûteuse et au moins aussi autoconsommatrice (strictement meilleure sur au moins un axe).';
 
   @override
   String get optimizerColParetoTooltipOff =>
-      'Dominé par au moins une autre combinaison (à la fois moins chère et plus autoconsommatrice).';
+      'Dominé : au moins une autre combinaison est au plus aussi coûteuse et au moins aussi autoconsommatrice (strictement meilleure sur au moins un axe).';
 
   @override
   String get optimizerParetoTitle =>
