@@ -4,7 +4,7 @@ import 'package:pv_calculator_app/persistence/schema.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 void main() {
-  group('schema v1 → v2 migration', () {
+  group('fresh schema provisioning + v1 → v2 migration', () {
     test('current build provisions the latest schema with component_catalog table',
         () {
       final db = AppDatabase.memory();

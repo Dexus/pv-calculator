@@ -1997,6 +1997,11 @@ class PvSimulator {
     // (limitedAc, dcAfterCap) pair so the array breakdown can scale
     // each array's DC share by the same loss ratio its inverter saw.
     final acRatioByInverter = <String, double>{};
+    // Per-inverter post-clip DC consumed by the AC path; subtracted
+    // from `maxDcInputKw * stepHours` when the same inverter also
+    // receives PV-DC via a hybrid DC bus, so the inverter's DC stage
+    // sees a single shared cap across both flows.
+    final dcConsumedByInverter = <String, double>{};
     for (final entry in dcByInverter.entries) {
       final inverter = inverterById[entry.key]!;
       var dcKwh = entry.value;
@@ -2012,6 +2017,7 @@ class PvSimulator {
           dcKwh = dcCapKwh;
         }
       }
+      dcConsumedByInverter[entry.key] = dcKwh;
       final rawAc = dcKwh * inverter.efficiency;
       final limitedAc = math.min(rawAc, inverter.effectiveMaxAcKw * stepHours);
       pvAcKwh += limitedAc;
@@ -2118,11 +2124,31 @@ class PvSimulator {
             }
           }
           if (hybrid != null) {
+            // Hybrid inverters share their DC stage with any direct
+            // AC-path PV: enforce `maxDcInputKw` on the SUM of legacy
+            // AC-path DC and bus-side residual. Already-consumed
+            // headroom is subtracted from the cap; remainder is
+            // available for the bypass, overflow accrues as DC
+            // curtailment (same units as the legacy clip).
+            var clippedResidual = residual;
+            final dcLimit = hybrid.maxDcInputKw;
+            if (dcLimit != null) {
+              final consumed =
+                  dcConsumedByInverter[hybrid.id] ?? 0.0;
+              final remainingDc =
+                  math.max(0.0, dcLimit * stepHours - consumed);
+              if (clippedResidual > remainingDc) {
+                curtailedDcKwh += clippedResidual - remainingDc;
+                clippedResidual = remainingDc;
+              }
+              dcConsumedByInverter[hybrid.id] =
+                  consumed + clippedResidual;
+            }
             // Inverter own efficiency is multiplicative with the edge
             // efficiency (the edge already carries it in fromLegacy,
             // but explicit topologies might split them — multiply both
             // for safety).
-            final rawAc = residual * hybridEta * hybrid.efficiency;
+            final rawAc = clippedResidual * hybridEta * hybrid.efficiency;
             final limitedAc =
                 math.min(rawAc, hybrid.effectiveMaxAcKw * stepHours);
             pvAcKwh += limitedAc;

@@ -307,6 +307,51 @@ void main() {
       expect(legacy.summary.dcCurtailedKwh, closeTo(0.0, 1e-12));
     });
 
+    test('hybrid bypass enforces the inverter\'s maxDcInputKw on the residual', () {
+      // 3 kWp array, cc.eta=1.0 → 3 kWh residual at peak hour reaches
+      // the bus. Battery is full so it can't absorb. Hybrid inverter
+      // has `maxDcInputKw = 1.5`, so half the residual must be
+      // curtailed on the DC side BEFORE the inverter efficiency kicks
+      // in. Without the cap the AC path would silently overrun the
+      // physical DC stage.
+      final cfg = SimulationConfig(
+        arrays: const [_array],
+        inverters: const [
+          Inverter(
+              id: 'inv',
+              label: 'Hybrid',
+              maxAcKw: 5.0,
+              efficiency: 1.0,
+              maxDcInputKw: 1.5),
+        ],
+        batteries: const [
+          BatteryConfig(
+            id: 'b1', capacityKwh: 1.0, maxChargeKw: 10.0,
+            maxDischargeKw: 10.0, minSocKwh: 0, initialSocKwh: 1.0,
+            roundTripEfficiency: 1.0,
+          ),
+        ],
+        loadProfile: const LoadProfile(dailyKwh: 0),
+        days: 1,
+        topology: _topology(
+          mode: BusMode.hybrid, ccEfficiency: 1.0, ccMaxInputKw: null),
+        weatherSource: const _FullSunWeather(),
+        gridExportLimitKw: 100.0,
+      );
+      final result = const PvSimulator().run(cfg);
+      var sawPeak = false;
+      for (final s in result.steps) {
+        if (s.pvDcKwh >= 2.999) {
+          sawPeak = true;
+          // 3 kWh PV-DC, 1.5 kWh through inverter, 1.5 kWh curtailed.
+          expect(s.pvDcKwh, closeTo(3.0, 1e-9));
+          expect(s.pvAcKwh, closeTo(1.5, 1e-9));
+          expect(s.curtailedDcKwh, closeTo(1.5, 1e-9));
+        }
+      }
+      expect(sawPeak, isTrue);
+    });
+
     test('zero-PV step in DC topology produces no NaNs in per-array AC', () {
       // Dark hour, DC topology configured — array DC = 0, every ratio
       // computation must not divide by zero.
