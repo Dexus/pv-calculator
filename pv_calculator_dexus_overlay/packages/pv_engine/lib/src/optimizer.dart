@@ -250,18 +250,25 @@ class OptimizerCandidate {
 /// `candidates` is sorted best-first per [OptimizerSpec.objective] and
 /// truncated to `topN`. Counters expose what happened to the
 /// non-surviving combos.
+///
+/// `paretoFrontier` lists non-dominated candidates over
+/// (`lifetimeNetCostEur` × `autarkyRate`), sorted by cost ascending and
+/// independent of `topN` (computed from the full pre-truncation
+/// candidate set). Empty when no candidate has a tariff-derived cost.
 class OptimizerResult {
   const OptimizerResult({
     required this.candidates,
     required this.evaluated,
     required this.skippedOverBudget,
     required this.failedValidation,
+    this.paretoFrontier = const <OptimizerCandidate>[],
   });
 
   final List<OptimizerCandidate> candidates;
   final int evaluated;
   final int skippedOverBudget;
   final int failedValidation;
+  final List<OptimizerCandidate> paretoFrontier;
 }
 
 /// Parametric sweep over a [SimulationConfig] template. Pure-Dart,
@@ -419,6 +426,12 @@ class Optimizer {
       }
     }
 
+    // Compute the Pareto frontier from the full pre-truncation set so
+    // it is independent of `topN`: a non-dominated combo must not be
+    // dropped just because a different objective put it outside the
+    // top slice.
+    final pareto = _computePareto(candidates);
+
     candidates.sort((a, b) {
       final sa = _score(a, spec.objective);
       final sb = _score(b, spec.objective);
@@ -433,6 +446,7 @@ class Optimizer {
       evaluated: evaluated,
       skippedOverBudget: skippedOverBudget,
       failedValidation: failedValidation,
+      paretoFrontier: pareto,
     );
   }
 
@@ -492,6 +506,48 @@ class Optimizer {
       case OptimizerObjective.minNetCost:
         return candidate.lifetimeNetCostEur ?? double.infinity;
     }
+  }
+
+  /// Returns the Pareto-optimal subset of [all] over
+  /// (`lifetimeNetCostEur` × `autarkyRate`). A candidate is Pareto-
+  /// optimal iff no other candidate has lower-or-equal cost AND
+  /// higher-or-equal autarky with at least one strict inequality.
+  ///
+  /// Candidates without `lifetimeNetCostEur` (no tariff) are skipped —
+  /// without a cost dimension the trade-off is meaningless. The result
+  /// is sorted by cost ascending; on the kept points autarky is
+  /// strictly increasing. Exact ties on (cost, autarky) are deduped.
+  ///
+  /// O(n log n): sort by (cost asc, autarky desc), then a single
+  /// forward scan keeping points whose autarky exceeds the running max.
+  static List<OptimizerCandidate> _computePareto(
+    List<OptimizerCandidate> all,
+  ) {
+    final withCost = all.where((c) => c.lifetimeNetCostEur != null).toList();
+    if (withCost.isEmpty) return const <OptimizerCandidate>[];
+    withCost.sort((a, b) {
+      final byCost = a.lifetimeNetCostEur!.compareTo(b.lifetimeNetCostEur!);
+      if (byCost != 0) return byCost;
+      return b.summary.autarkyRate.compareTo(a.summary.autarkyRate);
+    });
+    final frontier = <OptimizerCandidate>[];
+    var bestAutarky = double.negativeInfinity;
+    double? lastCost;
+    double? lastAutarky;
+    for (final c in withCost) {
+      final cost = c.lifetimeNetCostEur!;
+      final autarky = c.summary.autarkyRate;
+      if (lastCost != null && cost == lastCost && autarky == lastAutarky) {
+        continue;
+      }
+      if (autarky > bestAutarky) {
+        frontier.add(c);
+        bestAutarky = autarky;
+        lastCost = cost;
+        lastAutarky = autarky;
+      }
+    }
+    return List.unmodifiable(frontier);
   }
 
   /// Decodes [baselineJsonString] into a fresh map and patches the

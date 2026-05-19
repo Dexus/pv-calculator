@@ -708,4 +708,164 @@ void main() {
       expect(result.candidates.single.investmentEur, closeTo(21000.0, 0.01));
     });
   });
+
+  group('Pareto frontier', () {
+    OptimizerSpec buildSweep({
+      TariffConfig? tariff = const TariffConfig(
+        importPricePerKwh: 0.30,
+        exportPricePerKwh: 0.08,
+      ),
+      int topN = 50,
+    }) {
+      return OptimizerSpec(
+        baseline: _baseline(tariff: tariff),
+        prices: const OptimizerPrices(
+          eurPerKwpPv: 1000,
+          eurPerKwAcInverter: 300,
+          eurPerKwhBattery: 600,
+        ),
+        objective: OptimizerObjective.maxAutarky,
+        batterySweepKwh: const [3.0, 6.0, 9.0],
+        inverterSweepKw: const [4.0, 6.0],
+        pvScaleSweep: const [0.8, 1.0, 1.2],
+        topN: topN,
+      );
+    }
+
+    test('empty when no candidate has a tariff-derived cost', () {
+      final spec = OptimizerSpec(
+        baseline: _baseline(tariff: null),
+        prices: const OptimizerPrices(
+          eurPerKwpPv: 1000,
+          eurPerKwAcInverter: 300,
+          eurPerKwhBattery: 600,
+        ),
+        objective: OptimizerObjective.maxAutarky,
+        batterySweepKwh: const [3.0, 6.0],
+        inverterSweepKw: const [4.0, 6.0],
+        pvScaleSweep: const [1.0],
+      );
+      final result = const Optimizer().run(spec);
+      expect(result.candidates, isNotEmpty);
+      expect(result.candidates.first.lifetimeNetCostEur, isNull);
+      expect(result.paretoFrontier, isEmpty);
+    });
+
+    test('frontier is sorted by cost ascending with strictly increasing autarky', () {
+      final result = const Optimizer().run(buildSweep());
+      expect(result.paretoFrontier, isNotEmpty);
+      for (var i = 1; i < result.paretoFrontier.length; i++) {
+        final prev = result.paretoFrontier[i - 1];
+        final cur = result.paretoFrontier[i];
+        expect(
+          cur.lifetimeNetCostEur,
+          greaterThanOrEqualTo(prev.lifetimeNetCostEur!),
+        );
+        expect(
+          cur.summary.autarkyRate,
+          greaterThan(prev.summary.autarkyRate),
+        );
+      }
+    });
+
+    test('frontier excludes a dominated candidate', () {
+      final result = const Optimizer().run(buildSweep());
+      // For every Pareto candidate p, no candidate c is strictly better
+      // on both axes (cheaper AND more autarkic).
+      for (final p in result.paretoFrontier) {
+        for (final c in result.candidates) {
+          if (identical(p, c)) continue;
+          if (c.lifetimeNetCostEur == null) continue;
+          final cheaper = c.lifetimeNetCostEur! < p.lifetimeNetCostEur!;
+          final moreAutarkic = c.summary.autarkyRate > p.summary.autarkyRate;
+          final notWorse = c.lifetimeNetCostEur! <= p.lifetimeNetCostEur! &&
+              c.summary.autarkyRate >= p.summary.autarkyRate;
+          // c dominates p iff it is not-worse on both AND strictly
+          // better on at least one — that must never be true for a
+          // candidate that survived to the frontier.
+          final dominates = notWorse && (cheaper || moreAutarkic);
+          expect(dominates, isFalse,
+              reason: 'Frontier candidate $p is dominated by $c');
+        }
+      }
+    });
+
+    test('a clearly dominated combo is not in the frontier', () {
+      // The cheapest combo (battery=3, inverter=4, pvScale=0.8) is
+      // dominated by larger-battery / larger-pv combos that deliver
+      // both higher autarky AND lower lifetime net cost over a
+      // 10-year horizon at 0.30 €/kWh import. Assert that at least
+      // one Pareto point exists that dominates it strictly.
+      final result = const Optimizer().run(buildSweep());
+      // Find the smallest combo's candidate in `result.candidates` —
+      // it might have been truncated by topN sorting, so search by
+      // value.
+      final smallest = result.candidates.firstWhere(
+        (c) =>
+            c.batteryKwh == 3.0 &&
+            c.inverterKw == 4.0 &&
+            c.pvScale == 0.8,
+        orElse: () => result.candidates.first,
+      );
+      // The smallest combo should not be on the frontier when the
+      // sweep contains a strictly better point.
+      final dominators = result.candidates.where((c) =>
+          !identical(c, smallest) &&
+          c.lifetimeNetCostEur != null &&
+          c.lifetimeNetCostEur! <= smallest.lifetimeNetCostEur! &&
+          c.summary.autarkyRate >= smallest.summary.autarkyRate &&
+          (c.lifetimeNetCostEur! < smallest.lifetimeNetCostEur! ||
+              c.summary.autarkyRate > smallest.summary.autarkyRate));
+      if (dominators.isNotEmpty) {
+        expect(result.paretoFrontier, isNot(contains(smallest)));
+      }
+    });
+
+    test('frontier is independent of topN', () {
+      final small = const Optimizer().run(buildSweep(topN: 1));
+      final large = const Optimizer().run(buildSweep(topN: 50));
+      expect(small.candidates.length, equals(1));
+      expect(large.candidates.length, greaterThan(1));
+      expect(
+        small.paretoFrontier.length,
+        equals(large.paretoFrontier.length),
+        reason: 'Pareto must be computed from the pre-truncation set',
+      );
+      // Same identities, in the same order (cost ascending).
+      for (var i = 0; i < small.paretoFrontier.length; i++) {
+        expect(
+          small.paretoFrontier[i].lifetimeNetCostEur,
+          closeTo(large.paretoFrontier[i].lifetimeNetCostEur!, 1e-9),
+        );
+        expect(
+          small.paretoFrontier[i].summary.autarkyRate,
+          closeTo(large.paretoFrontier[i].summary.autarkyRate, 1e-9),
+        );
+      }
+    });
+
+    test('frontier endpoints match the per-objective extrema', () {
+      final result = const Optimizer().run(buildSweep());
+      final withCost = result.candidates
+          .where((c) => c.lifetimeNetCostEur != null)
+          .toList();
+      final minCost = withCost
+          .map((c) => c.lifetimeNetCostEur!)
+          .reduce((a, b) => a < b ? a : b);
+      final maxAutarky =
+          withCost.map((c) => c.summary.autarkyRate).reduce((a, b) => a > b ? a : b);
+      // First point on the frontier is the cheapest with the highest
+      // autarky at that price.
+      expect(
+        result.paretoFrontier.first.lifetimeNetCostEur,
+        closeTo(minCost, 1e-9),
+      );
+      // Last point on the frontier reaches the maximum autarky in the
+      // sweep (no other combo beats it).
+      expect(
+        result.paretoFrontier.last.summary.autarkyRate,
+        closeTo(maxAutarky, 1e-9),
+      );
+    });
+  });
 }

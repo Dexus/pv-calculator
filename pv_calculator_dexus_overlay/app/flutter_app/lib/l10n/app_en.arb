@@ -667,5 +667,11 @@
   "optimizerColInvestment": "Investment (€)",
   "optimizerColAutarky": "Autarky",
   "optimizerColLifetimeCost": "Lifetime cost (€)",
-  "optimizerColPvAcKwh": "PV AC (kWh/year)"
+  "optimizerColPvAcKwh": "PV AC (kWh/year)",
+  "optimizerParetoTitle": "Pareto frontier (cost × self-sufficiency)",
+  "optimizerParetoHint": "Highlighted points are non-dominated: no other evaluated combination is both cheaper and more self-sufficient. Requires an active tariff so lifetime cost is defined.",
+  "optimizerParetoAxisCost": "Lifetime net cost (€)",
+  "optimizerParetoAxisAutarky": "Self-sufficiency (%)",
+  "optimizerParetoLegendCloud": "All candidates",
+  "optimizerParetoLegendFrontier": "Pareto-optimal"
 }

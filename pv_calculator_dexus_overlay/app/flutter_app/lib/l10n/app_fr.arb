@@ -666,5 +666,11 @@
   "optimizerColInvestment": "Investissement (€)",
   "optimizerColAutarky": "Autarcie",
   "optimizerColLifetimeCost": "Coût cycle de vie (€)",
-  "optimizerColPvAcKwh": "PV AC (kWh/an)"
+  "optimizerColPvAcKwh": "PV AC (kWh/an)",
+  "optimizerParetoTitle": "Frontière de Pareto (coût × autoconsommation)",
+  "optimizerParetoHint": "Les points en évidence sont non dominés : aucune autre combinaison évaluée n'est à la fois moins chère et plus autoconsommatrice. Nécessite un tarif actif pour que le coût sur la durée de vie soit défini.",
+  "optimizerParetoAxisCost": "Coût net sur la durée de vie (€)",
+  "optimizerParetoAxisAutarky": "Autoconsommation (%)",
+  "optimizerParetoLegendCloud": "Tous les candidats",
+  "optimizerParetoLegendFrontier": "Pareto-optimal"
 }
