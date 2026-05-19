@@ -865,5 +865,22 @@ void main() {
         closeTo(maxAutarky, 1e-9),
       );
     });
+
+    test('allCandidates contains the full evaluated sweep (untruncated)',
+        () {
+      // 3 × 2 × 3 = 18 combos; topN=1 forces `candidates` to length 1
+      // but `allCandidates` must still hold all 18.
+      final result = const Optimizer().run(buildSweep(topN: 1));
+      expect(result.candidates.length, equals(1));
+      expect(result.allCandidates.length, equals(result.evaluated));
+      expect(result.allCandidates.length, equals(18));
+      // The list is sorted best-first per objective; `candidates`
+      // is its prefix.
+      expect(result.allCandidates.first, equals(result.candidates.first));
+      // The Pareto frontier is a subset of `allCandidates`.
+      for (final p in result.paretoFrontier) {
+        expect(result.allCandidates, contains(p));
+      }
+    });
   });
 }
