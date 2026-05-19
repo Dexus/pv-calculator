@@ -1924,6 +1924,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get optimizerHorizon => 'Horizonte (años)';
 
   @override
+  String get optimizerDiscountRate => 'Tasa de descuento (%/año)';
+
+  @override
+  String get optimizerPriceEscalation =>
+      'Escalada del precio eléctrico (%/año)';
+
+  @override
+  String get optimizerDiscountHint =>
+      'Ambos 0 % → coste de ciclo de vida = inversión + horizonte × neto anual (fórmula anterior). De lo contrario, los años futuros se escalan y descuentan al valor presente. Payback / TIR no se calculan.';
+
+  @override
   String get optimizerSectionOptionalArrays => 'Arrays opcionales';
 
   @override

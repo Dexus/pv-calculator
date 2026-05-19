@@ -86,6 +86,8 @@ class OptimizerController extends ChangeNotifier {
         optionalArrayIds: spec.optionalArrayIds,
         budgetEur: spec.budgetEur,
         horizonYears: spec.horizonYears,
+        discountRatePct: spec.discountRatePct,
+        priceEscalationPctPerYear: spec.priceEscalationPctPerYear,
         topN: spec.topN,
       );
       _lastSpec = effectiveSpec;

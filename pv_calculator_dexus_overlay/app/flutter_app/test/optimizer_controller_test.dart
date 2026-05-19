@@ -128,6 +128,27 @@ void main() {
     expect(controller.cancelled, isFalse);
   });
 
+  test('runFromDraft forwards discountRatePct and priceEscalationPctPerYear',
+      () async {
+    final runner = _RecordingRunner();
+    final controller = OptimizerController(optimizerRunner: runner);
+    final draft = tinyDraft();
+    final spec = OptimizerSpec(
+      baseline: draft.buildForRun(),
+      prices: const OptimizerPrices(),
+      objective: OptimizerObjective.maxAutarky,
+      batterySweepKwh: const [5.0],
+      inverterSweepKw: const [5.0],
+      pvScaleSweep: const [1.0],
+      discountRatePct: 4.0,
+      priceEscalationPctPerYear: 2.5,
+    );
+    await controller.runFromDraft(draft, spec);
+    expect(runner.lastSpec, isNotNull);
+    expect(runner.lastSpec!.discountRatePct, equals(4.0));
+    expect(runner.lastSpec!.priceEscalationPctPerYear, equals(2.5));
+  });
+
   test('supersede drops a late-arriving result from an older generation',
       () async {
     final runner = _ManualRunner();
@@ -194,6 +215,38 @@ class _ManualRunner implements OptimizerRunner {
       skippedOverBudget: 0,
       failedValidation: 0,
     ));
+  }
+}
+
+/// Test double — captures the effective [OptimizerSpec] the controller
+/// hands to the runner and returns an empty result so the run settles
+/// synchronously. Lets the test assert on the spec without running the
+/// engine.
+class _RecordingRunner implements OptimizerRunner {
+  OptimizerSpec? lastSpec;
+
+  @override
+  bool get canCancel => false;
+
+  @override
+  bool get runInProcess => true;
+
+  @override
+  OptimizerRunHandle start(
+    OptimizerSpec spec, {
+    void Function(OptimizerProgress)? onProgress,
+  }) {
+    lastSpec = spec;
+    return OptimizerRunHandle(
+      result: Future.value(const OptimizerResult(
+        candidates: [],
+        evaluated: 0,
+        skippedOverBudget: 0,
+        failedValidation: 0,
+      )),
+      onCancel: () {},
+      canCancel: false,
+    );
   }
 }
 

@@ -520,6 +520,134 @@ void main() {
       );
     });
 
+    test('discountRatePct=0 and escalation=0 reproduce the pre-NPV sum', () {
+      final spec = OptimizerSpec(
+        baseline: _baseline(),
+        prices: const OptimizerPrices(
+          eurPerKwpPv: 1000,
+          eurPerKwAcInverter: 200,
+          eurPerKwhBattery: 600,
+        ),
+        objective: OptimizerObjective.minNetCost,
+        batterySweepKwh: const [5.0],
+        inverterSweepKw: const [5.0],
+        pvScaleSweep: const [1.0],
+        horizonYears: 15,
+      );
+      final result = const Optimizer().run(spec);
+      final cand = result.candidates.single;
+      // Pre-NPV closed form: investment + N × annual.
+      final expected =
+          cand.investmentEur + 15 * cand.summary.netCostEur!;
+      expect(cand.lifetimeNetCostEur, closeTo(expected, 1e-6));
+    });
+
+    test('discount-only matches the analytic geometric series', () {
+      // horizon=2, r=5%, e=0% closed form:
+      //   lifetime = investment + annual × (1/1.05 + 1/1.05²)
+      const r = 5.0;
+      final spec = OptimizerSpec(
+        baseline: _baseline(),
+        prices: const OptimizerPrices(
+          eurPerKwpPv: 1000,
+          eurPerKwAcInverter: 200,
+          eurPerKwhBattery: 600,
+        ),
+        objective: OptimizerObjective.minNetCost,
+        batterySweepKwh: const [5.0],
+        inverterSweepKw: const [5.0],
+        pvScaleSweep: const [1.0],
+        horizonYears: 2,
+        discountRatePct: r,
+      );
+      final cand = const Optimizer().run(spec).candidates.single;
+      final annual = cand.summary.netCostEur!;
+      final expected = cand.investmentEur +
+          annual * (1 / 1.05 + 1 / (1.05 * 1.05));
+      expect(cand.lifetimeNetCostEur, closeTo(expected, 1e-6));
+    });
+
+    test('escalation-only matches the analytic geometric series', () {
+      // horizon=3, r=0%, e=3% closed form:
+      //   lifetime = investment + annual × (1 + 1.03 + 1.03²)
+      const e = 3.0;
+      final spec = OptimizerSpec(
+        baseline: _baseline(),
+        prices: const OptimizerPrices(
+          eurPerKwpPv: 1000,
+          eurPerKwAcInverter: 200,
+          eurPerKwhBattery: 600,
+        ),
+        objective: OptimizerObjective.minNetCost,
+        batterySweepKwh: const [5.0],
+        inverterSweepKw: const [5.0],
+        pvScaleSweep: const [1.0],
+        horizonYears: 3,
+        priceEscalationPctPerYear: e,
+      );
+      final cand = const Optimizer().run(spec).candidates.single;
+      final annual = cand.summary.netCostEur!;
+      final expected = cand.investmentEur +
+          annual * (1.0 + 1.03 + 1.03 * 1.03);
+      expect(cand.lifetimeNetCostEur, closeTo(expected, 1e-6));
+    });
+
+    test('discount and escalation cancel when equal (sum becomes N × annual)',
+        () {
+      // With r == e, (1+e)^(y-1) / (1+r)^y collapses to 1/(1+r) for
+      // every y. Sum over horizonYears is horizonYears × annual / (1+r).
+      const r = 4.0; // %
+      final spec = OptimizerSpec(
+        baseline: _baseline(),
+        prices: const OptimizerPrices(
+          eurPerKwpPv: 1000,
+          eurPerKwAcInverter: 200,
+          eurPerKwhBattery: 600,
+        ),
+        objective: OptimizerObjective.minNetCost,
+        batterySweepKwh: const [5.0],
+        inverterSweepKw: const [5.0],
+        pvScaleSweep: const [1.0],
+        horizonYears: 10,
+        discountRatePct: r,
+        priceEscalationPctPerYear: r,
+      );
+      final cand = const Optimizer().run(spec).candidates.single;
+      final expected = cand.investmentEur +
+          10 * cand.summary.netCostEur! / (1 + r / 100);
+      expect(cand.lifetimeNetCostEur, closeTo(expected, 1e-6));
+    });
+
+    test('rejects out-of-range discount/escalation rates', () {
+      expect(
+        () => OptimizerSpec(
+          baseline: _baseline(),
+          prices: const OptimizerPrices(),
+          objective: OptimizerObjective.maxAutarky,
+          discountRatePct: -100,
+        ).validate(),
+        throwsArgumentError,
+      );
+      expect(
+        () => OptimizerSpec(
+          baseline: _baseline(),
+          prices: const OptimizerPrices(),
+          objective: OptimizerObjective.maxAutarky,
+          priceEscalationPctPerYear: -150,
+        ).validate(),
+        throwsArgumentError,
+      );
+      expect(
+        () => OptimizerSpec(
+          baseline: _baseline(),
+          prices: const OptimizerPrices(),
+          objective: OptimizerObjective.maxAutarky,
+          discountRatePct: double.nan,
+        ).validate(),
+        throwsArgumentError,
+      );
+    });
+
     test('investment math sums all baseline devices, not just the swept [0]',
         () {
       // Copilot PR #31 review: with multiple inverters / batteries in

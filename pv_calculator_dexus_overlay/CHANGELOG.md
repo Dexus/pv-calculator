@@ -14,6 +14,56 @@ so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-05-19 (app) / [0.13.0] — 2026-05-19 (engine)
+
+Phase 10 follow-up — Optimizer NPV / discount rate. Closes the ROADMAP
+"NPV / Diskontierungssatz für Optimierer" deferred item. With both new
+rates at 0 % the result is byte-identical to 0.12.0 (the legacy formula
+`investment + horizon × annual` is a special case of the new geometric
+sum), so existing test fixtures and `OptimizerCandidate.toString()`
+output are unchanged for default specs.
+
+### Added — Engine
+- **`OptimizerSpec.discountRatePct`** (default `0.0`) — annual discount
+  rate in % applied to future yearly costs so `lifetimeNetCostEur` is
+  reported as a present-value sum. Must be > -100.
+- **`OptimizerSpec.priceEscalationPctPerYear`** (default `0.0`) — annual
+  electricity-price escalation in % applied to the recurring
+  `netCostEur` term. Must be > -100.
+- `Optimizer._discountedLifetimeCost` replaces the old
+  `investment + horizonYears × netCostEur` closed form with
+  `investment + Σ_{y=1..N} netCostEur · (1 + e)^(y-1) / (1 + r)^y`
+  where `r = discountRatePct/100`, `e = priceEscalationPctPerYear/100`.
+  Reduces to the legacy formula when both rates are zero.
+- Engine version bumped `0.12.0 → 0.13.0`.
+
+### Added — App
+- Optimizer page gains two NumberFields in the prices card
+  (`Key('optimizer-discount-rate')`, `Key('optimizer-price-escalation')`)
+  plus a one-line hint that explains the 0/0 = legacy-formula
+  shortcut and notes that payback / IRR are still not computed.
+- `OptimizerController` forwards both new fields when it rebuilds the
+  effective spec from the draft.
+- ARB strings added in de/en/es/fr: `optimizerDiscountRate`,
+  `optimizerPriceEscalation`, `optimizerDiscountHint`.
+- App version bumped `0.8.1 → 0.8.2`.
+
+### Added — Tests
+- `packages/pv_engine/test/optimizer_test.dart` — five new cases:
+  - `discountRatePct=0 and escalation=0 reproduce the pre-NPV sum`
+    (closed-form parity vs. the legacy formula).
+  - `discount-only matches the analytic geometric series`
+    (horizon=2, r=5 %, closed-form check).
+  - `escalation-only matches the analytic geometric series`
+    (horizon=3, e=3 %, closed-form check).
+  - `discount and escalation cancel when equal` (r=e collapses the
+    per-year factor to `1/(1+r)` for every year).
+  - `rejects out-of-range discount/escalation rates`
+    (-100, -150, NaN).
+- `app/flutter_app/test/optimizer_controller_test.dart` —
+  `_RecordingRunner` captures the effective spec and asserts both
+  rates are forwarded unchanged from the page's spec to the runner.
+
 ### Fixed — App (review fixes for PR #32)
 - `OptimizerRunner` (native isolate): when `cancel()` lands on the same
   tick the isolate sends its final `OptimizerResult`, the result is now
