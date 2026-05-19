@@ -110,7 +110,10 @@ class PvCalculatorApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsController()..load()),
         ChangeNotifierProvider(
-          create: (_) => ProjectController(irradianceCache: irradianceCache),
+          create: (ctx) => ProjectController(
+            irradianceCache: irradianceCache,
+            settings: ctx.read<SettingsController>(),
+          ),
         ),
         Provider<AppDatabase>.value(value: database),
         Provider<ProjectRepository>(create: (_) => ProjectRepository(database)),
