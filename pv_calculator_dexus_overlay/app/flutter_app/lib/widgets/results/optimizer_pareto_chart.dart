@@ -24,17 +24,21 @@ class OptimizerParetoChart extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final frontier = result.paretoFrontier;
     if (frontier.isEmpty) return const SizedBox.shrink();
-    // `result.candidates` is truncated to `OptimizerSpec.topN`, but
-    // the frontier comes from the full pre-truncation set — so a
-    // frontier point may not appear in `candidates` and would be
-    // clipped from the bounds if we built `withCost` from candidates
-    // alone. Union both, deduped by identity.
-    final withCostSet = <OptimizerCandidate>{};
-    for (final c in result.candidates) {
-      if (c.lifetimeNetCostEur != null) withCostSet.add(c);
-    }
-    withCostSet.addAll(frontier);
-    final withCost = withCostSet.toList();
+    // The cloud must show every evaluated combo (not just the
+    // truncated `result.candidates` slice), otherwise users compare
+    // the Pareto frontier against an incomplete sweep and the
+    // "All candidates" legend lies. `result.allCandidates` is the
+    // full pre-truncation set; fall back to candidates ∪ frontier
+    // for engines that don't populate it (kept for backward
+    // compatibility with manually-constructed `OptimizerResult`s in
+    // older test doubles).
+    final source = result.allCandidates.isNotEmpty
+        ? result.allCandidates
+        : {...result.candidates, ...frontier}.toList();
+    final withCost = [
+      for (final c in source)
+        if (c.lifetimeNetCostEur != null) c,
+    ];
 
     if (withCost.isEmpty) return const SizedBox.shrink();
 

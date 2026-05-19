@@ -255,6 +255,13 @@ class OptimizerCandidate {
 /// (`lifetimeNetCostEur` × `autarkyRate`), sorted by cost ascending and
 /// independent of `topN` (computed from the full pre-truncation
 /// candidate set). Empty when no candidate has a tariff-derived cost.
+///
+/// `allCandidates` is every candidate that the simulator successfully
+/// ran for, in the same best-first order as `candidates` but **not**
+/// truncated. Lets UI surfaces (e.g. the Pareto scatter cloud) plot
+/// the full evaluated sweep instead of just the displayed top-N. The
+/// length equals `evaluated` (combos that failed validation or were
+/// skipped over budget never enter this list).
 class OptimizerResult {
   const OptimizerResult({
     required this.candidates,
@@ -262,6 +269,7 @@ class OptimizerResult {
     required this.skippedOverBudget,
     required this.failedValidation,
     this.paretoFrontier = const <OptimizerCandidate>[],
+    this.allCandidates = const <OptimizerCandidate>[],
   });
 
   final List<OptimizerCandidate> candidates;
@@ -269,6 +277,7 @@ class OptimizerResult {
   final int skippedOverBudget;
   final int failedValidation;
   final List<OptimizerCandidate> paretoFrontier;
+  final List<OptimizerCandidate> allCandidates;
 }
 
 /// Parametric sweep over a [SimulationConfig] template. Pure-Dart,
@@ -437,6 +446,7 @@ class Optimizer {
       final sb = _score(b, spec.objective);
       return sa.compareTo(sb);
     });
+    final allCandidates = List<OptimizerCandidate>.unmodifiable(candidates);
     final top = candidates.length <= spec.topN
         ? candidates
         : candidates.sublist(0, spec.topN);
@@ -447,6 +457,7 @@ class Optimizer {
       skippedOverBudget: skippedOverBudget,
       failedValidation: failedValidation,
       paretoFrontier: pareto,
+      allCandidates: allCandidates,
     );
   }
 

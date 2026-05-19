@@ -37,6 +37,11 @@ unchanged.
   before `OptimizerSpec.topN` slicing, so it is identical regardless of
   `topN`. A non-dominated combo cannot be silently dropped just because
   a different objective put it outside the top slice.
+- **`OptimizerResult.allCandidates`** (default `const []`) — full
+  pre-truncation list of every successfully simulated candidate, in
+  best-first order for the chosen objective. `result.candidates` is
+  its `topN` prefix. Lets UI surfaces (e.g. the Pareto scatter cloud)
+  plot the complete evaluated sweep rather than the displayed top-N.
 - Engine version bumped `0.13.0 → 0.14.0`.
 
 ### Added — App
