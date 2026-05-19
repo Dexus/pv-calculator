@@ -532,11 +532,22 @@ class MergedCatalog {
 }
 
 /// Parses the bundled seed-catalog document shape
-/// `{ "version": 1, "modules": [...], "inverters": [...], "batteries": [...] }`
-/// into a flat `List<CatalogEntry>`. The discriminator on each entry is
-/// inferred from the section it appears in (the section name is the
-/// authoritative source; an explicit `kind` on the JSON object is also
-/// accepted for forward-compatibility with mixed-section dumps).
+/// ```
+/// {
+///   "version": 2,
+///   "modules":           [...],
+///   "inverters":         [...],
+///   "batteries":         [...],
+///   "chargeControllers": [...]
+/// }
+/// ```
+/// into a flat `List<CatalogEntry>`. Supported `version` values are
+/// listed in [kSupportedSeedCatalogVersions] — currently `{1, 2}`.
+/// Every section is optional; missing sections produce zero entries
+/// of that kind. The discriminator on each entry is inferred from
+/// the section it appears in (the section name is the authoritative
+/// source; an explicit `kind` on the JSON object is also accepted
+/// for forward-compatibility with mixed-section dumps).
 /// The seed-catalog versions this parser understands. Bump when the
 /// document shape changes incompatibly (e.g. renamed sections, removed
 /// required fields). Forward-compatible field additions on entries

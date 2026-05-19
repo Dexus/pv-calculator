@@ -361,6 +361,40 @@ void main() {
     expect(saved.unitPriceEur, 350.0);
   });
 
+  testWidgets('MPPT count field refuses decimals at the input layer',
+      (tester) async {
+    final repo = CatalogRepository(
+      seedSource: InMemoryCatalogSource(const [], writable: false),
+      userSource: InMemoryCatalogSource(const []),
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Laderegler'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+        find.byKey(const Key('catalog-manager-add-chargeController')));
+    await tester.pumpAndSettle();
+
+    // Scroll the MPPT field into view, then type a decimal — the
+    // digit-only formatter should drop the '.' so the controller ends
+    // up with `15`, not `1.5`. This is what prevents a save-time
+    // `FormatException` from `int.parse`.
+    await tester.drag(
+        find.byKey(const Key('catalog-editor-cc-efficiency')),
+        const Offset(0, -500),
+        warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const Key('catalog-editor-cc-mppt-count')), '1.5');
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextFormField>(
+        find.byKey(const Key('catalog-editor-cc-mppt-count')));
+    expect(field.controller!.text, '15',
+        reason: 'integerOnly formatter must strip the decimal point');
+  });
+
   testWidgets('seed-duplicate for charge controller carries fields + price',
       (tester) async {
     const seed = ChargeControllerCatalogEntry(
