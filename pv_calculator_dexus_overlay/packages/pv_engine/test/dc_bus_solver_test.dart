@@ -188,6 +188,50 @@ void main() {
       expect(outcome.curtailedDcKwh, closeTo(8.5, 1e-9));
     });
 
+    test('batteryFed bus allows battery discharge through the bus inverter', () {
+      // Codex P2 (Chunk A): pre-fix the solver treated `batteryFed`
+      // as "no inverter path at all", so a battery on a batteryFed
+      // bus couldn't serve load even with a wired inverter and
+      // stored energy. Battery → inverter is the WHOLE POINT of
+      // batteryFed; only PV bypass is forbidden.
+      final outcome = solver.solve(DcBusInput(
+        busId: 'dc-1',
+        mode: BusMode.batteryFed,
+        pvDcInKwh: 0.0,
+        loadAcShareKwh: 2.0,
+        batteries: [
+          _battery(usableStoredKwh: 5.0, dischargeRateKwh: 5.0),
+        ],
+        stepHours: 1.0,
+        busInverter: _inv(acRemainingKwh: 10.0),
+      ));
+      expect(outcome.dischargeAcKwh, closeTo(2.0, 1e-9));
+      expect(outcome.batteryDischargesDcKwh[0], closeTo(2.0, 1e-9));
+      expect(outcome.bypassAcKwh, closeTo(0.0, 1e-9));
+    });
+
+    test('inverter DC input cap is interpreted at the inverter, not bus-side', () {
+      // Codex P2 (Chunk A): with lossy edge η=0.5 and inverter
+      // input cap 5 kWh, the bus-side equivalent is 10 kWh. 10 kWh
+      // of bus-side PV should fit and produce 10 × 0.5 × 1.0 = 5 kWh
+      // AC. Pre-fix the solver compared `dcAmount` (bus-side) to
+      // `invDcRemaining` (inverter-side) directly, clipping at 5
+      // kWh bus-side → only 2.5 kWh AC after the edge.
+      final outcome = solver.solve(_hybrid(
+        pvDcInKwh: 10.0,
+        batteries: [_battery(headroomStoredKwh: 0.0)],
+        busInverter: _inv(
+          edgeEta: 0.5,
+          invEta: 1.0,
+          acRemainingKwh: 100.0,
+          dcRemainingKwh: 5.0,
+        ),
+      ));
+      expect(outcome.inverterDcConsumedKwh, closeTo(10.0, 1e-9));
+      expect(outcome.bypassAcKwh, closeTo(5.0, 1e-9));
+      expect(outcome.curtailedDcKwh, closeTo(0.0, 1e-9));
+    });
+
     test('charge-only hybrid bus (no busInverter) curtails PV beyond battery', () {
       final outcome = solver.solve(DcBusInput(
         busId: 'dc-1',
