@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:pv_engine/pv_engine.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../../state/config_draft.dart';
@@ -116,17 +117,42 @@ class _DcBusesEditor extends StatelessWidget {
       for (var i = 0; i < topo.dcBuses.length; i++)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(children: [
+          child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
             SizedBox(width: 180, child: StringField(
               key: ValueKey('topology-dc-${topo.dcBuses[i].id}-id'),
               label: l.fieldId, initialValue: topo.dcBuses[i].id, required: true,
               onChanged: (v) { topo.dcBuses[i].id = v; onChanged(); },
             )),
-            const SizedBox(width: 8),
             SizedBox(width: 220, child: StringField(
               label: l.fieldLabel, initialValue: topo.dcBuses[i].label,
               onChanged: (v) { topo.dcBuses[i].label = v; onChanged(); },
             )),
+            SizedBox(
+              width: 220,
+              child: DropdownButtonFormField<BusMode>(
+                key: ValueKey('topology-dc-${topo.dcBuses[i].id}-mode'),
+                isExpanded: true,
+                initialValue: topo.dcBuses[i].mode,
+                decoration: InputDecoration(
+                  labelText: l.dcBusModeLabel,
+                  isDense: true,
+                  helperText: topo.dcBuses[i].mode == BusMode.batteryFed
+                      ? l.dcBusModeBatteryFedHelp
+                      : l.dcBusModeHybridHelp,
+                  helperMaxLines: 3,
+                ),
+                items: [
+                  DropdownMenuItem(value: BusMode.hybrid, child: Text(l.dcBusModeHybrid)),
+                  DropdownMenuItem(value: BusMode.batteryFed, child: Text(l.dcBusModeBatteryFed)),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    topo.dcBuses[i].mode = v;
+                    onChanged();
+                  }
+                },
+              ),
+            ),
             IconButton(
               tooltip: l.commonRemove,
               onPressed: () { topo.dcBuses.removeAt(i); onChanged(); },

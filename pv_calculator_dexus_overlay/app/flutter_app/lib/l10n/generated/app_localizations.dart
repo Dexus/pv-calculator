@@ -1261,6 +1261,90 @@ abstract class AppLocalizations {
   /// **'Standard-Netz-Wechselrichter ohne harte AC-Hürde.'**
   String get invertersRoleGridHelp;
 
+  /// No description provided for @chargeControllersTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Laderegler (MPPT)'**
+  String get chargeControllersTitle;
+
+  /// No description provided for @chargeControllersEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine Laderegler konfiguriert.'**
+  String get chargeControllersEmpty;
+
+  /// No description provided for @chargeControllersDefaultLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Laderegler {n}'**
+  String chargeControllersDefaultLabel(int n);
+
+  /// No description provided for @chargeControllersHeading.
+  ///
+  /// In de, this message translates to:
+  /// **'Laderegler {n}'**
+  String chargeControllersHeading(int n);
+
+  /// No description provided for @chargeControllersFieldDcBusId.
+  ///
+  /// In de, this message translates to:
+  /// **'DC-Bus'**
+  String get chargeControllersFieldDcBusId;
+
+  /// No description provided for @chargeControllersFieldDcBusIdHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'ID des DC-Busses, an dem dieser Laderegler die Batterie speist. Im Legacy-Modus (ohne Topologie-Editor) sind die Busse automatisch nach dem Wechselrichter benannt, z. B. `dc-main`.'**
+  String get chargeControllersFieldDcBusIdHelp;
+
+  /// No description provided for @chargeControllersFieldEfficiency.
+  ///
+  /// In de, this message translates to:
+  /// **'Wirkungsgrad'**
+  String get chargeControllersFieldEfficiency;
+
+  /// No description provided for @chargeControllersFieldMaxInputKw.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. PV-Eingang'**
+  String get chargeControllersFieldMaxInputKw;
+
+  /// No description provided for @chargeControllersFieldMaxInputKwHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'Optionale Begrenzung der PV-Eingangsleistung. Überschuss wird vor dem DC-Bus geclippt und als DC-Abregelung erfasst.'**
+  String get chargeControllersFieldMaxInputKwHelp;
+
+  /// No description provided for @dcBusModeLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Modus'**
+  String get dcBusModeLabel;
+
+  /// No description provided for @dcBusModeHybrid.
+  ///
+  /// In de, this message translates to:
+  /// **'Hybrid'**
+  String get dcBusModeHybrid;
+
+  /// No description provided for @dcBusModeBatteryFed.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur über Batterie'**
+  String get dcBusModeBatteryFed;
+
+  /// No description provided for @dcBusModeHybridHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'PV darf bei vollem Speicher direkt über den DC-Bus den Wechselrichter speisen (PV → DC-Bus → Inverter → AC).'**
+  String get dcBusModeHybridHelp;
+
+  /// No description provided for @dcBusModeBatteryFedHelp.
+  ///
+  /// In de, this message translates to:
+  /// **'PV erreicht das AC-Netz ausschließlich über die Batterie. PV-Überschuss bei vollem Speicher wird abgeregelt.'**
+  String get dcBusModeBatteryFedHelp;
+
   /// No description provided for @batteriesTitle.
   ///
   /// In de, this message translates to:
