@@ -123,12 +123,10 @@ class MonthlyBucket {
   final double curtailedExportKwh;
 
   /// Grid-import cost in € for the month. `0.0` whenever no tariff was
-  /// configured. Sum across all 12 buckets matches
-  /// `SimulationSummary.importCostEur` within floating-point tolerance
-  /// **for single-year runs only**: on a multi-year result the engine
-  /// keeps `steps` for the final year while the summary aggregates
-  /// every year, so the buckets reflect the final year while the
-  /// summary scalar covers the whole horizon.
+  /// configured. On a multi-year run, callers that need a per-year
+  /// breakdown should read `SimulationSummary.perYearMonthly[y]`; the
+  /// top-level `SummaryAggregator.monthly(result.steps)` only sees the
+  /// final year's step buffer.
   final double importCostEur;
 
   /// Grid-export revenue in € for the month. Same zero-when-no-tariff
@@ -137,6 +135,42 @@ class MonthlyBucket {
 
   /// Derived net cost: [importCostEur] minus [exportRevenueEur].
   double get netCostEur => importCostEur - exportRevenueEur;
+
+  /// Canonical JSON encoding. Named-key map (not positional) so a
+  /// truncated or reordered persistence record stays decodable; the
+  /// ~5 KB overhead per multi-year run is dwarfed by the existing
+  /// `summary_json` blob.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'month': month,
+        'pvAcKwh': pvAcKwh,
+        'loadKwh': loadKwh,
+        'selfConsumptionKwh': selfConsumptionKwh,
+        'batteryChargeKwh': batteryChargeKwh,
+        'batteryDischargeKwh': batteryDischargeKwh,
+        'gridImportKwh': gridImportKwh,
+        'gridExportKwh': gridExportKwh,
+        'curtailedDcKwh': curtailedDcKwh,
+        'curtailedAcKwh': curtailedAcKwh,
+        'curtailedExportKwh': curtailedExportKwh,
+        'importCostEur': importCostEur,
+        'exportRevenueEur': exportRevenueEur,
+      };
+
+  static MonthlyBucket fromJson(Map<String, dynamic> json) => MonthlyBucket(
+        month: (json['month'] as num).toInt(),
+        pvAcKwh: _toDouble(json['pvAcKwh']),
+        loadKwh: _toDouble(json['loadKwh']),
+        selfConsumptionKwh: _toDouble(json['selfConsumptionKwh']),
+        batteryChargeKwh: _toDouble(json['batteryChargeKwh']),
+        batteryDischargeKwh: _toDouble(json['batteryDischargeKwh']),
+        gridImportKwh: _toDouble(json['gridImportKwh']),
+        gridExportKwh: _toDouble(json['gridExportKwh']),
+        curtailedDcKwh: _toDouble(json['curtailedDcKwh']),
+        curtailedAcKwh: _toDouble(json['curtailedAcKwh']),
+        curtailedExportKwh: _toDouble(json['curtailedExportKwh']),
+        importCostEur: _toDouble(json['importCostEur'] ?? 0.0),
+        exportRevenueEur: _toDouble(json['exportRevenueEur'] ?? 0.0),
+      );
 }
 
 class SummaryAggregator {

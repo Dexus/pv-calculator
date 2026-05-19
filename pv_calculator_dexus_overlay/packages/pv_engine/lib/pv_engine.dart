@@ -43,7 +43,7 @@ part 'src/optimizer.dart';
 /// `packages/pv_engine/pubspec.yaml` `version:` and is bumped on every
 /// change that can shift simulation results. Persisted alongside scenarios
 /// and simulation runs for reproducibility (PRD NFR-05).
-const String kEngineVersion = '0.16.0';
+const String kEngineVersion = '0.17.0';
 
 /// Reproducibility helpers on [SimulationConfig]. Kept as an extension so
 /// the core class stays pure data — adding `inputHash` here makes it clear
@@ -1077,6 +1077,7 @@ class SimulationSummary {
     this.convergenceIterations = 0,
     this.converged = true,
     this.perYearSummaries = const [],
+    this.perYearMonthly = const [],
     this.importCostEur,
     this.exportRevenueEur,
     this.netCostEur,
@@ -1173,6 +1174,16 @@ class SimulationSummary {
   /// `perYearSummaries = const []` (no nesting).
   final List<SimulationSummary> perYearSummaries;
 
+  /// Per-year monthly breakdown. Outer index aligns 1:1 with
+  /// [perYearSummaries]; each inner list is the 12-entry monthly
+  /// aggregate produced by [SummaryAggregator.monthly] over that
+  /// year's step buffer. Empty for single-year runs — call
+  /// `SummaryAggregator.monthly(result.steps)` directly for those.
+  /// Inner per-year summaries themselves carry
+  /// `perYearMonthly = const []` (no nesting). Persisted alongside
+  /// [perYearSummaries] in the app's `simulation_runs.summary_json`.
+  final List<List<MonthlyBucket>> perYearMonthly;
+
   /// Total cost paid for grid imports over the reporting horizon, in
   /// €. `null` when `SimulationConfig.tariff` is null (no economics
   /// computed). Sign-positive (always a cost).
@@ -1225,6 +1236,14 @@ class SimulationSummary {
     if (perYearSummaries.length >= 2) {
       json['perYearSummaries'] =
           perYearSummaries.map((s) => s.toJson()).toList(growable: false);
+      // Gate on the same `>= 2` threshold as `perYearSummaries`: per-
+      // year monthly only carries meaning when the run was multi-year.
+      if (perYearMonthly.isNotEmpty) {
+        json['perYearMonthly'] = perYearMonthly
+            .map((year) =>
+                year.map((b) => b.toJson()).toList(growable: false))
+            .toList(growable: false);
+      }
     }
     if (importCostEur != null) json['importCostEur'] = importCostEur;
     if (exportRevenueEur != null) json['exportRevenueEur'] = exportRevenueEur;
@@ -1243,6 +1262,15 @@ class SimulationSummary {
             .map((e) => SimulationSummary.fromJson((e as Map).cast<String, dynamic>()))
             .toList(growable: false)
         : const <SimulationSummary>[];
+    final rawPerYearMonthly = json['perYearMonthly'];
+    final perYearMonthly = rawPerYearMonthly is List
+        ? rawPerYearMonthly
+            .map((year) => (year as List)
+                .map((b) =>
+                    MonthlyBucket.fromJson((b as Map).cast<String, dynamic>()))
+                .toList(growable: false))
+            .toList(growable: false)
+        : const <List<MonthlyBucket>>[];
     return SimulationSummary(
       pvDcKwh: _toDouble(json['pvDcKwh']),
       pvAcKwh: _toDouble(json['pvAcKwh']),
@@ -1272,6 +1300,7 @@ class SimulationSummary {
       convergenceIterations: (json['convergenceIterations'] as num?)?.toInt() ?? 0,
       converged: (json['converged'] as bool?) ?? true,
       perYearSummaries: perYear,
+      perYearMonthly: perYearMonthly,
       importCostEur: json['importCostEur'] == null
           ? null
           : _toDouble(json['importCostEur']),
@@ -1622,6 +1651,7 @@ class PvSimulator {
       {ProgressCallback? onProgress}) {
     final years = config.simulationYears;
     final perYear = <SimulationSummary>[];
+    final perYearMonthly = <List<MonthlyBucket>>[];
     SimulationResult? last;
     // SOC ledger carried between years. Initialise from the configured
     // initial SOC of every battery; subsequent years overwrite this
@@ -1671,10 +1701,12 @@ class PvSimulator {
         longitudeDeg: config.longitudeDeg,
         weatherSource: config.weatherSource,
         temperatureModel: config.temperatureModel,
-        // Only keep per-step data for the final year; earlier years
-        // would be discarded anyway and `keepSteps:false` saves the
-        // ~9 MiB quarter-hourly buffer allocation per year.
-        keepSteps: config.keepSteps && y == years - 1,
+        // Need the per-year step buffer to compute the year's monthly
+        // aggregate (`perYearMonthly[y]`). The buffer is freed before
+        // the next iteration starts, so peak memory is one year ×
+        // ~9 MiB (quarter-hourly) — unchanged from pre-Phase-10 where
+        // the final year alone always allocated it.
+        keepSteps: true,
         simulationYears: 1,
         tariff: config.tariff,
       );
@@ -1698,11 +1730,17 @@ class PvSimulator {
       final res = const PvSimulator()
           .run(yearConfig, onProgress: yearProgress);
       perYear.add(res.summary);
+      perYearMonthly.add(
+        List<MonthlyBucket>.unmodifiable(
+          SummaryAggregator.monthly(res.steps),
+        ),
+      );
       carriedSocs = res.summary.finalBatterySocsKwh.toList();
       last = res;
     }
     final aggregated = _aggregateYears(
       perYear,
+      perYearMonthly: perYearMonthly,
       preRunMode: config.preRunMode,
       // Multi-year always exercises at least one year of settling; the
       // top-level `preRunActive` reflects whether year 0 ran a warm-up.
@@ -1710,8 +1748,12 @@ class PvSimulator {
       startSocsUsedKwh: perYear.first.startSocsUsedKwh,
       finalSocsKwh: last!.summary.finalBatterySocsKwh,
     );
+    // Honour the user's original `keepSteps` opt-out: even though every
+    // year was simulated with `keepSteps: true` (to feed monthly), the
+    // user-facing `result.steps` only exposes the final year when they
+    // asked for steps.
     return SimulationResult(
-      steps: last.steps,
+      steps: config.keepSteps ? last.steps : const [],
       summary: aggregated,
     );
   }
@@ -1721,6 +1763,7 @@ class PvSimulator {
   /// `perYearSummaries`.
   SimulationSummary _aggregateYears(
     List<SimulationSummary> perYear, {
+    required List<List<MonthlyBucket>> perYearMonthly,
     required PreRunMode preRunMode,
     required bool preRunActive,
     required List<double> startSocsUsedKwh,
@@ -1801,6 +1844,7 @@ class PvSimulator {
       convergenceIterations: preRunActive ? 1 : 0,
       converged: true,
       perYearSummaries: List<SimulationSummary>.unmodifiable(perYear),
+      perYearMonthly: List<List<MonthlyBucket>>.unmodifiable(perYearMonthly),
       importCostEur: tariffActive ? importCost : null,
       exportRevenueEur: tariffActive ? exportRev : null,
       netCostEur: tariffActive ? importCost - exportRev : null,
