@@ -11,7 +11,7 @@
 /// `currentSchemaVersion` is the on-disk version this build understands.
 /// Bump it when adding columns or tables and add a corresponding `from N to
 /// N+1` block in [AppDatabase._upgrade].
-const int currentSchemaVersion = 4;
+const int currentSchemaVersion = 5;
 
 /// Statements executed on a fresh database. Listed once here so tests and
 /// production share the same source of truth. `IF NOT EXISTS` keeps re-runs
@@ -169,3 +169,11 @@ const List<String> migrationV3ToV4 = [
   'ALTER TABLE component_catalog__new RENAME TO component_catalog',
   'CREATE INDEX IF NOT EXISTS component_catalog_kind_idx ON component_catalog(kind)',
 ];
+
+/// SQL statements for the v4 → v5 migration. Empty: the engine 0.17.0
+/// per-year monthly buckets (`SimulationSummary.perYearMonthly`) are
+/// nested inside `simulation_runs.summary_json`, an opaque TEXT blob,
+/// so no DDL is needed. The version bump exists so an older build
+/// refuses to open a v5 store rather than silently dropping the new
+/// `perYearMonthly` field on read-back.
+const List<String> migrationV4ToV5 = <String>[];

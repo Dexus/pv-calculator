@@ -186,7 +186,7 @@ void main() {
       final db = AppDatabase.wrapForTesting(raw);
       addTearDown(db.close);
 
-      expect(currentSchemaVersion, 4);
+      expect(currentSchemaVersion, 5);
       final ver = raw
           .select("SELECT value FROM app_meta WHERE key = 'schema_version'")
           .single['value'];

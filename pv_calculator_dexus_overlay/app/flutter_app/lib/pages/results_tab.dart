@@ -26,6 +26,7 @@ import '../widgets/forms/tariff_section.dart';
 import '../widgets/forms/topology_section.dart';
 import '../widgets/results/bank_runtime_chart.dart';
 import '../widgets/results/monthly_table.dart';
+import '../widgets/results/per_year_monthly_section.dart';
 import '../widgets/settings_page.dart';
 import 'optimizer_page.dart';
 
@@ -633,6 +634,16 @@ class _ResultsBody extends StatelessWidget {
         buckets: monthly,
         showCashflow: s.importCostEur != null,
       ))),
+      if (s.perYearMonthly.isNotEmpty) ...[
+        const SizedBox(height: 24),
+        Text(l.perYearMonthlyTitle,
+            style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 12),
+        PerYearMonthlySection(
+          perYearMonthly: s.perYearMonthly,
+          showCashflow: s.importCostEur != null,
+        ),
+      ],
       const SizedBox(height: 24),
       Wrap(spacing: 12, runSpacing: 12, children: [
         FilledButton.tonalIcon(
@@ -658,6 +669,17 @@ class _ResultsBody extends StatelessWidget {
           icon: const Icon(Icons.file_download),
           label: Text(l.resultsCsvMonthly),
         ),
+        if (s.perYearMonthly.isNotEmpty)
+          FilledButton.tonalIcon(
+            key: const Key('export-per-year-monthly-csv'),
+            onPressed: () => _exportCsv(
+              context,
+              filename: '${_safe(projectName)}_monatlich_pro_jahr.csv',
+              content: perYearMonthlyCsv(s.perYearMonthly),
+            ),
+            icon: const Icon(Icons.file_download),
+            label: Text(l.resultsCsvPerYearMonthly),
+          ),
         // PDF report (Pro). Always rendered so the user knows the
         // feature exists; disabled in the free build with the (Pro)
         // suffix. Wrapped in a tooltip when disabled so hover/long-press
