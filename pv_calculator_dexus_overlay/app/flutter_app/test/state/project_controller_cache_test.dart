@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -132,6 +133,60 @@ void main() {
       expect(apiHits, 1, reason: 'second load should hit the local cache');
       expect(controller.draft.siteIrradiance.samples, isNotNull);
       expect(controller.draft.siteIrradiance.loadedFromCache, isTrue);
+    });
+
+    test('moving the pin mid-fetch caches under the captured key but discards the draft write',
+        () async {
+      // Race: a user edits lat/lon (or year/db) while a PVGIS request
+      // is in flight. The response is genuinely valid for the
+      // *original* request, so it must still land in the local cache,
+      // but it must not silently pin onto the moved-pin draft — that's
+      // the silent wrong-weather bug the reviewers flagged.
+      final pending = Completer<http.Response>();
+      final api = PvgisApiService(
+        client: MockClient((_) async => pending.future),
+        endpoint: 'https://proxy.example.test',
+        minimumInterval: Duration.zero,
+      );
+      addTearDown(api.dispose);
+
+      final controller = ProjectController(pvgisApi: api, irradianceCache: cache);
+      addTearDown(controller.dispose);
+
+      final origLat = controller.draft.latitudeDeg;
+      final origLon = controller.draft.longitudeDeg;
+      final origYear = controller.draft.siteIrradiance.year;
+      final origDb = controller.draft.siteIrradiance.radDatabase;
+
+      final loadFuture = controller.loadSiteIrradiance();
+      // Let the http stack schedule its handler invocation.
+      await Future<void>.delayed(Duration.zero);
+
+      // Mid-fetch: user picks a different site on the map.
+      controller.draft.latitudeDeg = 40.0;
+      controller.draft.longitudeDeg = -3.0;
+
+      pending.complete(http.Response(
+        _pvgisStub(),
+        200,
+        headers: {'content-type': 'application/json'},
+      ));
+      await loadFuture;
+
+      // The response is still cached under the *original* request key
+      // — discarded for the draft, not lost.
+      expect(
+        cache.lookup(
+          latitudeDeg: origLat,
+          longitudeDeg: origLon,
+          year: origYear,
+          radDatabase: origDb,
+        ),
+        isNotNull,
+      );
+      // And the moved-pin draft is not wearing the old location's
+      // samples.
+      expect(controller.draft.siteIrradiance.samples, isNull);
     });
 
     test('loadDraft auto-loads irradiance from cache without touching the API',

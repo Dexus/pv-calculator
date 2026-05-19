@@ -239,12 +239,19 @@ class _ProjectsTabState extends State<ProjectsTab> {
     );
     if (name == null || name.trim().isEmpty) return;
     // Seed the new scenario at the project's location rather than the
-    // hard-coded demo coordinates — otherwise adding a "Variante" to an
-    // existing Spanish or northern project would silently snap back to
-    // Frankfurt.
+    // hard-coded demo coordinates. Prefer an existing scenario's
+    // config coords (the user authored them via wizard/save/import) and
+    // fall back to the `sites` row only when no scenarios exist — some
+    // legacy creation paths (import, save-current on an unsaved draft)
+    // leave the site row at the repository fallback while the saved
+    // scenarios already carry the real location.
     final site = _projects.defaultSiteFor(project.id);
+    final existing = _scenarios.listForProject(project.id);
     final newDraft = ConfigDraft.demo();
-    if (site != null) {
+    if (existing.isNotEmpty) {
+      newDraft.latitudeDeg = existing.first.config.latitudeDeg;
+      newDraft.longitudeDeg = existing.first.config.longitudeDeg;
+    } else if (site != null) {
       newDraft.latitudeDeg = site.latitudeDeg;
       newDraft.longitudeDeg = site.longitudeDeg;
     }

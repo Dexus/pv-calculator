@@ -99,6 +99,35 @@ void main() {
       );
     });
 
+    test('irradianceYear / irradianceRadDatabase round-trip through toJson', () {
+      // These metadata fields are opt-in: legacy configs that never
+      // set them must not see them in toJson (keeps existing
+      // input_hash values stable), but when the app does set them the
+      // values have to survive a JSON round-trip so reopened scenarios
+      // restore the user's PVGIS choices.
+      final defaultConfig = _config();
+      expect(defaultConfig.toJson().containsKey('irradianceYear'), isFalse);
+      expect(defaultConfig.toJson().containsKey('irradianceRadDatabase'),
+          isFalse);
+
+      final withMetadata = SimulationConfig(
+        arrays: defaultConfig.arrays,
+        inverters: defaultConfig.inverters,
+        batteries: defaultConfig.batteries,
+        loadProfile: defaultConfig.loadProfile,
+        days: 365,
+        irradianceYear: 2018,
+        irradianceRadDatabase: 'PVGIS-ERA5',
+      );
+      final json = withMetadata.toJson();
+      expect(json['irradianceYear'], 2018);
+      expect(json['irradianceRadDatabase'], 'PVGIS-ERA5');
+      final decoded =
+          SimulationConfig.fromJson(jsonDecode(jsonEncode(json)));
+      expect(decoded.irradianceYear, 2018);
+      expect(decoded.irradianceRadDatabase, 'PVGIS-ERA5');
+    });
+
     test('unknown schema version throws ArgumentError', () {
       expect(
         () => SimulationConfig.fromJson({

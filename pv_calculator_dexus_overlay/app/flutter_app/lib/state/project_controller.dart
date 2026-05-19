@@ -255,6 +255,26 @@ class ProjectController extends ChangeNotifier {
     _loadingIrradiance = true;
     _lastIrradianceError = null;
     notifyListeners();
+    // Capture the request key *before* any await so a draft swap or a
+    // lat/lon/year/db edit mid-request can't pin the response to the
+    // wrong location. `loadDraft` and the irradiance form both bump
+    // `_runGeneration`, so comparing it after the await tells us
+    // whether the draft we're still meant to write to is the same one
+    // we started for. The draft instance is captured too because
+    // `_draft` itself may have been replaced.
+    final draftAtStart = _draft;
+    final generationAtStart = _runGeneration;
+    final reqLat = draftAtStart.latitudeDeg;
+    final reqLon = draftAtStart.longitudeDeg;
+    final reqYear = draftAtStart.siteIrradiance.year;
+    final reqDb = draftAtStart.siteIrradiance.radDatabase;
+    bool stillCurrent() =>
+        identical(_draft, draftAtStart) &&
+        _runGeneration == generationAtStart &&
+        _draft.latitudeDeg == reqLat &&
+        _draft.longitudeDeg == reqLon &&
+        _draft.siteIrradiance.year == reqYear &&
+        _draft.siteIrradiance.radDatabase == reqDb;
     try {
       // 1) Local DB cache — instant, no network. Shared across every
       // project that uses the same (lat, lon, year, radDatabase), so a
@@ -262,40 +282,48 @@ class ProjectController extends ChangeNotifier {
       final cache = _irradianceCache;
       if (cache != null) {
         final cached = cache.lookup(
-          latitudeDeg: _draft.latitudeDeg,
-          longitudeDeg: _draft.longitudeDeg,
-          year: _draft.siteIrradiance.year,
-          radDatabase: _draft.siteIrradiance.radDatabase,
+          latitudeDeg: reqLat,
+          longitudeDeg: reqLon,
+          year: reqYear,
+          radDatabase: reqDb,
         );
         if (cached != null) {
-          _draft.siteIrradiance.samples = cached;
-          _draft.siteIrradiance.loadedFromCache = true;
-          _result = null;
-          _resultCache.clear();
-          _runGeneration++;
+          if (stillCurrent()) {
+            _draft.siteIrradiance.samples = cached;
+            _draft.siteIrradiance.loadedFromCache = true;
+            _result = null;
+            _resultCache.clear();
+            _runGeneration++;
+          }
           return;
         }
       }
       // 2) PVGIS — write through to the local cache on success.
       final result = await _pvgisApi.fetchHorizontalSeries(
-        latitudeDeg: _draft.latitudeDeg,
-        longitudeDeg: _draft.longitudeDeg,
-        year: _draft.siteIrradiance.year,
-        radDatabase: _draft.siteIrradiance.radDatabase,
+        latitudeDeg: reqLat,
+        longitudeDeg: reqLon,
+        year: reqYear,
+        radDatabase: reqDb,
       );
-      _draft.siteIrradiance.samples = result.series;
-      _draft.siteIrradiance.loadedFromCache = result.fromCache;
-      // Key the cache on the *requested* coords/year/db so the next call
-      // at the same draft location hits, even if PVGIS snapped the
-      // sample to a slightly different grid point and reported that in
-      // the response metadata.
+      // Cache write is unconditional: the response is genuinely valid
+      // for the (reqLat, reqLon, reqYear, reqDb) tuple even if the
+      // user has since switched to a different draft, so future
+      // requests at the same location still benefit.
       cache?.store(
-        latitudeDeg: _draft.latitudeDeg,
-        longitudeDeg: _draft.longitudeDeg,
-        year: _draft.siteIrradiance.year,
-        radDatabase: _draft.siteIrradiance.radDatabase,
+        latitudeDeg: reqLat,
+        longitudeDeg: reqLon,
+        year: reqYear,
+        radDatabase: reqDb,
         series: result.series,
       );
+      if (!stillCurrent()) {
+        // Draft/site changed mid-flight — don't pin the old location's
+        // data onto the new draft. The new draft has its own auto-load
+        // (or will), so we're not silently dropping work.
+        return;
+      }
+      _draft.siteIrradiance.samples = result.series;
+      _draft.siteIrradiance.loadedFromCache = result.fromCache;
       // Invalidate any previous simulation: the site weather just
       // changed under it. The hash-keyed result cache also has to go,
       // because `SimulationConfig.toJson()` does not serialise the
@@ -309,9 +337,9 @@ class ProjectController extends ChangeNotifier {
       // must not commit its (stale-weather) result over the new state.
       _runGeneration++;
     } on PvgisApiException catch (e) {
-      _lastIrradianceError = e.message;
+      if (stillCurrent()) _lastIrradianceError = e.message;
     } catch (e) {
-      _lastIrradianceError = e.toString();
+      if (stillCurrent()) _lastIrradianceError = e.toString();
     } finally {
       _loadingIrradiance = false;
       notifyListeners();

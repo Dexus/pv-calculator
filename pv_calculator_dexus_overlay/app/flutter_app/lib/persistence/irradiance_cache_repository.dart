@@ -20,7 +20,10 @@ class IrradianceCacheRepository {
   final AppDatabase _db;
 
   /// Returns the cached series for the given site/year, or `null` if no
-  /// entry exists.
+  /// entry exists. A corrupt or schema-incompatible row is treated as a
+  /// miss and deleted so the cache self-heals on the next write — a
+  /// `FormatException` here would otherwise block falling back to a
+  /// fresh PVGIS fetch.
   HorizontalIrradianceSeries? lookup({
     required double latitudeDeg,
     required double longitudeDeg,
@@ -38,8 +41,14 @@ class IrradianceCacheRepository {
       [key],
     );
     if (rows.isEmpty) return null;
-    final raw = jsonDecode(rows.first['payload_json'] as String) as Map<String, dynamic>;
-    return HorizontalIrradianceSeries.fromJson(raw);
+    try {
+      final raw =
+          jsonDecode(rows.first['payload_json'] as String) as Map<String, dynamic>;
+      return HorizontalIrradianceSeries.fromJson(raw);
+    } catch (_) {
+      _db.db.execute('DELETE FROM irradiance_cache WHERE lookup_key = ?', [key]);
+      return null;
+    }
   }
 
   /// Inserts or replaces the cache row for [series] under the
@@ -91,8 +100,17 @@ class IrradianceCacheRepository {
     required int year,
     required String? radDatabase,
   }) {
-    final lat = latitudeDeg.toStringAsFixed(4);
-    final lon = longitudeDeg.toStringAsFixed(4);
-    return '$lat|$lon|$year|${radDatabase ?? ''}';
+    return '${_q(latitudeDeg)}|${_q(longitudeDeg)}|$year|${radDatabase ?? ''}';
+  }
+
+  /// Quantises a coordinate to four decimal places without producing a
+  /// negative-zero string. `(-0.00001).toStringAsFixed(4)` formats as
+  /// `"-0.0000"`, which would otherwise miss the `"0.0000"`-keyed entry
+  /// for the same effective location near the equator/prime meridian.
+  /// Rounding via integer math collapses the sign first.
+  static String _q(double value) {
+    final rounded = (value * 10000).round() / 10000;
+    final normalised = rounded == 0 ? 0.0 : rounded;
+    return normalised.toStringAsFixed(4);
   }
 }

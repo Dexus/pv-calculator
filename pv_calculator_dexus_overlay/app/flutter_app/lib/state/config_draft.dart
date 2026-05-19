@@ -380,6 +380,18 @@ class ConfigDraft {
       weatherSource: buildWeatherSource(),
       simulationYears: simulationYears,
       tariff: tariff.build(includeTou: true),
+      // Persist the user's PVGIS year/db only when they deviate from
+      // the app defaults. Pre-this-PR scenarios kept `inputHash` byte-
+      // identical because these fields were absent; mirror that by
+      // omitting them in the default case so existing simulation_runs
+      // cache entries keep matching after the upgrade.
+      irradianceYear: siteIrradiance.year == defaultIrradianceYear
+          ? null
+          : siteIrradiance.year,
+      irradianceRadDatabase:
+          siteIrradiance.radDatabase == defaultRadDatabase
+              ? null
+              : siteIrradiance.radDatabase,
     );
   }
 
@@ -473,6 +485,13 @@ class ConfigDraft {
             ? TopologyGraphDraft()
             : TopologyGraphDraft.fromGraph(config.topology!),
         tariff: TariffDraft.fromTariff(config.tariff),
+        // Restore the user's persisted PVGIS year/db when present;
+        // legacy scenarios (no field on disk) fall through to the app
+        // defaults via SiteIrradianceDraft's constructor.
+        siteIrradiance: SiteIrradianceDraft(
+          year: config.irradianceYear ?? defaultIrradianceYear,
+          radDatabase: config.irradianceRadDatabase ?? defaultRadDatabase,
+        ),
       );
 
   static ConfigDraft demo() => ConfigDraft(
