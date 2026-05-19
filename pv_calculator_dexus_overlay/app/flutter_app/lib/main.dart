@@ -14,6 +14,7 @@ import 'state/optimizer_controller.dart';
 import 'state/project_controller.dart';
 import 'state/scenario_comparison_controller.dart';
 import 'state/settings_controller.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -140,8 +141,9 @@ class PvCalculatorApp extends StatelessWidget {
           locale: settings.locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          theme: _buildTheme(Brightness.light),
-          darkTheme: _buildTheme(Brightness.dark),
+          theme: buildAppTheme(Brightness.light),
+          darkTheme: buildAppTheme(Brightness.dark),
+          builder: _clampTextScaleBuilder,
           home: const MainScaffold(),
         ),
       ),
@@ -149,17 +151,18 @@ class PvCalculatorApp extends StatelessWidget {
   }
 }
 
-ThemeData _buildTheme(Brightness brightness) {
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: Colors.amber,
-    brightness: brightness,
+/// Honor system text scale up to 1.6×. Beyond that the multi-column
+/// form sections (Arrays / Inverters / Batteries) start clipping the
+/// shared `NumberField` / `StringField` rows. Full 200% scale support
+/// is tracked in ROADMAP §Phase 8 → Verschoben, gated on a responsive
+/// form rewrite.
+Widget _clampTextScaleBuilder(BuildContext context, Widget? child) {
+  final clamped = MediaQuery.textScalerOf(context).clamp(
+    minScaleFactor: 1.0,
+    maxScaleFactor: 1.6,
   );
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: colorScheme,
-    inputDecorationTheme: const InputDecorationTheme(
-      isDense: true,
-      border: OutlineInputBorder(),
-    ),
+  return MediaQuery(
+    data: MediaQuery.of(context).copyWith(textScaler: clamped),
+    child: child ?? const SizedBox.shrink(),
   );
 }

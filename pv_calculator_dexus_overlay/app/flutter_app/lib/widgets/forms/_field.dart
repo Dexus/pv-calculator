@@ -17,6 +17,7 @@ class NumberField extends StatefulWidget {
     this.allowDecimal = true,
     this.helpText,
     this.enabled = true,
+    this.semanticsLabel,
   });
 
   final String label;
@@ -31,13 +32,20 @@ class NumberField extends StatefulWidget {
   /// Optional in-context explanation rendered behind a help icon. When
   /// non-null a tooltip is attached to the field's suffix icon — used
   /// on technical fields whose label alone (e.g. "NOCT") isn't
-  /// self-explanatory.
+  /// self-explanatory. Also routed into the field's `Semantics.hint` so
+  /// TalkBack/VoiceOver read it as part of the field announcement.
   final String? helpText;
 
   /// When `false`, the input is rendered greyed out and rejects edits.
   /// Used to gate Pro-only controls in the free build without removing
   /// them — the user still sees the field exists.
   final bool enabled;
+
+  /// Optional screen-reader-only label that overrides [label] in the
+  /// semantics tree (e.g. spelling out a unit the visible label
+  /// abbreviates). When `null`, [label] is used as both visible and
+  /// semantic label.
+  final String? semanticsLabel;
 
   @override
   State<NumberField> createState() => _NumberFieldState();
@@ -121,7 +129,7 @@ class _NumberFieldState extends State<NumberField> {
         : TextInputType.numberWithOptions(
             decimal: widget.allowDecimal, signed: false);
     final help = widget.helpText;
-    return TextFormField(
+    final field = TextFormField(
       controller: _controller,
       focusNode: _focusNode,
       enabled: widget.enabled,
@@ -158,6 +166,12 @@ class _NumberFieldState extends State<NumberField> {
         widget.onChanged(parsed);
       },
     );
+    return Semantics(
+      textField: true,
+      label: widget.semanticsLabel ?? widget.label,
+      hint: help,
+      child: ExcludeSemantics(child: field),
+    );
   }
 }
 
@@ -170,6 +184,7 @@ class IntField extends StatelessWidget {
     this.min,
     this.max,
     this.helpText,
+    this.semanticsLabel,
   });
 
   final String label;
@@ -178,6 +193,7 @@ class IntField extends StatelessWidget {
   final int? min;
   final int? max;
   final String? helpText;
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +204,7 @@ class IntField extends StatelessWidget {
       max: max?.toDouble(),
       allowDecimal: false,
       helpText: helpText,
+      semanticsLabel: semanticsLabel,
       onChanged: (v) {
         if (v != null) onChanged(v.toInt());
       },
@@ -203,6 +220,7 @@ class StringField extends StatefulWidget {
     required this.onChanged,
     this.required = false,
     this.helpText,
+    this.semanticsLabel,
   });
 
   final String label;
@@ -210,6 +228,7 @@ class StringField extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final bool required;
   final String? helpText;
+  final String? semanticsLabel;
 
   @override
   State<StringField> createState() => _StringFieldState();
@@ -242,7 +261,7 @@ class _StringFieldState extends State<StringField> {
   Widget build(BuildContext context) {
     final help = widget.helpText;
     final label = widget.required ? '${widget.label} *' : widget.label;
-    return TextFormField(
+    final field = TextFormField(
       controller: _controller,
       decoration: InputDecoration(
         labelText: label,
@@ -264,6 +283,12 @@ class _StringFieldState extends State<StringField> {
         return null;
       },
       onChanged: widget.onChanged,
+    );
+    return Semantics(
+      textField: true,
+      label: widget.semanticsLabel ?? label,
+      hint: help,
+      child: ExcludeSemantics(child: field),
     );
   }
 }

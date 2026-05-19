@@ -12,6 +12,82 @@ The two artefacts versioned here are:
 The About dialog in the app surfaces `appVersion (engine kEngineVersion)`
 so a deployed scenario can be tied to an exact engine revision (PRD NFR-05).
 
+## [Unreleased] — app 0.9.4
+
+Phase 8 follow-up — first pass of the a11y / design-system deferred
+item in `docs/ROADMAP.md` (Phase 8 → Verschoben:
+"Vollständiges Design-System & Schrift-Skalierung"). Closes three of
+the four sub-points (contrast-safe tokens, MediaQuery text-scale
+clamp, form-field Semantics); the remaining sub-point (full 200%
+scale + dynamic colors + external WCAG audit) stays deferred. UI-only;
+engine, schemas, and persistence are untouched.
+
+### Added — App
+
+- **`lib/theme.dart`** (new) extracts the previous inline
+  `_buildTheme` from `lib/main.dart` and tightens five token
+  categories on top of the existing
+  `ColorScheme.fromSeed(seedColor: Colors.amber, …)`:
+  - `IconButtonTheme` enforces `minimumSize: Size(48, 48)` and
+    `tapTargetSize: MaterialTapTargetSize.padded` — WCAG 2.5.5
+    minimum target.
+  - `InputDecorationTheme` adds `filled: true,
+    fillColor: scheme.surfaceContainerHighest` plus a 2 px
+    `focusedBorder` so the focus ring meets WCAG 1.4.11 non-text
+    contrast.
+  - `CardTheme` pins `elevation: 1` and a 12 px rounded shape so
+    every card on the Auswertung / Projekte / Optimizer pages
+    matches the existing `_KpiCard` visual.
+  - `FilledButtonTheme` / `OutlinedButtonTheme` / `TextButtonTheme`
+    pin `padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)`
+    so short-labelled buttons still meet the 48 px hit target.
+- **`MaterialApp.builder`** in `lib/main.dart` clamps
+  `MediaQuery.textScalerOf(context)` between `1.0` and `1.6`. The
+  multi-column form sections (Arrays / Inverters / Batteries) start
+  clipping the shared `NumberField` rows beyond ~1.6×; the clamp
+  preserves system-level accessibility scaling up to 160% while
+  preventing the layout from breaking. Full 200% support stays in
+  the ROADMAP Verschoben list, gated on a responsive form rewrite.
+- **`Semantics` wrapper** around the shared `NumberField`,
+  `IntField`, and `StringField` widgets in
+  `lib/widgets/forms/_field.dart`. Every form field in the app now
+  announces itself with `Semantics(textField: true, label: …,
+  hint: helpText)`, mirroring the proven `_KpiCard` pattern from
+  `pages/results_tab.dart:856-885`. The trailing help-icon tooltip
+  stays for sighted users; `helpText` is *additionally* routed
+  into the semantics tree so TalkBack / VoiceOver read it
+  immediately after the label without requiring a long-press on
+  the icon. New optional `semanticsLabel` parameter on all three
+  widgets lets callers override the screen-reader label
+  independent of the visible label (e.g. spelling out a unit the
+  visible label abbreviates). `ExcludeSemantics` around the
+  underlying `TextFormField` prevents Flutter's built-in field
+  semantic from double-announcing the label.
+- App version `0.9.3 → 0.9.4` (`pubspec.yaml`, `lib/app_info.dart`).
+
+### Added — Tests
+
+- `test/theme_test.dart` — five cases verifying the new
+  `buildAppTheme(Brightness)` produces the expected token shape
+  (Material 3, dark/light brightness, 48×48 minimum icon target,
+  filled input decoration with 2 px focused border, single-
+  elevation rounded card, 16×12 button padding).
+- `test/text_scale_clamp_test.dart` — two cases: a system scale of
+  3.0× is clamped to 1.6×; a 1.0× value passes through unchanged.
+- `test/widgets/forms/field_semantics_test.dart` — five cases
+  covering each shared field widget: label + hint announced,
+  `semanticsLabel` override, `isTextField` flag set,
+  `StringField` required-asterisk preserved when no override.
+
+### Compatibility
+
+- App-only release; `pv_engine`, `component_catalog`, the SQLite
+  schema, and the persisted JSON shape are unchanged. Existing
+  scenarios load with byte-identical `inputHash` because no field
+  serialisation was touched.
+- The text-scale clamp is upper-bounded only — users with
+  system-level zoom below 100% continue to see the unscaled UI.
+
 ## [Unreleased] — engine 0.17.0 / app 0.9.2
 
 Phase 10 follow-up — per-year monthly buckets persisted for multi-year
