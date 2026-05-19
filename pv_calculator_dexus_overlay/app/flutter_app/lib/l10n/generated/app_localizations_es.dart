@@ -1199,6 +1199,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String catalogSummaryUnitPriceChargeController(String price) {
+    return '$price €/unidad';
+  }
+
+  @override
+  String catalogSummaryChargeControllerMppt(int count) {
+    return '$count MPPT';
+  }
+
+  @override
   String catalogEditorValidationFailed(String error) {
     return 'Validación fallida: $error';
   }
