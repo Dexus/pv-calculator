@@ -158,6 +158,54 @@ void main() {
     expect(rows.first['n'], 1);
   });
 
+  test('coordinates that round to zero never produce a "-0.0000" key', () {
+    // Without normalisation, `(-0.00001).toStringAsFixed(4)` yields
+    // "-0.0000" — a different string from the "0.0000" the equator/
+    // prime-meridian neighbour would produce, causing avoidable cache
+    // misses and duplicate rows near (0, 0).
+    expect(
+      IrradianceCacheRepository.buildLookupKey(
+        latitudeDeg: -0.00001,
+        longitudeDeg: -0.00002,
+        year: 2022,
+        radDatabase: null,
+      ),
+      IrradianceCacheRepository.buildLookupKey(
+        latitudeDeg: 0.00001,
+        longitudeDeg: 0.00001,
+        year: 2022,
+        radDatabase: null,
+      ),
+    );
+  });
+
+  test('lookup returns null and self-heals on a corrupt payload row', () {
+    final key = IrradianceCacheRepository.buildLookupKey(
+      latitudeDeg: 1.0,
+      longitudeDeg: 2.0,
+      year: 2022,
+      radDatabase: null,
+    );
+    db.db.execute(
+      'INSERT INTO irradiance_cache(lookup_key, latitude_deg, longitude_deg, '
+      'year, rad_database, payload_json, fetched_at, source) '
+      'VALUES (?, 1.0, 2.0, 2022, NULL, ?, 0, ?)',
+      [key, '{not valid json', 'pvgis'],
+    );
+    expect(
+      repo.lookup(
+        latitudeDeg: 1.0,
+        longitudeDeg: 2.0,
+        year: 2022,
+        radDatabase: null,
+      ),
+      isNull,
+    );
+    // Bad row was evicted so a follow-up `store()` won't UNIQUE-collide.
+    final rows = db.db.select('SELECT COUNT(*) AS n FROM irradiance_cache');
+    expect(rows.first['n'], 0);
+  });
+
   test('buildLookupKey is stable and produces distinct keys per dimension',
       () {
     final a = IrradianceCacheRepository.buildLookupKey(

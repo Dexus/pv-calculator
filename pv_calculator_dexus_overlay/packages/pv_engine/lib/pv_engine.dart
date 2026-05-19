@@ -484,6 +484,8 @@ class SimulationConfig {
     this.keepSteps = true,
     this.simulationYears = 1,
     this.tariff,
+    this.irradianceYear,
+    this.irradianceRadDatabase,
   });
 
   final List<PvArray> arrays;
@@ -572,6 +574,15 @@ class SimulationConfig {
   /// summary fields remain null. UI-side Pro gating for time-of-use
   /// arrays lives outside the engine.
   final TariffConfig? tariff;
+
+  /// Optional metadata: the user-selected PVGIS year and radiation
+  /// database for this site. The engine does **not** consume these for
+  /// dispatch (weather comes from [weatherSource]); they exist so a
+  /// saved `SimulationConfig` can faithfully round-trip the user's
+  /// choices through `toJson` / `fromJson`. `null` means "no
+  /// preference recorded" — callers fall back to their own defaults.
+  final int? irradianceYear;
+  final String? irradianceRadDatabase;
 
   IrradianceSource get effectiveWeatherSource => weatherSource ?? const SyntheticIrradianceSource();
 
@@ -731,6 +742,15 @@ class SimulationConfig {
     if (hasTariff) {
       json['tariff'] = tariff!.toJson();
     }
+    // Irradiance request metadata is opt-in: only emitted when set, so
+    // legacy configs without a user-selected year/db keep their
+    // existing `inputHash` byte-for-byte after this field was added.
+    if (irradianceYear != null) {
+      json['irradianceYear'] = irradianceYear;
+    }
+    if (irradianceRadDatabase != null) {
+      json['irradianceRadDatabase'] = irradianceRadDatabase;
+    }
     return json;
   }
 
@@ -805,6 +825,8 @@ class SimulationConfig {
       tariff: json['tariff'] is Map
           ? TariffConfig.fromJson((json['tariff'] as Map).cast<String, dynamic>())
           : null,
+      irradianceYear: (json['irradianceYear'] as num?)?.toInt(),
+      irradianceRadDatabase: json['irradianceRadDatabase'] as String?,
     );
   }
 }

@@ -99,19 +99,24 @@ class PvCalculatorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // One shared IrradianceCacheRepository — both the ProjectController
+    // (writes/reads through it on load) and any consumer that resolves
+    // it via `Provider.of` need to see the same SQL-backed store.
+    // Two instances would be functionally equivalent today (the repo is
+    // stateless beyond the AppDatabase handle), but a shared instance
+    // keeps DI legible and future-proofs in-memory state/metrics.
+    final irradianceCache = IrradianceCacheRepository(database);
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsController()..load()),
         ChangeNotifierProvider(
-          create: (_) => ProjectController(
-            irradianceCache: IrradianceCacheRepository(database),
-          ),
+          create: (_) => ProjectController(irradianceCache: irradianceCache),
         ),
         Provider<AppDatabase>.value(value: database),
         Provider<ProjectRepository>(create: (_) => ProjectRepository(database)),
         Provider<ScenarioRepository>(create: (_) => ScenarioRepository(database)),
         Provider<SimulationRunRepository>(create: (_) => SimulationRunRepository(database)),
-        Provider<IrradianceCacheRepository>(create: (_) => IrradianceCacheRepository(database)),
+        Provider<IrradianceCacheRepository>.value(value: irradianceCache),
         ChangeNotifierProvider<CatalogRepository>(
           create: (_) => CatalogRepository.standard(database),
         ),

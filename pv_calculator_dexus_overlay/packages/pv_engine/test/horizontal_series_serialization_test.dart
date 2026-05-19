@@ -73,5 +73,22 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('rejects payloads with an unknown version', () {
+      // A future schema bump emits version: 2; this build only knows
+      // v1, so fromJson must surface a FormatException rather than
+      // silently mis-parsing whatever shape v2 happens to have.
+      expect(
+        () => HorizontalIrradianceSeries.fromJson({
+          'version': 99,
+          'year': 2022,
+          'latitudeDeg': 50.0,
+          'longitudeDeg': 10.0,
+          'samples':
+              List<double>.filled(365 * 24 * 4, 0.0, growable: false),
+        }),
+        throwsFormatException,
+      );
+    });
   });
 }

@@ -364,8 +364,15 @@ class HorizontalIrradianceSeries {
   }
 
   /// Inverse of [toJson]. Throws [FormatException] when the payload is
-  /// shaped wrong or has the wrong number of samples.
+  /// shaped wrong, has the wrong number of samples, or carries a
+  /// version this build does not know how to read.
   factory HorizontalIrradianceSeries.fromJson(Map<String, dynamic> json) {
+    final version = json['version'];
+    if (version != null && version != 1) {
+      throw FormatException(
+        'HorizontalIrradianceSeries: unsupported version $version',
+      );
+    }
     final raw = json['samples'];
     if (raw is! List) {
       throw const FormatException('samples must be a list');
