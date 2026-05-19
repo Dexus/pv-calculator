@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' show Rect;
 
 import 'package:component_catalog/component_catalog.dart';
 import 'package:file_selector/file_selector.dart';
 
 import '../catalog/catalog_repository.dart';
+import 'share_helper.dart'
+    if (dart.library.io) 'share_helper_io.dart' as share;
 
 /// Outcome of a user-catalog import: the parsed entries plus a
 /// dry-run partition against the current user source so the UI can
@@ -62,15 +65,33 @@ class CatalogFileIo {
     );
   }
 
-  /// Writes the user-only entries to a JSON file via `file_selector`.
-  /// Returns the actual filename written (derived from `location.path`,
-  /// which reflects any rename the user did in the native save dialog),
-  /// or null when the picker is cancelled.
+  /// Writes the user-only entries to a JSON file.
+  ///
+  /// - Web: triggers a browser download.
+  /// - Linux/macOS/Windows: shows the native save dialog; the returned
+  ///   filename reflects any rename the user did in that dialog.
+  /// - Android/iOS: hands the bytes off via the OS share sheet; the
+  ///   returned filename is the [suggestedName] (the receiving app may
+  ///   rename further, which we cannot observe).
+  ///
+  /// Returns `null` on cancel (save dialog) or dismiss (share sheet).
+  /// [sharePositionOrigin] anchors the iPad popover; ignored elsewhere.
   Future<String?> exportUserCatalog(
     CatalogRepository repo, {
     String suggestedName = 'components_user.json',
+    Rect? sharePositionOrigin,
   }) async {
     final content = await repo.exportUserCatalogJson();
+    final bytes = Uint8List.fromList(utf8.encode(content));
+    if (share.kIsMobilePlatform) {
+      final outcome = await share.shareBytesViaSheet(
+        suggestedName: suggestedName,
+        bytes: bytes,
+        mimeType: 'application/json',
+        sharePositionOrigin: sharePositionOrigin,
+      );
+      return outcome == share.ShareOutcome.success ? suggestedName : null;
+    }
     final location = await getSaveLocation(suggestedName: suggestedName);
     if (location == null) return null;
     // On web `location.path` is the suggested name (browser-driven download);
@@ -78,7 +99,6 @@ class CatalogFileIo {
     // yields the user-visible filename in both cases without pulling in a
     // path-manipulation dep just for the basename.
     final savedName = location.path.split(RegExp(r'[\\/]')).last;
-    final bytes = Uint8List.fromList(utf8.encode(content));
     final xfile = XFile.fromData(
       bytes,
       mimeType: 'application/json',

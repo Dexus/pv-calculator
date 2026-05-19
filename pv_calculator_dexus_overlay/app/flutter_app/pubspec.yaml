@@ -1,7 +1,7 @@
 name: pv_calculator_app
 description: Flutter UI for PV Calculator.
 publish_to: none
-version: 0.9.2+1
+version: 0.9.3+1
 
 environment:
   sdk: ^3.9.0
@@ -46,6 +46,12 @@ dependencies:
   # engine stays runtime-dep-free; both packages live in the Flutter app only.
   pdf: ^3.11.0
   printing: ^5.13.0
+  # Android/iOS fallback for JSON / CSV / catalog export. `file_selector`
+  # cannot show a "save dialog" on mobile (Linux/macOS/Windows/web only);
+  # on mobile we route the file through the OS share sheet instead. BSD-3,
+  # AGPL-compatible. Imported only by `persistence/share_helper_io.dart` so
+  # the web build never resolves it. Engine remains runtime-dep-free.
+  share_plus: ^11.0.0
 
 dev_dependencies:
   flutter_test:

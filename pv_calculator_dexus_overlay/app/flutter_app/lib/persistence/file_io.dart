@@ -1,8 +1,13 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' show Offset, Rect;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/widgets.dart' show BuildContext, RenderBox;
 import 'package:pv_engine/pv_engine.dart';
+
+import 'share_helper.dart'
+    if (dart.library.io) 'share_helper_io.dart' as share;
 
 class ImportedProject {
   const ImportedProject({required this.suggestedName, required this.config});
@@ -10,13 +15,21 @@ class ImportedProject {
   final SimulationConfig config;
 }
 
-/// Cross-platform file I/O backed by `file_selector`.
-///
-/// On web, [getSaveLocation] returns a [FileSaveLocation] whose `path` is the
-/// suggested name and [XFile.saveTo] triggers a browser download. On native
-/// platforms it shows a native save dialog.
+/// Cross-platform file I/O. On web `file_selector.getSaveLocation` returns
+/// a [FileSaveLocation] whose `path` is the suggested name and
+/// [XFile.saveTo] triggers a browser download. On Linux/macOS/Windows it
+/// shows the native save dialog. On Android/iOS — where `getSaveLocation`
+/// is unsupported — exports are routed through `share_plus` and the OS
+/// share sheet instead.
 class FileIo {
   const FileIo();
+
+  /// True when running on Android or iOS. Call sites use this to swap
+  /// the "Exported"/"Downloaded" SnackBar for the "Shared via system"
+  /// variant, since the export was handed off to another app instead of
+  /// landing in a file the user picked. On web / desktop this is false
+  /// and the desktop/web SnackBar text is correct.
+  static bool get isMobile => share.kIsMobilePlatform;
 
   /// Cap on imported project file size. Hand-edited projects are well under
   /// 5 KB; the limit guards against memory exhaustion via crafted uploads.
@@ -31,15 +44,34 @@ class FileIo {
   /// The envelope pins the engine version and the canonical input hash of
   /// the embedded config — pre-Phase-7 readers that look for `arrays` at
   /// the top level are handled by the import fallback below.
-  Future<bool> exportConfig(String suggestedName, SimulationConfig config) =>
+  ///
+  /// Returns `true` when the file landed somewhere (saved or shared) and
+  /// `false` when the user cancelled the save dialog or dismissed the
+  /// share sheet. [sharePositionOrigin] anchors the iPad popover; ignored
+  /// elsewhere.
+  Future<bool> exportConfig(
+    String suggestedName,
+    SimulationConfig config, {
+    Rect? sharePositionOrigin,
+  }) =>
       _saveString(
         suggestedName: suggestedName,
         content: jsonEncode(buildExportEnvelope(config)),
         mimeType: 'application/json',
+        sharePositionOrigin: sharePositionOrigin,
       );
 
-  Future<bool> exportCsv({required String filename, required String content}) =>
-      _saveString(suggestedName: filename, content: content, mimeType: 'text/csv');
+  Future<bool> exportCsv({
+    required String filename,
+    required String content,
+    Rect? sharePositionOrigin,
+  }) =>
+      _saveString(
+        suggestedName: filename,
+        content: content,
+        mimeType: 'text/csv',
+        sharePositionOrigin: sharePositionOrigin,
+      );
 
   /// Reads, validates and returns an [ImportedProject]. Accepts both the
   /// Phase-7 envelope (`{engineVersion, inputHash, config}`) and the
@@ -91,14 +123,42 @@ class FileIo {
     return parseLoadProfileCsv(raw);
   }
 
-  Future<bool> _saveString({required String suggestedName, required String content, required String mimeType}) async {
+  Future<bool> _saveString({
+    required String suggestedName,
+    required String content,
+    required String mimeType,
+    Rect? sharePositionOrigin,
+  }) async {
+    final bytes = Uint8List.fromList(utf8.encode(content));
+    if (share.kIsMobilePlatform) {
+      final outcome = await share.shareBytesViaSheet(
+        suggestedName: suggestedName,
+        bytes: bytes,
+        mimeType: mimeType,
+        sharePositionOrigin: sharePositionOrigin,
+      );
+      // Treat `unavailable` (no share targets at all) as cancelled; the
+      // caller's SnackBar collapses both to the "Export abgebrochen"
+      // copy. A future slice can split them if the platform actually
+      // surfaces unavailable in practice.
+      return outcome == share.ShareOutcome.success;
+    }
     final location = await getSaveLocation(suggestedName: suggestedName);
     if (location == null) return false;
-    final bytes = Uint8List.fromList(utf8.encode(content));
     final xfile = XFile.fromData(bytes, mimeType: mimeType, name: suggestedName);
     await xfile.saveTo(location.path);
     return true;
   }
+}
+
+/// Computes the iPad share-sheet anchor rect from [context]'s closest
+/// `RenderBox`. Returns `null` when the context has no attached render
+/// object (in which case `share_plus` centres the popover on iPad —
+/// degraded UX but not a crash). Android / iPhone ignore the field.
+Rect? shareOriginFromContext(BuildContext context) {
+  final ro = context.findRenderObject();
+  if (ro is! RenderBox || !ro.attached) return null;
+  return ro.localToGlobal(Offset.zero) & ro.size;
 }
 
 /// Phase-7 export envelope. Top-level keys are the reproducibility

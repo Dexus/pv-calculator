@@ -152,6 +152,11 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String projectListShared(String filename) {
+    return 'Geteilt: $filename';
+  }
+
+  @override
   String get projectListExportCancelled => 'Export abgebrochen';
 
   @override
@@ -1065,6 +1070,11 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String catalogManagerExportSuccess(String filename) {
     return 'Exportiert: $filename';
+  }
+
+  @override
+  String catalogManagerExportShared(String filename) {
+    return 'Geteilt: $filename';
   }
 
   @override

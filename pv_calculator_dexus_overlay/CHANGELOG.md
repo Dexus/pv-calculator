@@ -146,6 +146,69 @@ too large for the on-disk blob.
   unchanged and the `summary_json` blob is read with the same parser
   that gracefully defaults missing fields.
 
+## [Unreleased] — app 0.9.3
+
+Phase 8 follow-up — `share_plus` fallback so JSON config / CSV
+time-series / user-catalog exports work on Android and iOS. Closes the
+"JSON-Export auf Android/iOS" deferred item in `docs/ROADMAP.md`
+(Phase 8 → Verschoben). Web download and desktop save-dialog paths
+are byte-identical; only Android/iOS flip to the OS share sheet.
+Engine and schemas unchanged.
+
+### Added — App
+- **`lib/persistence/share_helper.dart`** (web stub) +
+  **`share_helper_io.dart`** (native impl using `share_plus`), wired
+  via the same conditional-import pattern as
+  `services/simulation_runner.dart` / `persistence/database.dart`. On
+  Android/iOS exports are handed off via
+  `SharePlus.instance.share(ShareParams(files: [XFile.fromData(...)]))`;
+  on Linux/macOS/Windows the existing `file_selector` save-dialog
+  path is unchanged. `kIsMobilePlatform` is `false` on desktop / web
+  so the share branch is dead code there.
+- **`FileIo.isMobile`** static getter — `true` on Android/iOS, `false`
+  elsewhere. Call sites use it to swap the "Exportiert"/"Heruntergeladen"
+  SnackBar copy for the new "Geteilt: ..." string. Three new ARB
+  keys per locale: `projectListShared`, `catalogManagerExportShared`,
+  plus the PDF export uses the existing `projectListShared` (PDF was
+  already mobile-friendly via `Printing.sharePdf`, the SnackBar copy
+  just matches now).
+- **`shareOriginFromContext`** helper in `file_io.dart` — computes
+  the iPad popover anchor from a `BuildContext`'s `RenderBox`. Returns
+  `null` for unattached contexts; ignored on Android/iPhone/desktop/web.
+  `projects_tab._exportScenario`, `results_tab._exportCsv` /
+  `_exportPdf`, and `catalog_management_page._onExport` all thread it
+  through.
+
+### Changed — App
+- `FileIo.exportConfig` / `exportCsv` / `CatalogFileIo.exportUserCatalog`
+  gain an optional `Rect? sharePositionOrigin` parameter (ignored on
+  desktop / web). Return types are unchanged: `Future<bool>` for
+  JSON+CSV, `Future<String?>` for catalog. Existing callers pass
+  `null` implicitly and behave as before.
+- `_CsvExportCallback` typedef in `results_tab.dart` switched from
+  `Future<void>` to `Future<bool>` so the CSV export can show
+  "Export abgebrochen" when the user dismisses the picker / share
+  sheet (previously the SnackBar claimed "Exportiert" even on
+  cancel — a pre-existing bug fixed in passing).
+- App version `0.9.2 → 0.9.3` (`pubspec.yaml`, `lib/app_info.dart`).
+
+### Added — Tests
+- `test/persistence/share_helper_test.dart` covers the web stub:
+  `kIsMobilePlatform == false`, `shareBytesViaSheet(...)` throws
+  `UnsupportedError`, and the `ShareOutcome` enum exposes the three
+  documented states. The native impl is covered transitively by
+  the existing widget tests (which run with `Platform.isAndroid /
+  isIOS == false` on Linux CI, taking the desktop branch).
+- `_FakeFileIo` in `test/catalog/catalog_management_page_test.dart`
+  updated to match the new `exportUserCatalog` override signature.
+
+### Dependencies
+- New runtime dep `share_plus: ^11.0.0` (BSD-3, AGPL-compatible) —
+  Flutter-app-only. `pv_engine` and `component_catalog` remain
+  zero-runtime-dep. Resolves to `share_plus 11.1.0`,
+  `share_plus_platform_interface 6.1.0` plus transitive
+  `url_launcher_*` / `uuid` / `mime` / `fixnum` / `win32`.
+
 ## [Unreleased] — engine 0.16.0
 
 Phase 4c — DC-Bus-Solver-Konsolidierung. 30+ Codex review findings
