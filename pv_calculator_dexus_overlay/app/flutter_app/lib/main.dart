@@ -5,6 +5,7 @@ import 'catalog/catalog_repository.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'pages/main_scaffold.dart';
 import 'persistence/database.dart';
+import 'persistence/irradiance_cache_repository.dart';
 import 'persistence/project_repository.dart';
 import 'persistence/scenario_repository.dart';
 import 'persistence/simulation_run_repository.dart';
@@ -101,11 +102,16 @@ class PvCalculatorApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsController()..load()),
-        ChangeNotifierProvider(create: (_) => ProjectController()),
+        ChangeNotifierProvider(
+          create: (_) => ProjectController(
+            irradianceCache: IrradianceCacheRepository(database),
+          ),
+        ),
         Provider<AppDatabase>.value(value: database),
         Provider<ProjectRepository>(create: (_) => ProjectRepository(database)),
         Provider<ScenarioRepository>(create: (_) => ScenarioRepository(database)),
         Provider<SimulationRunRepository>(create: (_) => SimulationRunRepository(database)),
+        Provider<IrradianceCacheRepository>(create: (_) => IrradianceCacheRepository(database)),
         ChangeNotifierProvider<CatalogRepository>(
           create: (_) => CatalogRepository.standard(database),
         ),

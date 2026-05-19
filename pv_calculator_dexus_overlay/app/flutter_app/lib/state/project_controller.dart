@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:pv_engine/pv_engine.dart';
 
+import '../persistence/irradiance_cache_repository.dart';
 import '../services/pvgis_api.dart';
 import '../services/simulation_runner.dart';
 import 'config_draft.dart';
@@ -14,11 +17,13 @@ class ProjectController extends ChangeNotifier {
     ConfigDraft? draft,
     PvgisApiService? pvgisApi,
     SimulationRunner? simulationRunner,
+    IrradianceCacheRepository? irradianceCache,
   })  : _projectName = projectName ?? 'Neues Projekt',
         _draft = draft ?? ConfigDraft.demo(),
         _ownsPvgisApi = pvgisApi == null,
         _pvgisApi = pvgisApi ?? PvgisApiService(),
-        _runner = simulationRunner ?? const SimulationRunner();
+        _runner = simulationRunner ?? const SimulationRunner(),
+        _irradianceCache = irradianceCache;
 
   String _projectName;
   ConfigDraft _draft;
@@ -43,6 +48,13 @@ class ProjectController extends ChangeNotifier {
   final PvgisApiService _pvgisApi;
   final bool _ownsPvgisApi;
   final SimulationRunner _runner;
+
+  /// Persistent cache for PVGIS horizontal-series fetches. When set,
+  /// [loadSiteIrradiance] consults it before reaching for the network
+  /// and writes successful API responses back to it. `null` keeps the
+  /// pre-cache behaviour and is used by the existing widget-test setups
+  /// that don't bring up a real database.
+  final IrradianceCacheRepository? _irradianceCache;
 
   /// Last few simulation results, keyed on `(inputHash, engineVersion)`.
   /// Small bound — full-year `SimulationResult` keeps the steps list
@@ -145,6 +157,15 @@ class ProjectController extends ChangeNotifier {
     _lastIrradianceError = null;
     _selectedArrayIndex = null;
     notifyListeners();
+    // `SimulationConfig` does not serialise irradiance samples — every
+    // freshly loaded draft therefore has `samples == null`. Kick off
+    // a background restore: cache-hit returns instantly without a
+    // network call; cache-miss falls through to the regular PVGIS
+    // fetch so the user does not have to press "Lade Daten" again on
+    // every project open.
+    if (draft.siteIrradiance.samples == null) {
+      unawaited(loadSiteIrradiance());
+    }
   }
 
   void newProject({
@@ -235,6 +256,27 @@ class ProjectController extends ChangeNotifier {
     _lastIrradianceError = null;
     notifyListeners();
     try {
+      // 1) Local DB cache — instant, no network. Shared across every
+      // project that uses the same (lat, lon, year, radDatabase), so a
+      // second project at the same location never refetches.
+      final cache = _irradianceCache;
+      if (cache != null) {
+        final cached = cache.lookup(
+          latitudeDeg: _draft.latitudeDeg,
+          longitudeDeg: _draft.longitudeDeg,
+          year: _draft.siteIrradiance.year,
+          radDatabase: _draft.siteIrradiance.radDatabase,
+        );
+        if (cached != null) {
+          _draft.siteIrradiance.samples = cached;
+          _draft.siteIrradiance.loadedFromCache = true;
+          _result = null;
+          _resultCache.clear();
+          _runGeneration++;
+          return;
+        }
+      }
+      // 2) PVGIS — write through to the local cache on success.
       final result = await _pvgisApi.fetchHorizontalSeries(
         latitudeDeg: _draft.latitudeDeg,
         longitudeDeg: _draft.longitudeDeg,
@@ -243,6 +285,17 @@ class ProjectController extends ChangeNotifier {
       );
       _draft.siteIrradiance.samples = result.series;
       _draft.siteIrradiance.loadedFromCache = result.fromCache;
+      // Key the cache on the *requested* coords/year/db so the next call
+      // at the same draft location hits, even if PVGIS snapped the
+      // sample to a slightly different grid point and reported that in
+      // the response metadata.
+      cache?.store(
+        latitudeDeg: _draft.latitudeDeg,
+        longitudeDeg: _draft.longitudeDeg,
+        year: _draft.siteIrradiance.year,
+        radDatabase: _draft.siteIrradiance.radDatabase,
+        series: result.series,
+      );
       // Invalidate any previous simulation: the site weather just
       // changed under it. The hash-keyed result cache also has to go,
       // because `SimulationConfig.toJson()` does not serialise the

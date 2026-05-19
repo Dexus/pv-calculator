@@ -127,12 +127,23 @@ class AppDatabase {
         v = 2;
         continue;
       }
+      if (v == 2) {
+        _migrateV2ToV3();
+        v = 3;
+        continue;
+      }
       throw StateError('No migration path from schema v$v to v${v + 1}.');
     }
   }
 
   void _migrateV1ToV2() {
     for (final stmt in migrationV1ToV2) {
+      _db.execute(stmt);
+    }
+  }
+
+  void _migrateV2ToV3() {
+    for (final stmt in migrationV2ToV3) {
       _db.execute(stmt);
     }
   }

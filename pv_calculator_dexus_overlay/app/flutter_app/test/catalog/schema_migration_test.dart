@@ -13,7 +13,7 @@ void main() {
       final ver = db.db
           .select("SELECT value FROM app_meta WHERE key = 'schema_version'")
           .single['value'];
-      expect(ver, '2');
+      expect(ver, '3');
 
       final tables = db.db
           .select(
@@ -52,7 +52,8 @@ void main() {
       expect(rows.single['id'], 'm1');
       expect(rows.single['kind'], 'module');
 
-      // Schema version was bumped.
+      // Schema version was bumped to v2 by this isolated step (the
+      // ladder up to the current head is exercised below).
       final ver = raw
           .select("SELECT value FROM app_meta WHERE key = 'schema_version'")
           .single['value'];
@@ -80,13 +81,66 @@ void main() {
       final ver = raw
           .select("SELECT value FROM app_meta WHERE key = 'schema_version'")
           .single['value'];
-      expect(ver, '2');
+      expect(ver, '3');
       final tables = raw
           .select(
               "SELECT name FROM sqlite_master WHERE type='table' AND name='component_catalog'")
           .map((r) => r['name'])
           .toList();
       expect(tables, ['component_catalog']);
+    });
+  });
+
+  group('schema v2 → v3 migration', () {
+    test('migrationV2ToV3 creates the irradiance_cache table', () {
+      final raw = sqlite3.openInMemory();
+      addTearDown(raw.close);
+      raw.execute('PRAGMA foreign_keys = ON');
+      raw.execute(
+          'CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+      raw.execute(
+          "INSERT INTO app_meta(key, value) VALUES ('schema_version', '2')");
+
+      for (final stmt in migrationV2ToV3) {
+        raw.execute(stmt);
+      }
+      raw.execute(
+          "UPDATE app_meta SET value = '3' WHERE key = 'schema_version'");
+
+      raw.execute(
+        "INSERT INTO irradiance_cache (lookup_key, latitude_deg, longitude_deg, "
+        "year, rad_database, payload_json, fetched_at, source) "
+        "VALUES ('50.0|10.0|2022|', 50.0, 10.0, 2022, NULL, '{}', 0, 'pvgis')",
+      );
+      final rows = raw.select('SELECT lookup_key FROM irradiance_cache');
+      expect(rows.single['lookup_key'], '50.0|10.0|2022|');
+    });
+
+    test('AppDatabase._upgrade carries a v1-pinned database all the way to v3',
+        () {
+      // v1 store: only the catalog migration has its own block, the
+      // irradiance_cache table is added by the v2→v3 step. Walking the
+      // whole ladder verifies both steps run in order.
+      final raw = sqlite3.openInMemory();
+      addTearDown(raw.close);
+      raw.execute(
+          'CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+      raw.execute(
+          "INSERT INTO app_meta(key, value) VALUES ('schema_version', '1')");
+
+      final db = AppDatabase.wrapForTesting(raw);
+      addTearDown(db.close);
+
+      final ver = raw
+          .select("SELECT value FROM app_meta WHERE key = 'schema_version'")
+          .single['value'];
+      expect(ver, '3');
+      final tables = raw
+          .select(
+              "SELECT name FROM sqlite_master WHERE type='table' AND name='irradiance_cache'")
+          .map((r) => r['name'])
+          .toList();
+      expect(tables, ['irradiance_cache']);
     });
   });
 }

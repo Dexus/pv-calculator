@@ -153,6 +153,22 @@ class _ProjectsTabState extends State<ProjectsTab> {
         );
       } else {
         _scenarios.update(id, config: config);
+        // Keep the project's site row in sync with the lat/lon the user
+        // picked in the Einstrahlung tab. Without this the `sites` row
+        // keeps the coordinates the project was first created with —
+        // and any new scenario added later would seed from the stale
+        // site instead of the location the user is actually working at.
+        final projectId = controller.projectId;
+        if (projectId != null) {
+          final site = _projects.defaultSiteFor(projectId);
+          if (site != null) {
+            _projects.updateSite(
+              site.id,
+              latitudeDeg: controller.draft.latitudeDeg,
+              longitudeDeg: controller.draft.longitudeDeg,
+            );
+          }
+        }
       }
       _refresh();
       if (!mounted) return;
@@ -222,11 +238,21 @@ class _ProjectsTabState extends State<ProjectsTab> {
       ok: l.projectsTabDialogCreate,
     );
     if (name == null || name.trim().isEmpty) return;
+    // Seed the new scenario at the project's location rather than the
+    // hard-coded demo coordinates — otherwise adding a "Variante" to an
+    // existing Spanish or northern project would silently snap back to
+    // Frankfurt.
+    final site = _projects.defaultSiteFor(project.id);
+    final newDraft = ConfigDraft.demo();
+    if (site != null) {
+      newDraft.latitudeDeg = site.latitudeDeg;
+      newDraft.longitudeDeg = site.longitudeDeg;
+    }
     final scenario = _scenarios.create(
       projectId: project.id,
-      siteId: _projects.defaultSiteFor(project.id)?.id,
+      siteId: site?.id,
       name: name.trim(),
-      config: ConfigDraft.demo().build(),
+      config: newDraft.build(),
     );
     _refresh();
     if (!mounted) return;

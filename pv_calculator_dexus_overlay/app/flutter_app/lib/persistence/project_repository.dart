@@ -67,6 +67,23 @@ class ProjectRepository {
     _db.db.execute('DELETE FROM projects WHERE id = ?', [id]);
   }
 
+  /// Updates an existing site's coordinates. Used by the projects tab on
+  /// Save to keep the `sites` row in sync with the lat/lon the user
+  /// picked in the Einstrahlung tab — otherwise the row keeps the
+  /// coordinates the project was first created with, and any new
+  /// scenario added later would seed from the stale site instead of the
+  /// active draft.
+  void updateSite(
+    String siteId, {
+    required double latitudeDeg,
+    required double longitudeDeg,
+  }) {
+    _db.db.execute(
+      'UPDATE sites SET latitude_deg = ?, longitude_deg = ? WHERE id = ?',
+      [latitudeDeg, longitudeDeg, siteId],
+    );
+  }
+
   /// First site for [projectId], or null if none. Used as the default
   /// site target when creating a scenario from the UI — the user never
   /// sees the site picker for MVP.
