@@ -232,7 +232,6 @@
   "dcBusModeHybridHelp": "When the battery is full, PV can flow directly through the DC bus to the inverter (PV → DC bus → inverter → AC).",
   "dcBusModeBatteryFedHelp": "PV reaches the AC bus only through the battery's discharge. Surplus PV when the battery is full is curtailed.",
 
-
   "batteriesTitle": "Battery storage",
   "batteriesEmpty": "No battery storage configured (optional).",
   "batteriesDefaultLabel": "Battery {n}",
