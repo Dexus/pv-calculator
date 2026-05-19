@@ -674,6 +674,56 @@ class AppLocalizationsEn extends AppLocalizations {
       'Standard grid inverter without a hard AC cap.';
 
   @override
+  String get chargeControllersTitle => 'Charge controllers (MPPT)';
+
+  @override
+  String get chargeControllersEmpty => 'No charge controllers configured yet.';
+
+  @override
+  String chargeControllersDefaultLabel(int n) {
+    return 'Charge controller $n';
+  }
+
+  @override
+  String chargeControllersHeading(int n) {
+    return 'Charge controller $n';
+  }
+
+  @override
+  String get chargeControllersFieldDcBusId => 'DC bus';
+
+  @override
+  String get chargeControllersFieldDcBusIdHelp =>
+      'ID of the DC bus this controller feeds. In legacy mode (no topology editor) buses are auto-named after the inverter, e.g. `dc-main`.';
+
+  @override
+  String get chargeControllersFieldEfficiency => 'Efficiency';
+
+  @override
+  String get chargeControllersFieldMaxInputKw => 'Max PV input';
+
+  @override
+  String get chargeControllersFieldMaxInputKwHelp =>
+      'Optional cap on the PV-side input power. Surplus is clipped before reaching the DC bus and counted as DC-side curtailment.';
+
+  @override
+  String get dcBusModeLabel => 'Mode';
+
+  @override
+  String get dcBusModeHybrid => 'Hybrid';
+
+  @override
+  String get dcBusModeBatteryFed => 'Battery-only';
+
+  @override
+  String get dcBusModeHybridHelp =>
+      'When the battery is full, PV can flow directly through the DC bus to the inverter (PV → DC bus → inverter → AC).';
+
+  @override
+  String get dcBusModeBatteryFedHelp =>
+      'PV reaches the AC bus only through the battery\'s discharge. Surplus PV when the battery is full is curtailed.';
+
+  @override
   String get batteriesTitle => 'Battery storage';
 
   @override

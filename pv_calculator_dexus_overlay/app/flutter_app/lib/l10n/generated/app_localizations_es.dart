@@ -677,6 +677,56 @@ class AppLocalizationsEs extends AppLocalizations {
       'Inversor de red estándar sin tope AC duro.';
 
   @override
+  String get chargeControllersTitle => 'Laderegler (MPPT)';
+
+  @override
+  String get chargeControllersEmpty => 'Noch keine Laderegler konfiguriert.';
+
+  @override
+  String chargeControllersDefaultLabel(int n) {
+    return 'Laderegler $n';
+  }
+
+  @override
+  String chargeControllersHeading(int n) {
+    return 'Laderegler $n';
+  }
+
+  @override
+  String get chargeControllersFieldDcBusId => 'DC-Bus';
+
+  @override
+  String get chargeControllersFieldDcBusIdHelp =>
+      'ID des DC-Busses, an dem dieser Laderegler die Batterie speist. Im Legacy-Modus (ohne Topologie-Editor) sind die Busse automatisch nach dem Wechselrichter benannt, z. B. `dc-main`.';
+
+  @override
+  String get chargeControllersFieldEfficiency => 'Wirkungsgrad';
+
+  @override
+  String get chargeControllersFieldMaxInputKw => 'Max. PV-Eingang';
+
+  @override
+  String get chargeControllersFieldMaxInputKwHelp =>
+      'Optionale Begrenzung der PV-Eingangsleistung. Überschuss wird vor dem DC-Bus geclippt und als DC-Abregelung erfasst.';
+
+  @override
+  String get dcBusModeLabel => 'Modus';
+
+  @override
+  String get dcBusModeHybrid => 'Hybrid';
+
+  @override
+  String get dcBusModeBatteryFed => 'Nur über Batterie';
+
+  @override
+  String get dcBusModeHybridHelp =>
+      'PV darf bei vollem Speicher direkt über den DC-Bus den Wechselrichter speisen (PV → DC-Bus → Inverter → AC).';
+
+  @override
+  String get dcBusModeBatteryFedHelp =>
+      'PV erreicht das AC-Netz ausschließlich über die Batterie. PV-Überschuss bei vollem Speicher wird abgeregelt.';
+
+  @override
   String get batteriesTitle => 'Almacenamiento por batería';
 
   @override
